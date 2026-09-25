@@ -1,0 +1,17 @@
+\documentclass[twocolumn]{article}
+\usepackage[debug,columns=3,footnote=column]{evenend}
+\usepackage{lipsum}
+\setlength\columnseprule{0.4pt}
+\setlength\columnsep{12pt}
+\newcommand\dummyfig[2]{\begin{figure}[#1]\centering\fbox{\rule{0pt}{#2}\hspace{.6\columnwidth}}\caption{Fig}\end{figure}}
+\begin{document}
+\section{Intro}
+\lipsum[1-12]
+\section{More}
+Text\footnote{Footnote A in the last page.}
+\lipsum[13-15]
+\dummyfig{t}{40pt}
+\lipsum[16]
+Text\footnote{Footnote B.}
+\lipsum[17]
+\end{document}

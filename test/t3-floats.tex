@@ -1,0 +1,16 @@
+\documentclass[twocolumn]{article}
+\usepackage[debug]{evenend}
+\usepackage{lipsum}
+\setlength\columnseprule{0.4pt}
+\newcommand\dummyfig[2]{\begin{figure}[#1]\centering\fbox{\rule{0pt}{#2}\hspace{.8\columnwidth}}\caption{A figure}\end{figure}}
+\begin{document}
+\section{Intro}
+\lipsum[1-7]
+\dummyfig{t}{60pt}
+\lipsum[8-9]
+\begin{figure*}[t]\centering\fbox{\rule{0pt}{80pt}\hspace{.8\textwidth}}\caption{Wide}\end{figure*}
+\lipsum[10-13]
+\dummyfig{t}{50pt}
+\lipsum[14]\footnote{A footnote in the last part.}
+\lipsum[15]
+\end{document}

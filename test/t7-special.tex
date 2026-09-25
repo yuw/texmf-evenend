@@ -1,0 +1,21 @@
+\documentclass{article}
+\usepackage[debug]{evenend}
+\usepackage{stfloats}
+\usepackage{lipsum}
+\setlength\columnseprule{0.4pt}
+\begin{document}
+\twocolumn[\begin{center}\Large A Title Spanning Both Columns\end{center}\vspace{1em}]
+\section{Short chapter}
+\lipsum[1-3]\footnote{\lipsum[4][1-3]}
+\lipsum[5]
+\evenendclearpage
+\section{Next part}
+\lipsum[6-9]
+\begin{figure*}[b]\centering\fbox{\rule{0pt}{60pt}\hspace{.8\textwidth}}\caption{Bottom wide}\end{figure*}
+\lipsum[10-12]
+Long footnote here.\footnote{\lipsum[13]}
+\lipsum[14-15]
+\onecolumn
+\section{One column}
+\lipsum[16]
+\end{document}

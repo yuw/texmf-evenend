@@ -1,0 +1,8 @@
+*.aux
+*.log
+*.pdf
+*.out
+!doc/lualatex/evenend/*.pdf
+test/fuzz/
+test/split/
+test/cmp/

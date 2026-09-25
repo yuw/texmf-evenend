@@ -1,0 +1,25 @@
+%% evenend-sample.tex：evenendの見本（最終ページで各段の下端が揃う）
+%% マニュアル（evenend-ja.tex）が最終ページを貼り込む．
+%% \evenendsamplecolumnを定義してから読み込むと，footnote=columnで組む
+%% （evenend-sample-column.tex）
+\documentclass[twocolumn,paper=a5,fontsize=9pt]{jlreq}
+\usepackage{evenend}
+\ifdefined\evenendsamplecolumn \evenendsetup{footnote=column}\fi
+\setlength\columnseprule{0.4pt}
+\newcommand\para{吾輩は猫である．名前はまだ無い．どこで生れたかとんと見当がつかぬ．何でも薄暗いじめじめした所でニャーニャー泣いていた事だけは記憶している．吾輩はここで始めて人間というものを見た．しかもあとで聞くとそれは書生という人間中で一番獰悪な種族であったそうだ．\par}
+\begin{document}
+\section{はじめに}
+\para\para\para\para\para\para
+\section{つぎに}
+\para
+本文に脚注を付ける\footnote{最終ページの脚注．参照位置のある段の下に置かれる．}．
+\para
+\begin{figure}[t]
+  \centering
+  \fbox{\parbox[c][4\baselineskip][c]{.8\columnwidth}{\centering 図}}
+  \caption{段内の図}
+\end{figure}
+\para
+もう一つの脚注\footnote{二つ目の脚注．}．
+\para
+\end{document}

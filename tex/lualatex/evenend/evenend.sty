@@ -1,0 +1,248 @@
+\NeedsTeXFormat{LaTeX2e}[2023-06-01]
+\ProvidesPackage{evenend}[2026/09/25 v20260925.0 Balance the last page of multi-column text (LuaLaTeX) by Yuwsuke Kieda]
+
+\ifdefined\directlua\else
+  \PackageError{evenend}{LuaLaTeX is required}{}
+  \expandafter\endinput
+\fi
+
+%% ---------------------------------------------------------------------
+%% レジスタとフラグ
+\newcount\evenend@N        \evenend@N=2
+\newcount\evenend@colno    % 現在のページで出力済みの段数
+\newcount\evenend@status   % Luaからの返り値
+\newdimen\evenend@ruleht
+\newdimen\evenend@height
+\newbox\evenend@scratch
+\newbox\evenend@topfigbox
+\newbox\evenend@botfigbox
+\newbox\evenend@fnrulebox
+\newbox\evenend@colbox
+\newattribute\evenend@fnattr
+
+\newif\ifevenend@enabled   \evenend@enabledtrue
+\newif\ifevenend@final     % 次に出力される本文段が最終ページのもの
+\newif\ifevenend@lastcol   % この段が最終ページの最後の本文段
+\newif\ifevenend@captured  % 直前の段を取り込んだ
+\newif\ifevenend@pagebad   % 取り込めなかった段（フロートだけの段など）がある
+\newif\ifevenend@colmode   % 脚注を段の下端に置く
+\newif\ifevenend@debug
+\newif\ifevenend@onecolumn \evenend@onecolumntrue % \onecolumnの前でも揃える
+
+%% ---------------------------------------------------------------------
+%% オプション
+\def\evenend@s@page{page}
+\def\evenend@s@column{column}
+\DeclareKeys[evenend]{
+  columns.code     = {\evenend@N=\numexpr#1\relax
+                      \ifnum\evenend@N<\@ne
+                        \PackageError{evenend}{columns must be positive}{}%
+                        \evenend@N=\tw@
+                      \fi},
+  columns.usage    = load,
+  footnote.code    = {\edef\evenend@tmp{#1}%
+                      \ifx\evenend@tmp\evenend@s@page
+                        \evenend@colmodefalse
+                      \else\ifx\evenend@tmp\evenend@s@column
+                        \evenend@colmodetrue
+                      \else
+                        \PackageError{evenend}{Unknown value `#1' for
+                          footnote}{Use `page' or `column'.}%
+                      \fi\fi},
+  footnote.usage   = general,
+  debug.if         = evenend@debug,
+  enable.if        = evenend@enabled,
+  onecolumn.if     = evenend@onecolumn,
+}
+\ProcessKeyOptions[evenend]
+
+\newcommand\evenendsetup[1]{\SetKeys[evenend]{#1}}
+
+\directlua{
+  require('evenend')
+  evenend.setattr(luatexbase.attributes['evenend@fnattr'])
+}
+
+%% ---------------------------------------------------------------------
+%% ユーザー命令
+\newcommand\evenend{\global\evenend@enabledtrue}
+\newcommand\raggedend{\global\evenend@enabledfalse}
+%% 現在のページを揃えてから改ページする
+%% 段落を閉じて本文をすべてページに送ってからフラグを立てる
+%% （最後の段落で段があふれたときの出力を最終段と取り違えないため）
+\newcommand\evenendclearpage{%
+  \par
+  \if@twocolumn \global\evenend@finaltrue \fi
+  \clearpage}
+
+%% \onecolumnで段組を終えるときも揃える
+\AddToHook{cmd/onecolumn/before}{%
+  \ifevenend@enabled \ifevenend@onecolumn \if@twocolumn
+    \par \global\evenend@finaltrue
+  \fi \fi \fi}
+
+\AddToHook{enddocument}{%
+  \ifevenend@enabled \if@twocolumn \par \global\evenend@finaltrue \fi \fi}
+
+%% ---------------------------------------------------------------------
+%% N段組
+\def\evenend@setwidth{%
+  \global\columnwidth\textwidth
+  \global\advance\columnwidth -\numexpr\evenend@N-\@ne\relax\columnsep
+  \global\divide\columnwidth\evenend@N
+  \global\hsize\columnwidth
+  \global\linewidth\columnwidth}
+
+\ifnum\evenend@N=\tw@ \else
+  \def\twocolumn{%
+    \clearpage
+    \evenend@setwidth
+    \global\@twocolumntrue
+    \global\@firstcolumntrue
+    \global\evenend@colno\z@
+    \col@number\evenend@N
+    \@ifnextchar[\@topnewpage\@floatplacement}
+  \AtBeginDocument{%
+    \if@twocolumn
+      \evenend@setwidth
+      \col@number\evenend@N
+    \fi}
+\fi
+
+%% ---------------------------------------------------------------------
+%% 段の取り込み：\@makecolの直前
+\def\evenend@capture{%
+  \if@twocolumn
+    \directlua{evenend.capture(\number\footins)}%
+    \begingroup
+      \def\@elt##1{\directlua{evenend.addfloat('top',\number##1)}}%
+      \@toplist
+      \def\@elt##1{\directlua{evenend.addfloat('bot',\number##1)}}%
+      \@botlist
+    \endgroup
+    \global\evenend@capturedtrue
+  \fi}
+
+%% 脚注：本文中に参照位置の印を置き，脚注の中身には同じ番号の属性を付ける
+\AtBeginDocument{%
+  \let\evenend@orig@makecol\@makecol
+  \def\@makecol{\evenend@capture\evenend@orig@makecol}%
+  \let\evenend@orig@footnotetext\@footnotetext
+  \long\def\@footnotetext#1{%
+    \begingroup
+      \directlua{evenend.newfn()}%
+      \ifhmode
+        \vadjust{\directlua{evenend.anchor()}}%
+      \else
+        \ifvmode \directlua{evenend.anchor()}\fi
+      \fi
+      \evenend@orig@footnotetext{#1}%
+    \endgroup}%
+  \directlua{evenend.debug = \ifevenend@debug true\else false\fi}%
+}
+
+%% ---------------------------------------------------------------------
+%% 出力ルーチン
+\def\@outputdblcol{%
+  \ifevenend@captured\else \global\evenend@pagebadtrue \fi
+  \evenend@status\z@
+  \ifevenend@final
+    %% 強制改段（\clearpageの\newpage）による出力だけを最終段とみなす
+    \ifnum\outputpenalty>-\@M \else \evenend@lastcoltrue \fi
+  \fi
+  \ifevenend@lastcol
+    \evenend@lastcolfalse
+    \global\evenend@finalfalse
+    \ifevenend@pagebad
+      \PackageWarningNoLine{evenend}{%
+        Page \thepage\space contains a float column;\MessageBreak
+        not balanced}%
+    \else
+      \evenend@balance
+    \fi
+  \fi
+  \global\evenend@capturedfalse
+  \ifnum\evenend@status>\z@
+    \evenend@makerow
+    \evenend@shippage
+  \else
+    \evenend@normalcol
+  \fi}
+
+\def\evenend@sep#1{%
+  \hfil
+  \vbox to\@colht{%
+    \hbox{\normalcolor\vrule \@width\columnseprule \@height#1\@depth\z@}%
+    \vss}%
+  \hfil}
+
+\def\evenend@normalcol{%
+  \global\advance\evenend@colno\@ne
+  \global\setbox\@leftcolumn\hbox{%
+    \unhbox\@leftcolumn
+    \ifnum\evenend@colno>\@ne \evenend@sep\@colht \fi
+    \hb@xt@\columnwidth{\box\@outputbox \hss}}%
+  \ifnum\evenend@colno<\evenend@N
+    \global\@firstcolumnfalse
+  \else
+    \setbox\@outputbox\vbox{\hb@xt@\textwidth{\unhbox\@leftcolumn}}%
+    \evenend@shippage
+  \fi}
+
+\def\evenend@shippage{%
+  \global\evenend@colno\z@
+  \global\@firstcolumntrue
+  \global\evenend@pagebadfalse
+  \global\setbox\@leftcolumn\box\voidb@x
+  \directlua{evenend.reset()}%
+  \@combinedblfloats
+  \@outputpage
+  \begingroup
+    \@dblfloatplacement
+    \@startdblcolumn
+    \@whilesw\if@fcolmade \fi{\@outputpage\@startdblcolumn}%
+  \endgroup}
+
+\def\evenend@balance{%
+  \begingroup
+    \setbox\evenend@topfigbox\vbox{\topfigrule}%
+    \setbox\evenend@botfigbox\vbox{\botfigrule}%
+    \setbox\evenend@fnrulebox\vbox{%
+      \color@begingroup\normalcolor\footnoterule\color@endgroup}%
+    \splittopskip\topskip
+    \splitmaxdepth\maxdepth
+    \vbadness\@M
+    \vfuzz\maxdimen
+    \directlua{evenend.balance{
+      N       = \the\evenend@N,
+      colht   = \number\@colht,
+      colmode = \ifevenend@colmode true\else false\fi,
+      footins = \number\footins,
+      blskip  = \number\baselineskip,
+      scratch = \number\evenend@scratch,
+      topfig  = \number\evenend@topfigbox,
+      botfig  = \number\evenend@botfigbox,
+      fnrule  = \number\evenend@fnrulebox,
+    }}%
+    \ifnum\evenend@status>\z@
+      \PackageInfo{evenend}{Page \thepage: columns balanced at
+        \the\evenend@height}%
+    \else
+      \PackageWarningNoLine{evenend}{Could not balance page \thepage}%
+    \fi
+  \endgroup}
+
+\def\evenend@makerow{%
+  \global\setbox\@leftcolumn\box\voidb@x
+  \@tempcnta\z@
+  \setbox\@tempboxa\hbox{}%
+  \@whilenum\@tempcnta<\evenend@N\do{%
+    \advance\@tempcnta\@ne
+    \directlua{evenend.getcolumn(\the\@tempcnta, \number\evenend@colbox)}%
+    \setbox\@tempboxa\hbox{%
+      \unhbox\@tempboxa
+      \ifnum\@tempcnta>\@ne \evenend@sep\evenend@ruleht \fi
+      \hb@xt@\columnwidth{\box\evenend@colbox \hss}}}%
+  \setbox\@outputbox\vbox{\hb@xt@\textwidth{\unhbox\@tempboxa}}}
+
+\endinput

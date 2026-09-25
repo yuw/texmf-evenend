@@ -1,0 +1,13 @@
+\documentclass[twocolumn]{article}
+\usepackage[debug]{evenend}
+\usepackage{lipsum}
+\setlength\columnseprule{0.4pt}
+\newcommand\dummyfig[2]{\begin{figure}[#1]\centering\fbox{\rule{0pt}{#2}\hspace{.8\columnwidth}}\caption{A figure}\end{figure}}
+\begin{document}
+\section{Intro}
+\lipsum[1-10]
+\dummyfig{t}{70pt}
+\lipsum[11]
+\dummyfig{b}{30pt}
+\lipsum[12]
+\end{document}

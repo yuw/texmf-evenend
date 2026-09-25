@@ -1,0 +1,14 @@
+\documentclass[twocolumn]{article}
+\usepackage[debug,footnote=column]{evenend}
+\usepackage{lipsum}
+\setlength\columnseprule{0.4pt}
+\begin{document}
+\section{Intro}
+\lipsum[1-6]
+\section{More}
+Some text with a footnote\footnote{This is the first footnote, fairly long so that
+it spans more than one line in the column.} and more.
+\lipsum[7-9]
+Another footnote here.\footnote{Second footnote.}
+\lipsum[10-11]
+\end{document}
