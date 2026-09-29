@@ -13,7 +13,7 @@
 \title{\pkg{evenend}パッケージ\\[.5\baselineskip]
   \large 多段組の最終ページで各段の下端を揃える}
 \author{Yuwsuke Kieda}
-\date{v20260925.0}
+\date{v20260929.0}
 
 \begin{document}
 \maketitle
@@ -29,6 +29,8 @@
     \pkg{stfloats}による下端）
   \item 最終ページの脚注．参照位置が別の段へ移れば脚注も移し，版面の下端または
     段（カラム）の下端に置く．段をまたいで分割された脚注は1つにまとめ直す
+  \item ページの途中での段数の切り換え（2段から3段へなど）．切り換えの前の段組も，
+    それぞれ下端を揃える
 \end{itemize}
 
 行数によっては最右段だけが短くなる．たとえば2段で31行なら，16行と15行になる．
@@ -85,6 +87,9 @@ export TEXMFHOME=/path/to/texmf-evenend
     \opt{footnote} & \opt{page}／\opt{column} & \opt{page} & 最終ページの脚注の置き場所 \\
     \opt{onecolumn} & 真偽 & \opt{true} & \cs{onecolumn}の直前のページも揃える \\
     \opt{enable} & 真偽 & \opt{true} & 文書末のページを揃える \\
+    \opt{blockskip} & 寸法 & \verb|2\baselineskip| & 段組の切り換えの前後の行の間隔 \\
+    \opt{blockmin} & 寸法 & \verb|5\baselineskip| & 切り換えの後に続けて組む最小の高さ \\
+    \opt{floatgrid} & 真偽 & \opt{true} & フロートの前後の行を行送りの位置に合わせる \\
     \opt{debug} & 真偽 & \opt{false} & 段ごとの高さなどをログに書く \\
     \hline
   \end{tabular}
@@ -99,6 +104,12 @@ export TEXMFHOME=/path/to/texmf-evenend
     ある段に入る．
   \item[\opt{onecolumn}] \cs{onecolumn}で段組を終えるときも，その直前のページを揃える．
   \item[\opt{enable}] 偽にすると，文書末のページを揃えない（\cs{raggedend}と同じ）．
+  \item[\opt{blockskip}] \cs{evenendcolumns}で段数を切り換えたとき，前の段組の最終行から
+    次の段組の1行目までのベースライン間．
+  \item[\opt{blockmin}] \cs{evenendcolumns}で段数を切り換えた後，そのページに残った高さが
+    これより小さければ，そこで改ページして次のページから新しい段数で組む．
+  \item[\opt{floatgrid}] evenendが組む段で，行ドリしないフロートの前後の本文の行を
+    行送りの位置に合わせる（\ref{sec:floatgrid}節）．
   \item[\opt{debug}] 揃えた段の高さ，段ごとの本文・フロート・脚注の高さをログに書く．
 \end{description}
 
@@ -109,9 +120,62 @@ export TEXMFHOME=/path/to/texmf-evenend
 \begin{description}
   \item[\cs{evenend}，\cs{raggedend}] 文書末のページを揃えるかどうかを切り替える．
   \item[\cs{evenendclearpage}] いまのページを揃えてから改ページする．章末などに使う．
+  \item[\cs{evenendcolumns}\texttt{\{}\textit{段数}\texttt{\}}] その位置から段数を変える
+    （\ref{sec:switch}節）．段数には1も指定できる．
+  \item[\cs{evenendcolumns*}\texttt{\{}\textit{段数}\texttt{\}}] 段数を変えるが，その前の
+    ブロックは揃えない（LaTeXの組み方のまま，段を上から詰める）．
+  \item[\cs{columnbreak}] そこで段を改める（\ref{sec:multicol}節）．
   \item[\cs{evenendsetup}\texttt{\{}\textit{キー}\texttt{=}\textit{値}\texttt{\}}]
     オプションを変える．
 \end{description}
+
+\section{段数の切り換え}\label{sec:switch}
+
+\cs{evenendcolumns}\texttt{\{}\textit{段数}\texttt{\}}で，ページの途中から段数を変えられる．
+\begin{verbatim}
+\documentclass[twocolumn]{jlreq}
+\usepackage{evenend}
+\begin{document}
+\section{2段}
+...
+\evenendcolumns{3}
+\section{3段}
+...
+\evenendcolumns{1}
+...
+\evenendcolumns{2}
+...
+\end{document}
+\end{verbatim}
+
+切り換えの位置までのそのページの段組（ブロック）は，最終ページと同じ方法で下端を揃えて
+確定し，その下に新しい段数で段組を続ける（図\ref{fig:switch}）．1つのページに
+いくつでもブロックを積める．
+\begin{itemize}
+  \item 前のブロックの最終行から次のブロックの1行目までのベースライン間は
+    \opt{blockskip}（既定は2行分）にする．さらに，ページの残りの高さが版面と同じく
+    行送りの位置で終わるように，アキを1行未満だけ広げる．行の位置が揃った組版
+    （\pkg{jlreq}など）では広げない．
+  \item ページの残りが\opt{blockmin}（既定は5行分）より小さくなれば，そこで改ページし，
+    次のページから新しい段数で組む．
+  \item ブロックの材料がそのページに入り切らなければ，入り切らない分は次のページに送り，
+    次のページで揃えてから段数を変える．
+  \item 途中のブロックの脚注は，\opt{footnote=page}でも，そのブロックの段の下端に置く．
+  \item フロートはそのブロックの中で完結させる（\ref{sec:floats}節）．
+  \item 段数を変えても，ページの行の位置は変わらない（行送りの位置に揃った組版なら，
+    すべての行が版面の行の位置に乗る）．
+\end{itemize}
+
+\cs{evenendcolumns}は段組のモード（クラスオプション\opt{twocolumn}または\cs{twocolumn}）で
+使う．1段のブロックも，段組のモードのまま\cs{evenendcolumns}\texttt{\{1\}}で作る．
+\cs{twocolumn}は，読み込み時の段数（\opt{columns}）で段組を始め直す．
+
+\begin{figure}[tb]
+  \centering
+  \fbox{\includegraphics[page=1,width=.5\linewidth]{evenend-sample-switch.pdf}}
+  \caption{2段→3段→1段→2段と切り換えたページ（\texttt{evenend-sample-switch.tex}）}
+  \label{fig:switch}
+\end{figure}
 
 \section{揃え方}
 
@@ -123,26 +187,107 @@ export TEXMFHOME=/path/to/texmf-evenend
 
 各段では「見かけの下端」を揃える．
 \begin{itemize}
-  \item 本文で終わる段：最終行の字面の下端（ベースライン＋深さ）
+  \item 本文で終わる段：最終行のベースラインに，本文の行の標準の深さ（最も多い深さ）を
+    足した位置．行はベースラインで揃う．
   \item 下のフロートで終わる段：フロートの下端
-  \item 段下端の脚注で終わる段（\opt{footnote=column}）：脚注の最終行の字面の下端
+  \item 段下端の脚注で終わる段（\opt{footnote=column}）：脚注の最終行のベースラインを，
+    本文の段の最終行のベースラインに揃える．
+  \item 本文中のフロート（\texttt{[h]}）で終わる段：\opt{floatgrid}では，フロートの領域が
+    行き着く次の行の字面の下端．
 \end{itemize}
 最後の要素が垂直の箱で，中身が箱の下端からはみ出している場合（中身をグルーで下へずらした
 箱など）は，はみ出した位置を下端とみなす．
 
 本文だけの満杯の段があれば，その段を基準にする．フロートのある段は，フロートまわりの
-グルーの伸び縮みで合わせる．こうすると，行の位置が段の間で揃う．段の高さに届かない段
-（行の足りない最右段や，版面下端の脚注に押された段）は，グルーを伸ばさずに下を空ける．
+グルーの伸び縮みで合わせる．こうすると，行の位置が段の間で揃う．次のような配分になった
+ときは，段の高さを（段の高さいっぱいまで）上げて，揃う配分を探し直す．
+\begin{itemize}
+  \item 最右段やフロートのある段が，基準より高くなった．
+  \item 途中の段（後ろに中身のある段がある）が，基準より明らかに短くなった．
+\end{itemize}
+それでも揃わないときは，次の段の先頭の材料（本文中のフロートや，長い脚注の付いた行など）が
+入らなかったものとして，その段は下を空ける．中身のある最後の段（その後ろの段が空）も，
+最右段と同じく短くてよい．版面下端の脚注に押された段も下を空ける．それ以外の段は，グルーを
+伸ばして下端を揃える．
 
-\subsection{フロート}
+材料がページに入り切らないときは，次の順に条件を緩めて揃え直す．
+\begin{enumerate}
+  \item 段下端の脚注の塊を行送りの倍数に切り上げずに見込む．
+  \item \opt{floatgrid}をやめる（フロートの前後の行は行送りの位置からずれることがある）．
+\end{enumerate}
+それでも入らなければ（分割しない脚注が長すぎる場合など），揃えずにLaTeXの組み方に戻し，
+警告を出す．ページがちょうど満杯なら，段の下端はもともと揃うので，警告ではなく情報だけ
+出す．
+
+\subsection{フロート}\label{sec:floats}
 
 \begin{itemize}
-  \item 段内フロートは，もとの段に残す．上のフロートは段の上端に，下のフロートは段の
-    下端に付ける．
+  \item 段内フロートは，番号順を保ったまま，揃えたときの段の高さが最も小さくなるように
+    段を選び直す．LaTeXが置いた段より前の段へは動かさない．高さが同じなら，動かす
+    フロートの少ない配置にする．上のフロートは段の上端に，下のフロートは段の下端に
+    付ける．
   \item 段抜きフロートは，LaTeX本来の処理（\cs{@combinedblfloats}）がこれまでどおり
     配置する．\pkg{stfloats}による段抜きの下のフロートは，揃えた段の下に来る．
-  \item 最終ページにフロートだけの段（フロート段）がある場合は揃えず，警告を出す．
+  \item LaTeXがフロートだけで組んだ段（フロート段）も取り込み，その中身を上のフロートと
+    して揃える段組に入れる．
 \end{itemize}
+
+\cs{evenendcolumns}で段数を切り換えるときは，そのブロックのフロートをそのブロックの
+中で完結させる．
+\begin{itemize}
+  \item まだ出ていない（持ち越された）段内フロートは，そのブロックの段の上に入れる．
+    どの段に入れるかは，上と同じく段の高さが最も小さくなるように選ぶ．
+  \item 持ち越された段抜きフロートは，そのブロックの下に段抜きで置く
+    （\cs{dbltextfloatsep}，\cs{dblfloatsep}を使う）．\pkg{stfloats}がそのページの下端に
+    予約していた段抜きフロートも，そのブロックの下に置く．
+  \item ブロックを積んだページには，その後に現れた段抜きフロートを置かない（上端に置けば
+    前のブロックより上に，下端に置けば後のブロックより下に来るため）．持ち越して，次の
+    切り換えでそのブロックの下に置く．
+  \item 本文がなくフロートだけのブロックも，ブロックとして確定する（フロートを次の
+    段組に持ち込まない）．
+  \item フロートを入れるとそのページに入り切らなければ，本文だけで揃えてそのページを
+    終え，持ち越したフロートは次のページの上に元の段数のブロックとして置いてから
+    段数を変える．
+  \item 段より高いフロートがあってフロートだけのブロックも組めなければ，LaTeXの
+    フロート段として元の段数のまま出してページを終え，残ったフロート（\texttt{p}の
+    指定がなくフロート段に置けないものなど）は次のページでもう一度ブロックに組む．
+\end{itemize}
+こうして，段数を変えた後のブロックに前のブロックのフロートが（前の段幅のまま）入る
+ことはない．文書末，\cs{evenendclearpage}，\cs{onecolumn}の前では，持ち越された
+フロートはこれまでどおりLaTeXが後のページに同じ段数で出す．
+
+持ち越された段内フロートをブロックに入れる前に，フック\texttt{evenend/deferredfloat}を
+呼ぶ．\cs{evenendfloatbox}がそのフロートの箱である．フロートの中身の位置を
+整えるパッケージは，ここで上のフロートとして組み直せる．たとえば\pkg{gyoudori}では
+次のようにする．
+\begin{verbatim}
+\makeatletter
+\AddToHook{evenend/deferredfloat}{%
+  \@gyoudori@floattop
+  \@gyoudori@float@set\evenendfloatbox
+    \@gyoudori@floatpos\@gyoudori@floatshift}
+\makeatother
+\end{verbatim}
+
+\subsection{フロートの前後の行の位置}\label{sec:floatgrid}
+
+フロートの高さが行送りの倍数でなければ，その後に続く本文の行は行送りの位置からずれる．
+\opt{floatgrid}（既定で有効）では，evenendが組む段（揃える最終ページとブロック）について
+次のように合わせる．
+\begin{itemize}
+  \item 上下のフロートの並び（フロートとアキ）の高さを行送りの倍数に切り上げ，足した分を
+    本文との間のアキに加える．上のフロートと本文の間のアキは伸縮させない．
+  \item 本文中のフロート（\texttt{[h]}）は，段に分けた後で，直後の行が段の行の位置
+    （\cs{topskip}＋行送りの倍数）に乗るよう，前後のアキに半分ずつ足す（段の先頭の
+    フロートは後ろだけ）．前後のアキは伸縮させない．段の末尾に来たときは，フロートの
+    領域が行き着く次の行の字面の下端を段の下端とみなす．
+\end{itemize}
+\pkg{jlreq}で行ドリしない図を入れたテストでは，本文の行の外れが，最終ページで302行から
+0行に，ブロックで298行から0行になった．
+
+LaTeXが通常どおり組む満杯のページはこの対象外である．そこでも合わせるには，
+\pkg{gyoudori}でフロートを行ドリする．\opt{floatgrid=false}にすると，これまでどおり
+フロートまわりのアキを伸縮させて揃える．
 
 \subsection{脚注}
 
@@ -152,8 +297,9 @@ export TEXMFHOME=/path/to/texmf-evenend
 
 \begin{itemize}
   \item \opt{footnote=page}：脚注は版面の下端に置く．本文の段の下との間は空く．
-  \item \opt{footnote=column}：脚注は各段の本文の下に置き，脚注の最終行の字面の下端を，
-    他の段の下端に揃える．
+  \item \opt{footnote=column}：脚注は各段の本文の下に置き，脚注の最終行のベースラインを，
+    他の段の最終行のベースラインに揃える．脚注の塊（本文の最終行の深さを含む）を
+    行送りの倍数に切り上げて見込み，端数は脚注の上のアキで吸収する．
 \end{itemize}
 
 \section{仕組み}
@@ -172,8 +318,45 @@ export TEXMFHOME=/path/to/texmf-evenend
 
 最終ページ以外の組版は，このパッケージを読み込まない場合と変わらない．
 
+LaTeXが組んだ段がはみ出す（Overfull）警告は，そのページを組み直さずに出力するときだけ出す．
+後でevenendが組み直す段の警告は出さない．
+
 段組の出力ルーチン\cs{@outputdblcol}は，このパッケージが置き換える．3段以上の段組も
 ここで扱う．
+
+\section{multicol互換の環境}\label{sec:multicol}
+
+\pkg{multicol}を読み込んでいなければ，同じ書き方の\texttt{multicols}環境，
+\texttt{multicols*}環境，\cs{columnbreak}を用意する．
+\begin{verbatim}
+\begin{multicols}{3}[\section{3段の節}]
+...
+\columnbreak
+...
+\end{multicols}
+\end{verbatim}
+\begin{itemize}
+  \item \texttt{multicols}環境は，始まりで段数を切り換え（前置きがあれば1段で組む），
+    終わりで元の段数に戻す．中身はブロックとして揃える．
+  \item \texttt{multicols*}環境は，終わりで揃えない（\cs{evenendcolumns*}）．
+  \item \cs{columnbreak}は\verb|\par\vfil\penalty-10000|で，段を改める．揃える
+    ページやブロックの中でも守る（改めた段は下を空ける）．
+  \item 入れ子やリストの中での使用はできない．前置きの前のアキ（第3引数）は使わない．
+\end{itemize}
+段組のモードで使うので，1段組の文書では，クラスオプション\opt{twocolumn}と\opt{columns=1}
+で読み込む（読み込み時の段数が1になり，全体を1段で組む）．
+\begin{verbatim}
+\documentclass[twocolumn]{jlreq}
+\usepackage[columns=1]{evenend}
+\end{verbatim}
+
+\section{柱}
+
+段組のモードでは，柱（\cs{markboth}などのマーク）の情報を，ページを出力するときに1回だけ
+更新する．ページの本文全体から，読む順序（ブロックは上から，段は左から，段の中は上から）で
+マークを集め，1段組と同じ方法で更新する．揃えた段や積んだブロックでも，柱の最初と最後の
+マークは，そのページの本文の最初と最後のものになる．LaTeXの2段組向けの，段ごとの更新は
+使わない．
 
 \section{他のパッケージとの併用}
 
@@ -181,6 +364,14 @@ export TEXMFHOME=/path/to/texmf-evenend
   \item \pkg{hyperref}：併用できる．
   \item \pkg{stfloats}：併用できる．段抜きのフロートを下に置いても揃う．
   \item \pkg{gyoudori}：併用できる．行ドリしたフロートも，行送りの位置に揃う．
+    段数の切り換えで持ち越されたフロートも揃えるには，フック
+    \texttt{evenend/deferredfloat}を使う（\ref{sec:floats}節）．
+  \item \pkg{tcolorbox}：併用できる．本文中の箱（1.5行を超える高さのもの）は，本文中の
+    フロートと同じく分けられない塊として扱い，\opt{floatgrid}では後の行を行送りの
+    位置に合わせる．分割できる箱（\texttt{breakable}）は，tcolorboxが分けた位置で
+    段を改めたまま揃える．フロートにした箱も使える．
+  \item \pkg{multicol}：読み込めば，\texttt{multicols}環境と\cs{columnbreak}は\pkg{multicol}の
+    ものになる（evenendの段組とは別のもの）．
   \item \pkg{flushend}，\pkg{balance}など\cs{@outputdblcol}を置き換えるパッケージ：
     併用できない．
 \end{itemize}
@@ -188,11 +379,21 @@ export TEXMFHOME=/path/to/texmf-evenend
 \section{制限事項}
 
 \begin{itemize}
-  \item 最終ページ内の強制改段（\cs{newpage}など）は無視して詰め直す．
   \item 脚注は段をまたいで分割しない．
-  \item 段内フロートはもとの段に残る．参照位置との前後関係は保証しない．
+  \item 段内フロートは，LaTeXが置いた段かそれより後の段に置く．参照位置との前後関係は
+    保証しない．
   \item \cs{marginpar}の左右は計算し直さない．
   \item 縦組には対応していない．
+  \item \opt{floatgrid}はevenendが組む段だけに効く．LaTeXが通常どおり組む満杯の
+    ページでは，行送りの倍数でない高さのフロートの後の行はずれる．\pkg{gyoudori}で
+    フロートを行ドリすれば揃う．
+  \item 持ち越されたフロートだけで組んだブロックでは，フロートは分けられないので，段の
+    下端は揃わないことがある．
+  \item \cs{evenendcolumns}は，リスト環境などの中では使えない（段落の間で使う）．
+  \item 分割しない脚注が長くて，揃える段組がページの残りに入り切らないときは，揃えずに
+    LaTeXの組み方に戻す（警告を出す）．
+  \item \pkg{jlreq}では，脚注と段内フロートや段抜きフロートが同じ段に入ると，LaTeXが
+    通常どおり組んだ段がわずかにはみ出すことがある（evenendを使わなくても起きる）．
 \end{itemize}
 
 \section{配布物}
@@ -200,25 +401,52 @@ export TEXMFHOME=/path/to/texmf-evenend
 \begin{description}
   \item[\texttt{tex/lualatex/evenend/}] \texttt{evenend.sty}，\texttt{evenend.lua}
   \item[\texttt{doc/lualatex/evenend/}] このマニュアル（\texttt{evenend-ja.tex}）と
-    見本（\texttt{evenend-sample.tex}，\texttt{evenend-sample-column.tex}）
+    見本（\texttt{evenend-sample.tex}，\texttt{evenend-sample-column.tex}，
+    \texttt{evenend-sample-switch.tex}）
   \item[\texttt{LICENSE}] ライセンス（MIT）
   \item[\texttt{test/}] テスト文書と補助スクリプト（\texttt{run.sh}，
-    \texttt{colbottoms.py}，\texttt{fuzz.sh}）
+    \texttt{colbottoms.py}，\texttt{fuzz.sh}，\texttt{fuzzswitch.sh}，
+    \texttt{blockcheck.py}，\texttt{gridcheck.py}，\texttt{fnfloat.sh}，
+    \texttt{fnfloatcheck.py}，\texttt{pagefncheck.py}，\texttt{gridoffset.py}）．
+    \texttt{t11}〜\texttt{t13}はフロートと段数の切り換えの組み合わせ．\texttt{test/rand/}は
+    乱数で作った文書による網羅テスト（\ref{sec:randtest}節）
 \end{description}
 
 このマニュアルを組むには，先に見本を組む．
 \begin{verbatim}
 lualatex evenend-sample.tex
 lualatex evenend-sample-column.tex
+lualatex evenend-sample-switch.tex
 lualatex evenend-ja.tex
 lualatex evenend-ja.tex
 \end{verbatim}
 
-\section{バージョン表記}
+\section{乱数による網羅テスト}\label{sec:randtest}
 
-バージョンは\texttt{v}\textit{年月日}\texttt{.}\textit{番号}と表す．\textit{年月日}は
-変更した日（8桁），\textit{番号}はその日のうちの変更回数（0から数える）である．
-たとえば\texttt{v20260925.0}は，2026年9月25日の最初の版を表す．
+\texttt{test/rand/}の\texttt{gen.py}は，乱数で文書を作る．クラス（\pkg{jlreq}，
+\pkg{ltjsclasses}，\pkg{article}），読み込み時の段数，\opt{footnote}，\opt{floatgrid}，
+\pkg{gyoudori}の有無，ブロックの数と段数，段落・脚注・フロート（上・下・本文中・
+段抜き）の数と大きさを変える．番号100000以上では，さらに\cs{evenendclearpage}，
+\cs{onecolumn}\cs{twocolumn}，\cs{twocolumn}\texttt{[\ldots]}，\pkg{hyperref}，
+ページをまたぐ長い脚注を加える．番号200000以上では，さらに\pkg{tcolorbox}の箱（分割しない
+箱，分割できる箱，フロートにした箱），\cs{columnbreak}，\cs{evenendcolumns*}を加える．
+
+\texttt{check.py}は，組んだ文書について次を調べる．
+\begin{itemize}
+  \item エラー，フロートの消失，Overfull
+  \item 本文・脚注・フロートが，それぞれちょうど1回ずつ出ているか
+  \item 揃えた段組ごとの下端（組み上げた段の箱を実際にたどって測る）
+  \item 脚注が参照位置と同じ段の一番下にあるか，\opt{footnote=page}では版面の下端にあるか
+  \item フロートが段の幅に収まり，自分のブロックの範囲にあるか
+  \item \pkg{jlreq}で，evenendが組んだページの本文の行が行送りの位置にあるか
+\end{itemize}
+上の制限事項にあたるものは，問題ではなく限界として別に数える．
+\begin{verbatim}
+cd test/rand
+./many.sh 1 1000 > result.txt
+./summary.py result.txt
+\end{verbatim}
+基本の1000件と，追加の要素を入れた600件で，制限事項にあたるもの以外の問題はなかった．
 
 \section{ライセンス}
 

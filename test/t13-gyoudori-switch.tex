@@ -1,0 +1,22 @@
+\documentclass[twocolumn,fontsize=10pt]{jlreq}
+\usepackage[float]{gyoudori}
+\usepackage[debug]{evenend}
+\makeatletter
+%% gyoudori側で持ち越されたフロートを[t]に組み直す（evenendのフック）
+\AddToHook{evenend/deferredfloat}{%
+  \@gyoudori@floattop
+  \@gyoudori@float@set\evenendfloatbox\@gyoudori@floatpos\@gyoudori@floatshift}
+\makeatother
+\newcommand\para{吾輩は猫である．名前はまだ無い．どこで生れたかとんと見当がつかぬ．何でも薄暗いじめじめした所でニャーニャー泣いていた事だけは記憶している．\par}
+\newcommand\fig[1]{\begin{figure}[t]\centering\rule{.6\columnwidth}{#1}\caption{図}\end{figure}}
+\begin{document}
+\evenendcolumns{3}
+\section{3段}
+\para\para\para\para\para\para\para\para\para\para\para\para
+\fig{60pt}
+\para\para
+\fig{90pt}\fig{70pt}
+\evenendcolumns{2}
+\section{2段}
+\para\para\para\para\para\para
+\end{document}

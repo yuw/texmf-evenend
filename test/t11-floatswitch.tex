@@ -1,0 +1,18 @@
+\documentclass[twocolumn]{article}
+\usepackage[debug]{evenend}
+\usepackage{lipsum}
+\setlength\columnseprule{0.4pt}
+\newcommand\fig[2]{\begin{figure}[#1]\centering\fbox{\parbox[c][#2][c]{.9\columnwidth}{\centering fig (N=\the\numexpr\csname evenend@N\endcsname\relax)}}\caption{Figure}\end{figure}}
+\begin{document}
+\section{Two columns}
+\lipsum[1][1-8]
+\fig{t}{60pt}
+\lipsum[2][1-4]
+\fig{tb}{80pt}
+\fig{t}{50pt}
+\evenendcolumns{3}
+\section{Three columns}
+\lipsum[3-4]
+\fig{t}{40pt}
+\lipsum[5]
+\end{document}

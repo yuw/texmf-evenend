@@ -1,0 +1,23 @@
+\documentclass[twocolumn]{article}
+\usepackage[debug,columns=1]{evenend}
+\newcommand\para{Lorem ipsum dolor sit amet, consectetuer adipiscing elit. Ut purus elit, vestibulum ut, placerat ac, adipiscing vitae, felis. Curabitur dictum gravida mauris.\par}
+\setlength\columnseprule{0.4pt}
+\begin{document}
+\section{One column}
+\para\para
+\begin{multicols}{3}[\section{Three columns (preamble)}]
+\para\para\para\para\para\para\para
+\end{multicols}
+\para
+\begin{multicols}{2}
+\para\para\para
+\columnbreak
+\para
+\end{multicols}
+\para
+\begin{multicols*}{2}
+\para\para\para\para\para
+\end{multicols*}
+\section{After unbalanced}
+\para
+\end{document}

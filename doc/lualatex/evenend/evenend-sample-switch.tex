@@ -1,0 +1,20 @@
+%% evenend-sample-switch.tex：evenendの見本（ページの途中で段数を切り換える）
+%% マニュアル（evenend-ja.tex）が1ページ目を貼り込む
+\documentclass[twocolumn,paper=b5,fontsize=9pt]{jlreq}
+\usepackage{evenend}
+\setlength\columnseprule{0.4pt}
+\newcommand\para{吾輩は猫である．名前はまだ無い．どこで生れたかとんと見当がつかぬ．何でも薄暗いじめじめした所でニャーニャー泣いていた事だけは記憶している．\par}
+\begin{document}
+\section{2段}
+\para
+本文に脚注を付ける\footnote{2段のブロックの脚注．段の下端に置かれる．}．
+\para
+\evenendcolumns{3}
+\section{3段}
+\para\para
+\evenendcolumns{1}
+\section{1段}
+\para
+\evenendcolumns{2}
+\para\para
+\end{document}

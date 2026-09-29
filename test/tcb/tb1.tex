@@ -1,0 +1,14 @@
+\documentclass[twocolumn,fontsize=10pt]{jlreq}
+\usepackage[debug]{evenend}
+\usepackage[most]{tcolorbox}
+\newcommand\para{吾輩は猫である．名前はまだ無い．どこで生れたかとんと見当がつかぬ．何でも薄暗いじめじめした所でニャーニャー泣いていた事だけは記憶している．\par}
+\begin{document}
+\section{分割しない箱}
+\para\para\para
+\begin{tcolorbox}[title=箱1]\para\end{tcolorbox}
+\para\para\para\para\para\para\para\para\para\para\para\para\para\para\para\para\para\para\para\para
+\section{分割できる箱}
+\para\para
+\begin{tcolorbox}[breakable,title=分割できる箱]\para\para\para\para\para\para\para\para\para\para\end{tcolorbox}
+\para\para\para
+\end{document}

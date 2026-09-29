@@ -1,0 +1,22 @@
+\documentclass[twocolumn]{article}
+\usepackage[debug]{evenend}
+\usepackage{lipsum}
+\setlength\columnseprule{0.4pt}
+\begin{document}
+\section{Two columns}
+\lipsum[1][1-12]
+Text with a footnote.\footnote{A footnote in the two-column block.}
+\lipsum[2][1-6]
+\evenendcolumns{3}
+\section{Three columns}
+\lipsum[3-4]
+\evenendcolumns{1}
+\section{One column}
+\lipsum[5][1-6]
+\evenendcolumns{2}
+\section{Two columns again}
+\lipsum[6-12]
+\evenendcolumns{3}
+\section{Three again}
+\lipsum[13-14]
+\end{document}
