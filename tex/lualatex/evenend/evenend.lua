@@ -943,6 +943,15 @@ function M.balance(p)
         -- 脚注の最終行のベースラインを，本文の後で脚注が収まる最初の行の位置に置く
         local B = fl_top[i] + (r.list and lastbase(r.list) or 0)
         local need = (r.list and r.dp or 0) + fl_bot[i] + r.fn
+        if p.blskip > 0 and r.list then
+          -- 段の先頭の行が\topskipより高い（脚注の合印の付いた行など）と，本文の
+          -- 行が行送りの位置からわずかに下がる．行送りの位置で見て，下がった分は
+          -- 脚注の上のアキから差し引く（そうしないと，この段だけわずかに高いとみなし，
+          -- 段の高さを上げてしまう）
+          local lb = lastbase(r.list)
+          local d = lb - (topskip + math.floor((lb - topskip) / p.blskip + 0.5) * p.blskip)
+          if d > 0 and d < 65536 then B, need = B - d, need + d end
+        end
         if p.blskip > 0 then
           local m = math.max(0, math.ceil(need / p.blskip - 0.001))
           nat[i], over[i] = B + m * p.blskip, linedp

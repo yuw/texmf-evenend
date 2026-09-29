@@ -217,12 +217,6 @@ test/run.sh test/t1-basic.tex
   `one.sh`（1件），`many.sh`（並列で多数），`summary.py`（まとめる）．例：
   `test/rand/many.sh 1 1000 > result.txt; test/rand/summary.py result.txt`
 
-## バージョン表記
-
-`v年月日.番号`と表す．年月日は変更した日（8桁），番号はその日のうちの変更回数
-（0から数える）．たとえば`v20260925.0`は，2026年9月25日の最初の版．
-現在のバージョンは`evenend.sty`の`\ProvidesPackage`に書いてある．
-
 ## ライセンス
 
 MITライセンス（`LICENSE`を参照）．
