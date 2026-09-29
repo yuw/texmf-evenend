@@ -20,6 +20,8 @@ local PENALTY     = nodeid('penalty')
 local HLIST       = nodeid('hlist')
 local VLIST       = nodeid('vlist')
 local WHATSIT     = nodeid('whatsit')
+local GLYPH       = nodeid('glyph')
+local RULE        = nodeid('rule')
 local USERDEF     = node.subtype('user_defined')
 local TOPSKIP     = 10   -- glueのsubtype：\topskip
 local USER_ID     = 0x65766E64  -- 'evnd'
@@ -526,6 +528,7 @@ function M.balance(p)
     dblfloats = {}
   end
   tex.setcount('global', 'evenend@status', 0)
+  tex.setdimen('global', 'evenend@headshift', 0)
   if #cols == 0 then
     info('nothing captured')
     drop_dbl(); drop_saved()
@@ -656,6 +659,64 @@ function M.balance(p)
       if segs[id] and anchored[id] then r[#r + 1] = id end
     end
     return r
+  end
+
+  -- headingskip=block：前のブロックに続く2段以上のブロックが見出しで始まるとき，
+  -- ブロック全体を見出しの上アキ（見出しの字面の上端が通常の1行目の上端より
+  -- 下がっている分．行送りの倍数に丸める）だけ下げる．ブロックの中の組は変えない．
+  -- ブロックの間のアキが，1段のブロック（見出しの上アキがブロックの間に見える）と
+  -- 同じになる
+  local headshift = 0
+  if p.headblock and N > 1 then
+    local function has_glyph(b)
+      for c in node.traverse(b.list) do
+        if c.id == GLYPH then return true end
+        if (c.id == HLIST or c.id == VLIST) and c.list and has_glyph(c) then return true end
+      end
+      return false
+    end
+    -- 箱bの中で字を含む最初の行の上端（bの上端をy0として）
+    local function inktop(b, y0)
+      local y = y0
+      for c in node.traverse(b.list) do
+        if c.id == GLUE then y = y + c.width
+        elseif c.id == KERN then y = y + c.kern
+        elseif c.id == HLIST then
+          if c.list and has_glyph(c) then return y end
+          y = y + c.height + c.depth
+        elseif c.id == VLIST then
+          local r = c.list and inktop(c, y)
+          if r then return r end
+          y = y + c.height + c.depth
+        elseif c.id == RULE then y = y + c.height + c.depth
+        end
+      end
+      return nil
+    end
+    -- 本文の行の標準の高さ
+    local lineht, cnt, best = 0, {}, 0
+    for n in node.traverse_id(HLIST, text.head) do
+      if n.list then
+        cnt[n.height] = (cnt[n.height] or 0) + 1
+        if cnt[n.height] > best then best, lineht = cnt[n.height], n.height end
+      end
+    end
+    -- 先頭の箱（見出しを行取りした垂直の箱）を探す
+    local y, n = 0, text.head
+    while n and n.id ~= HLIST and n.id ~= VLIST and n.id ~= RULE do
+      if n.id == GLUE then y = y + n.width elseif n.id == KERN then y = y + n.kern end
+      n = n.next
+    end
+    local top = n and n.id == VLIST and n.list and inktop(n, y)
+    if top then
+      local u = top - (tex.getglue('topskip') - lineht)
+      if p.blskip > 0 then u = math.floor(u / p.blskip + 0.5) * p.blskip end
+      if u > 0 then
+        headshift = u
+        colht = colht - u
+        info('block lowered by the heading space %s', pt(u))
+      end
+    end
   end
 
   -- 3. 段ごとのフロートの占める高さ
@@ -941,7 +1002,8 @@ function M.balance(p)
         -- 段下端の脚注はfilで段の下端に付くので，本文（と下のフロート）の後に
         -- 脚注が収まる最初の行の位置（字面の下端）をこの段の下端とみなす
         -- 脚注の最終行のベースラインを，本文の後で脚注が収まる最初の行の位置に置く
-        local B = fl_top[i] + (r.list and lastbase(r.list) or 0)
+        -- 本文の後にグルーなどが残っていれば（最後の箱の後のアキ），それも含める
+        local B = fl_top[i] + (r.list and math.max(lastbase(r.list), r.ht) or 0)
         local need = (r.list and r.dp or 0) + fl_bot[i] + r.fn
         if p.blskip > 0 and r.list then
           -- 段の先頭の行が\topskipより高い（脚注の合印の付いた行など）と，本文の
@@ -958,6 +1020,9 @@ function M.balance(p)
         else
           nat[i], over[i] = B + need, linedp
         end
+        -- 行送りの倍数に切り上げた分で段の高さを超えるときは，段の下端で止める
+        -- （脚注はfilで段の下端に付く）
+        if nat[i] > colht and B + need <= colht then nat[i] = colht end
       elseif r.ht == 0 and (#tops[i] + #bots[i]) > 0 and not (p.colmode and r.fn > 0) then
         -- フロートだけの段：フロートの下端まで（後ろのアキは数えない）
         local t = 0
@@ -1283,7 +1348,9 @@ function M.balance(p)
     for i = 1, N do if res[i].list and res[i].dp > d then d = res[i].dp end end
     base = colboxht + dblh - d
   end
-  tex.setdimen('global', 'evenend@baseline', base)
+  tex.setdimen('global', 'evenend@baseline', base + headshift)
+  tex.setdimen('global', 'evenend@rowht', colboxht + dblh + headshift)
+  tex.setdimen('global', 'evenend@headshift', headshift)
   tex.setdimen('global', 'evenend@height', h)
   tex.setcount('global', 'evenend@status', 1)
 end

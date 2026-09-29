@@ -37,6 +37,9 @@ for w in warn:
     else:
         prob.append('warn:' + w[:30])
 
+if 'lowered by the heading space' in flat:
+    cover.add('heading-lowered')  # headingskip=block：段組を見出しの上アキの分だけ下げた
+
 # 揃えた段組ごとの下端（blockcheck.pyと同じ）
 for bm in re.finditer(r'evenend: balanced at ([\d.]+)pt(.*?)(?=evenend: balanced at|$)', flat):
     h = float(bm.group(1))
@@ -101,6 +104,18 @@ def blockwords(pno, j):
     return [w for (k, n, e), L in occ.items() if k in 'BE' and blk_of.get((k, n)) == j
             for (p, w) in L if p == pno]
 
+# ページpnにあるブロックjを，evenendが揃えたか．ページの最後のブロックは，そのページに
+# 最終ページとしての揃えの記録があるか，ブロックとしての揃えの記録がページのブロックの
+# 数だけあるときに揃えたとみなす（\columnbreakでページが埋まった後に文書が終わるなど，
+# LaTeXがそのまま組んだページもある）．それより前のブロックは揃えて積んである
+def block_balanced(pno, j):
+    J = sorted(set(jj for jj in range(len(meta['blocks'])) if blockwords(pno, jj)) | {j})
+    if j != J[-1]:
+        return True
+    final = re.search(r'Page %d: columns balanced at [\d.]+pt on' % pno, flat)
+    nblk = len(re.findall(r'Page %d: columns balanced at [\d.]+pt \(block\)' % pno, flat))
+    return bool(final) or nblk >= len(J)
+
 # 本文の字の高さ（本文の目印の語から）
 bodyh = Counter(round(w[3] - w[1], 1) for (k, n, e), L in occ.items() if k in 'BE' for p, w in L)
 bodyh = bodyh.most_common(1)[0][0] if bodyh else 10
@@ -117,8 +132,7 @@ for j, b in enumerate(meta['blocks']):
         c = col(t[0], N)
         # evenendが揃えたページだけ（LaTeXが組んだページでは，入り切らない脚注を
         # TeXが次の段へ送ることがある）
-        anybal = set(int(x) for x in re.findall(r'Page (\d+): columns balanced at', flat))
-        if col(r[0], N) != c and pn in anybal:
+        if col(r[0], N) != c and block_balanced(pn, j):
             prob.append(f'fn{f}-column')
         W = pages[pn - 1]
         # 同じブロックの本文・図が脚注より下にない（同じ段）

@@ -7,3 +7,4 @@ test/fuzz/
 test/split/
 test/cmp/
 test/rand/d/
+test/gy/out/

@@ -13,7 +13,7 @@
 \title{\pkg{evenend}パッケージ\\[.5\baselineskip]
   \large 多段組の最終ページで各段の下端を揃える}
 \author{Yuwsuke Kieda}
-\date{v20260929.1}
+\date{v20260930.0}
 
 \begin{document}
 \maketitle
@@ -89,6 +89,7 @@ export TEXMFHOME=/path/to/texmf-evenend
     \opt{enable} & 真偽 & \opt{true} & 文書末のページを揃える \\
     \opt{blockskip} & 寸法 & \verb|2\baselineskip| & 段組の切り換えの前後の行の間隔 \\
     \opt{blockmin} & 寸法 & \verb|5\baselineskip| & 切り換えの後に続けて組む最小の高さ \\
+    \opt{headingskip} & \opt{column}／\opt{block} & \opt{column} & 見出しの上アキの扱い（切り換え） \\
     \opt{floatgrid} & 真偽 & \opt{true} & フロートの前後の行を行送りの位置に合わせる \\
     \opt{debug} & 真偽 & \opt{false} & 段ごとの高さなどをログに書く \\
     \hline
@@ -108,6 +109,12 @@ export TEXMFHOME=/path/to/texmf-evenend
     次の段組の1行目までのベースライン間．
   \item[\opt{blockmin}] \cs{evenendcolumns}で段数を切り換えた後，そのページに残った高さが
     これより小さければ，そこで改ページして次のページから新しい段数で組む．
+  \item[\opt{headingskip}] 切り換えた後の段組が見出しで始まるときの，見出しの上アキの
+    扱い．\opt{column}では，段組の間は常に\opt{blockskip}で，見出しの上アキは
+    見出しのある1段目の中にある（他の段の1行目は段組の上端から始まる）．
+    \opt{block}では，段組の中の組はそのままで，段組全体を見出しの上アキの分だけ下げ，
+    段組と段組の間のアキを節のアキにする（図\ref{fig:switch}右）．
+    詳しくは\ref{sec:headingskip}節．
   \item[\opt{floatgrid}] evenendが組む段で，行ドリしないフロートの前後の本文の行を
     行送りの位置に合わせる（\ref{sec:floatgrid}節）．
   \item[\opt{debug}] 揃えた段の高さ，段ごとの本文・フロート・脚注の高さをログに書く．
@@ -166,14 +173,39 @@ export TEXMFHOME=/path/to/texmf-evenend
     すべての行が版面の行の位置に乗る）．
 \end{itemize}
 
+\subsection{見出しの上アキ（\opt{headingskip}）}\label{sec:headingskip}
+
+\pkg{jlreq}の見出しのように，見出しを行取りした箱（見出しの上下のアキを含む）で
+段組が始まるとき，既定（\opt{headingskip=column}）では，見出しは1段目の中で上アキを
+とり，他の段は段組の上端から始まる．段組の間は常に\opt{blockskip}なので，2段以上の
+段組に切り換えると，段組と段組の間のアキ（前の段組の最終行から後の段組の他の段の
+1行目まで）は\opt{blockskip}だけになる．1段組に切り換えた場合は，見出しの上アキも
+段組の間に見えるので，それより広い．
+
+\opt{headingskip=block}では，見出しで始まる段組の間のアキを節のアキにする．
+\begin{itemize}
+  \item 見出しの字面の上端が，通常の1行目の上端より下がっている分を，見出しの上アキと
+    する（行送りの倍数に丸める）．
+  \item 段組の中の組はそのままで，段組全体を見出しの上アキの分だけ下げる．見出しは
+    段組の上端から上アキをとったまま，他の段の1行目も段組の上端から始まる．
+  \item 段組と段組の間のアキは\opt{blockskip}に見出しの上アキを足したものになり，
+    1段組に切り換えた場合（見出しの上アキが段組の間に見える）と同じになる．
+  \item ページの最初の段組（前に積んだ段組がない）と，1段の段組には何もしない
+    （見出しの上アキが，そのまま段組の上のアキになる）．
+  \item 見出しが通常の行として組まれるクラス（\pkg{article}など）では，段組の先頭で
+    見出しの前のグルーが捨てられるので，上アキはなく，何もしない．
+\end{itemize}
+
 \cs{evenendcolumns}は段組のモード（クラスオプション\opt{twocolumn}または\cs{twocolumn}）で
 使う．1段のブロックも，段組のモードのまま\cs{evenendcolumns}\texttt{\{1\}}で作る．
 \cs{twocolumn}は，読み込み時の段数（\opt{columns}）で段組を始め直す．
 
 \begin{figure}[tb]
   \centering
-  \fbox{\includegraphics[page=1,width=.5\linewidth]{evenend-sample-switch.pdf}}
-  \caption{2段→3段→1段→2段と切り換えたページ（\texttt{evenend-sample-switch.tex}）}
+  \fbox{\includegraphics[page=1,width=.4\linewidth]{evenend-sample-switch.pdf}}\hspace{2\zw}%
+  \fbox{\includegraphics[page=2,width=.4\linewidth]{evenend-sample-switch.pdf}}
+  \caption{2段→3段→1段→2段と切り換えたページ（\texttt{evenend-sample-switch.tex}）．
+    左は\opt{headingskip=column}（既定），右は\opt{headingskip=block}}
   \label{fig:switch}
 \end{figure}
 
@@ -409,7 +441,10 @@ LaTeXが組んだ段がはみ出す（Overfull）警告は，そのページを�
     \texttt{blockcheck.py}，\texttt{gridcheck.py}，\texttt{fnfloat.sh}，
     \texttt{fnfloatcheck.py}，\texttt{pagefncheck.py}，\texttt{gridoffset.py}）．
     \texttt{t11}〜\texttt{t13}はフロートと段数の切り換えの組み合わせ．\texttt{test/rand/}は
-    乱数で作った文書による網羅テスト（\ref{sec:randtest}節）
+    乱数で作った文書による網羅テスト（\ref{sec:randtest}節）．\texttt{test/tcb/}は
+    \pkg{tcolorbox}との組み合わせ，\texttt{test/mc/}はmulticols互換の環境と柱，
+    \texttt{test/gy/}は\pkg{gyoudori}の\opt{float}オプションとの組み合わせの一括テスト
+    （\texttt{sweep.sh}．\pkg{gyoudori}の置き場所は環境変数\texttt{GYOUDORI}で指定する）
 \end{description}
 
 このマニュアルを組むには，先に見本を組む．
@@ -430,6 +465,7 @@ lualatex evenend-ja.tex
 \cs{onecolumn}\cs{twocolumn}，\cs{twocolumn}\texttt{[\ldots]}，\pkg{hyperref}，
 ページをまたぐ長い脚注を加える．番号200000以上では，さらに\pkg{tcolorbox}の箱（分割しない
 箱，分割できる箱，フロートにした箱），\cs{columnbreak}，\cs{evenendcolumns*}を加える．
+番号300000以上では，さらに\opt{headingskip=block}にする．
 
 \texttt{check.py}は，組んだ文書について次を調べる．
 \begin{itemize}

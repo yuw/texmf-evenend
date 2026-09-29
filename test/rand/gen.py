@@ -42,6 +42,8 @@ meta = {'seed': seed, 'class': cls, 'N0': N0, 'footnote': fnmode, 'floatgrid': f
         'gyoudori': gyoudori, 'blocks': [], 'hyperref': hyper, 'title': title}
 out = []
 opts = ['debug', f'footnote={fnmode}', f'floatgrid={"true" if floatgrid else "false"}']
+if seed >= 300000:
+    opts.append('headingskip=block')  # 見出しの上アキを段組の間のアキに含める
 if N0 != 2:
     opts.append(f'columns={N0}')
 docopt = 'twocolumn' + (',fontsize=10pt' if cls == 'jlreq' else '')

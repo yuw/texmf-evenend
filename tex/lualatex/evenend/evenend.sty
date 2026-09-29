@@ -1,5 +1,5 @@
 \NeedsTeXFormat{LaTeX2e}[2023-06-01]
-\ProvidesPackage{evenend}[2026/09/29 v20260929.1 Balance the last page of multi-column text (LuaLaTeX) by Yuwsuke Kieda]
+\ProvidesPackage{evenend}[2026/09/30 v20260930.0 Balance the last page of multi-column text (LuaLaTeX) by Yuwsuke Kieda]
 
 \ifdefined\directlua\else
   \PackageError{evenend}{LuaLaTeX is required}{}
@@ -20,6 +20,7 @@
 \newdimen\evenend@baseline % 揃えた段組の最終行のベースライン
 \newdimen\evenend@pagecolht % このページの段組が始まるときの段の高さ（行の位置の基準）
 \newdimen\evenend@dblbotadj % 版面下端に予約された段抜きフロートの分（\@colhtに戻す）
+\newdimen\evenend@headshift % headingskip=block：段組の上に足すアキ（見出しの上アキの分）
 \newbox\evenend@pagetop    % このページで確定した段組（ブロック）の並び
 \newbox\evenend@scratch
 \newbox\evenend@topfigbox
@@ -38,11 +39,13 @@
 \newif\ifevenend@onecolumn \evenend@onecolumntrue % \onecolumnの前でも揃える
 \newif\ifevenend@switch    % 段数の切り換えを待っている
 \newif\ifevenend@floatgrid \evenend@floatgridtrue % フロートの並びを行送りの倍数にする
+\newif\ifevenend@headblock % 見出しの上アキを段組の間のアキに含める
 
 %% ---------------------------------------------------------------------
 %% オプション
 \def\evenend@s@page{page}
 \def\evenend@s@column{column}
+\def\evenend@s@block{block}
 \DeclareKeys[evenend]{
   columns.code     = {\evenend@N=\numexpr#1\relax
                       \ifnum\evenend@N<\@ne
@@ -68,6 +71,16 @@
   blockskip.usage  = general,
   blockmin.code    = {\def\evenend@blockmin{#1}},
   blockmin.usage   = general,
+  headingskip.code = {\edef\evenend@tmp{#1}%
+                      \ifx\evenend@tmp\evenend@s@column
+                        \evenend@headblockfalse
+                      \else\ifx\evenend@tmp\evenend@s@block
+                        \evenend@headblocktrue
+                      \else
+                        \PackageError{evenend}{Unknown value `#1' for
+                          headingskip}{Use `column' or `block'.}%
+                      \fi\fi},
+  headingskip.usage = general,
 }
 %% 段組を切り換えたときの，前の段組の最終行から次の段組の1行目までのベースライン間
 \def\evenend@blockskip{2\baselineskip}
@@ -110,6 +123,25 @@
       \nointerlineskip\vbox{}%
     \fi \fi
   \fi \fi \fi}
+
+%% LaTeXの\@doclearpageは，ページの中身を高さ0に\vsplitしてマークなどを取り出し，
+%% 分けた箱は捨てる．ページが上の空の箱だけのとき，捨てる箱に\topskipの分の
+%% Overfullの警告が出るので，この\vsplitでは警告を出さない
+\ExplSyntaxOn
+\AtBeginDocument
+  {
+    \tl_if_in:NnT \@doclearpage { \setbox \@tempboxa \vsplit \@cclv to \z@ }
+      {
+        \tl_replace_once:Nnn \@doclearpage
+          { \setbox \@tempboxa \vsplit \@cclv to \z@ } { \evenend@vsplitzero }
+      }
+  }
+\ExplSyntaxOff
+\def\evenend@vsplitzero{%
+  \edef\evenend@vfuzz{\number\vfuzz}%
+  \vfuzz\maxdimen
+  \setbox\@tempboxa\vsplit\@cclv to\z@
+  \vfuzz\evenend@vfuzz sp\relax}
 
 \AddToHook{enddocument}{%
   \ifevenend@enabled \if@twocolumn \par \global\evenend@finaltrue \fi \fi}
@@ -510,6 +542,7 @@
       colmode = \ifevenend@colmode true\else false\fi,
       block   = \ifevenend@switch true\else false\fi,
       floatgrid = \ifevenend@floatgrid true\else false\fi,
+      headblock = \ifevenend@headblock\ifvoid\evenend@pagetop false\else true\fi\else false\fi,
       footins = \number\footins,
       blskip  = \number\baselineskip,
       scratch = \number\evenend@scratch,
@@ -547,6 +580,7 @@
   \directlua{evenend.getdbl(\number\evenend@colbox)}%
   \setbox\@outputbox\vbox{%
     \offinterlineskip
+    \ifdim\evenend@headshift=\z@\else \kern\evenend@headshift \fi
     \hb@xt@\textwidth{\unhbox\@tempboxa}%
     \ifvoid\evenend@colbox\else \box\evenend@colbox \fi}}
 
