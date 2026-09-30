@@ -1,5 +1,5 @@
 \NeedsTeXFormat{LaTeX2e}[2023-06-01]
-\ProvidesPackage{evenend}[2026/09/30 v20260930.2 Balance the last page of multi-column text (LuaLaTeX) by Yuwsuke Kieda]
+\ProvidesPackage{evenend}[2026/09/30 v20260930.3 Balance the last page of multi-column text (LuaLaTeX) by Yuwsuke Kieda]
 
 \ifdefined\directlua\else
   \PackageError{evenend}{LuaLaTeX is required}{}
@@ -205,7 +205,10 @@
 }
 \def\evenend@columns#1{%
   \par
-  \if@twocolumn
+  \ifinner
+    \PackageError{evenend}{\string\evenendcolumns\space cannot be used in a box}{Use
+      the environment `evenendmulticols' (or `multicols') in a box.}%
+  \else\if@twocolumn
     \global\evenend@nextN=\numexpr#1\relax
     \ifnum\evenend@nextN<\@ne
       \PackageError{evenend}{The number of columns must be positive}{}%
@@ -227,7 +230,752 @@
   \else
     \PackageError{evenend}{\string\evenendcolumns\space needs two-column
       mode}{Use the class option `twocolumn' or \string\twocolumn.}%
+  \fi\fi}
+
+%% いまの段組に置く（置かれるのを待つ）フロートがあるか
+\def\evenend@iffloatspending{%
+  \let\evenend@tmp\@secondoftwo
+  \ifx\@toplist\@empty\else \let\evenend@tmp\@firstoftwo \fi
+  \ifx\@botlist\@empty\else \let\evenend@tmp\@firstoftwo \fi
+  \ifx\@midlist\@empty\else \let\evenend@tmp\@firstoftwo \fi
+  \ifx\@deferlist\@empty\else \let\evenend@tmp\@firstoftwo \fi
+  \ifdefined\@dblbotlist \ifx\@dblbotlist\@empty\else \let\evenend@tmp\@firstoftwo \fi\fi
+  \evenend@tmp}
+
+%% 空の箱と強制改段で最後の段を出力させる（空の箱はLua側で捨てる）
+\def\evenend@switchout{%
+  \global\evenend@switchtrue
+  \global\evenend@finaltrue
+  \nointerlineskip\vbox{}\penalty-\@M}
+
+\def\evenend@switchnow{%
+  \global\evenend@N\evenend@nextN
+  \global\evenend@colsep\evenend@nextsep
+  \global\evenend@colrule\evenend@nextrule
+  \evenend@setwidth
+  \global\col@number\evenend@N}
+
+%% ---------------------------------------------------------------------
+%% 段の取り込み：\@makecolの直前
+\def\evenend@capture{%
+  \if@twocolumn
+    \directlua{evenend.capture(\number\footins)}%
+    \begingroup
+      \def\@elt##1{\directlua{evenend.addfloat('top',\number##1)}}%
+      \@toplist
+      \def\@elt##1{\directlua{evenend.addfloat('bot',\number##1)}}%
+      \@botlist
+    \endgroup
+    \global\evenend@capturedtrue
+    \ifevenend@debug
+      \typeout{evenend: column has footnotes=\ifvoid\footins no\else yes\fi,
+        bottom floats=\ifx\@botlist\@empty no\else yes\fi}%
+    \fi
+    %% 揃える段では，\@makecolが組む段（使わずに捨てる）の警告を出さない
+    \ifevenend@final \ifnum\outputpenalty>-\@M \else \vbadness\@M \fi \fi
   \fi}
+
+%% 脚注：本文中に参照位置の印を置き，脚注の中身には同じ番号の属性を付ける
+\AtBeginDocument{%
+  \let\evenend@orig@makecol\@makecol
+  %% 段の箱のはみ出しは，そのページを組み直さずに出力するときだけ警告する
+  \def\@makecol{%
+    \evenend@capture
+    \if@twocolumn
+      \edef\evenend@vfuzz{\number\vfuzz}%
+      \vfuzz\maxdimen
+      \evenend@orig@makecol
+      \directlua{evenend.checkcol(\number\@outputbox, \evenend@vfuzz)}%
+      \vfuzz\evenend@vfuzz sp\relax
+    \else
+      \evenend@orig@makecol
+    \fi}%
+  \let\evenend@orig@footnotetext\@footnotetext
+  \long\def\@footnotetext#1{%
+    \begingroup
+      \directlua{evenend.newfn()}%
+      \ifhmode
+        \vadjust{\directlua{evenend.anchor()}}%
+      \else
+        \ifvmode \directlua{evenend.anchor()}\fi
+      \fi
+      \evenend@orig@footnotetext{#1}%
+    \endgroup}%
+  \directlua{evenend.debug = \ifevenend@debug true\else false\fi}%
+}
+
+%% ---------------------------------------------------------------------
+%% 出力ルーチン
+\def\@outputdblcol{%
+  %% フロートだけの段（\@makecolを通らない）は，その中身をフロートとして取り込む
+  \ifevenend@captured\else
+    \directlua{evenend.capturefcol(\number\@outputbox)}%
+    \global\evenend@capturedtrue
+  \fi
+  \evenend@status\z@
+  \evenend@lastcolfalse
+  \ifevenend@final
+    %% 強制改段（\clearpageの\newpage）による出力だけを最終段とみなす
+    \ifnum\outputpenalty>-\@M \else \evenend@lastcoltrue \fi
+  \fi
+  \ifevenend@lastcol
+    \global\evenend@finalfalse
+    \evenend@dobalancetrue
+    %% \evenendcolumns*：揃えない（\evenend@switchfallbackがそのまま組む）
+    \ifevenend@switch \ifevenend@nobalance \evenend@dobalancefalse \fi \fi
+    \ifevenend@dobalance\ifevenend@pagebad
+      \PackageWarningNoLine{evenend}{%
+        Page \thepage\space contains a float column;\MessageBreak
+        not balanced}%
+    \else
+      \evenend@balance
+      \ifevenend@switch\else
+        \ifnum\evenend@status>\z@\else \evenend@warnfail \fi
+      \fi
+    \fi\fi
+  \fi
+  \global\evenend@capturedfalse
+  \let\evenend@next\evenend@normalcol
+  \ifnum\evenend@status>\z@ \let\evenend@next\evenend@shipbalanced \fi
+  \ifevenend@lastcol \ifevenend@switch
+    \global\evenend@switchfalse
+    \ifnum\evenend@status>\z@
+      \let\evenend@next\evenend@pushblock
+    \else
+      \let\evenend@next\evenend@switchfallback
+    \fi
+  \fi \fi
+  \evenend@next}
+
+%% 揃えられなかったとき．このページの最後の段なら（ページが満杯で，段の下端は
+%% もともとそろう）情報だけにする
+\def\evenend@warnfail{%
+  \ifnum\numexpr\evenend@colno+\@ne\relax<\evenend@N
+    \PackageWarningNoLine{evenend}{Could not balance page \thepage}%
+  \else
+    \PackageInfo{evenend}{Page \thepage\space is full; not balanced}%
+  \fi}
+
+\def\evenend@shipbalanced{\evenend@makerow\evenend@shippage}
+
+%% 揃えた段組をブロックとしてページの上部に積み，残りの高さで段組を続ける
+\def\evenend@pushblock{%
+  \evenend@makerow
+  \evenend@pushrow
+  \evenend@switchnow
+  %% 残りが少なければ，ここで改ページする
+  \ifdim\@colht<\dimexpr\evenend@blockmin\relax
+    \ifdim\@colht<\z@ \global\@colht\z@ \fi
+    \setbox\@outputbox\vbox to\@colht{}%
+    \evenend@shippage
+  \fi}
+
+%% 組んだ段組の行（\@outputbox）をページの上部に積み，\@colhtを減らす
+\def\evenend@pushrow{%
+  %% ブロックの間のアキ：前のブロックの最終行から次のブロックの1行目
+  %% （\topskipの位置）までのベースライン間を\evenend@blockskipにする
+  \@tempdima\dimexpr\evenend@blockskip-\topskip
+    -\evenend@rowht+\evenend@baseline\relax
+  \ifdim\@tempdima<\z@ \@tempdima\z@ \fi
+  %% 残りの高さが，このページの段組の始まり（表題や段抜きのフロートの下）から
+  %% 行送りの位置で終わるように，アキを1行未満だけ広げる（行の位置がそろって
+  %% いれば広げない）
+  \ifvoid\evenend@pagetop \global\evenend@pagecolht\@colht \fi
+  \@tempcnta\dimexpr\evenend@pagecolht-\@colht+\evenend@rowht+\@tempdima\relax
+  \@tempcntb\baselineskip
+  \ifnum\@tempcntb>\z@
+    \count@\@tempcnta
+    \divide\count@\@tempcntb
+    \multiply\count@\@tempcntb
+    \advance\@tempcnta-\count@   % 余り
+    \ifnum\@tempcnta>\z@
+      \advance\@tempdima\dimexpr\@tempcntb sp-\@tempcnta sp\relax
+    \fi
+  \fi
+  %% ページの残りを超えるアキは入れない（その後はすぐ改ページになる）
+  \@tempdimb\dimexpr\@colht-\evenend@rowht\relax
+  \ifdim\@tempdima>\@tempdimb
+    \@tempdima\@tempdimb
+    \ifdim\@tempdima<\z@ \@tempdima\z@ \fi
+  \fi
+  \global\setbox\evenend@pagetop\vbox{%
+    \offinterlineskip
+    \ifvoid\evenend@pagetop\else \unvbox\evenend@pagetop \fi
+    \box\@outputbox
+    \vskip\@tempdima}%
+  \global\advance\@colht-\dimexpr\evenend@rowht+\@tempdima\relax
+  %% ブロックを積んだページには，もう段抜きフロートを置かない（上端に置けば前の
+  %% ブロックより上に，下端に置けば後のブロックより下に来るので）．持ち越して，
+  %% 次の切り換えでそのブロックの下に置く
+  \global\@dbltopnum\m@ne
+  \ifdefined\@dblbotnum \global\@dblbotnum\m@ne \fi
+  \global\evenend@colno\z@
+  \global\@firstcolumntrue
+  \global\evenend@pagebadfalse
+  \global\setbox\@leftcolumn\box\voidb@x
+  \directlua{evenend.reset()}}
+
+%% 揃えられなかったとき：持ち越したフロートを除いて本文だけで揃えられれば，
+%% そうしてこのページを終える．それもできなければ，いまの段組のままページを
+%% 終える．持ち越したフロートは，次のページの上に元の段数のブロックとして
+%% 置いてから段数を変える
+\def\evenend@switchfallback{%
+  \let\evenend@held\@deferlist
+  \global\let\@deferlist\@empty
+  \ifevenend@nobalance \let\evenend@held@test\@empty \else \let\evenend@held@test\evenend@held \fi
+  \ifx\evenend@held@test\@empty
+    \evenend@status\z@
+  \else
+    \global\evenend@switchtrue
+    \evenend@balance
+    \global\evenend@switchfalse
+  \fi
+  \ifnum\evenend@status>\z@
+    \evenend@makerow
+    \evenend@pushrow
+    \ifdim\@colht<\z@ \global\@colht\z@ \fi
+    \setbox\@outputbox\vbox to\@colht{}%
+    \evenend@shippage
+  \else
+    \ifevenend@nobalance\else \evenend@warnfail \fi
+    \evenend@normalcol
+    \@whilenum\evenend@colno>\z@\do{%
+      \setbox\@outputbox\vbox to\@colht{}%
+      \evenend@normalcol}%
+  \fi
+  \global\let\@deferlist\evenend@held
+  \global\evenend@nobalancefalse
+  \ifx\@deferlist\@empty
+    \evenend@switchnow
+  \else
+    \evenend@floatblock
+  \fi}
+
+%% 持ち越されたフロートだけのブロックを組む
+\def\evenend@floatblock{%
+  \directlua{evenend.reset() evenend.emptycolumn()}%
+  \global\evenend@switchtrue
+  \evenend@balance
+  \global\evenend@switchfalse
+  \ifnum\evenend@status>\z@
+    \evenend@pushblock
+    \let\evenend@next\relax
+  \else
+    %% フロートだけのブロックも組めない（段より高いフロートなど）：LaTeXの
+    %% フロート段として元の段数のまま出し，ページを終える．残ったフロート
+    %% （[p]のないものなど）は，次のページでもう一度ブロックに組んでみる
+    \directlua{evenend.reset()}%
+    \let\evenend@before\@deferlist
+    \@makefcolumn\@deferlist
+    \@whilesw\if@fcolmade\fi{\@opcol\@makefcolumn\@deferlist}%
+    \@whilenum\evenend@colno>\z@\do{%
+      \setbox\@outputbox\vbox to\@colht{}%
+      \evenend@normalcol}%
+    \let\evenend@next\evenend@floatblock
+    \ifx\@deferlist\@empty \let\evenend@next\evenend@switchnow \fi
+    \ifx\@deferlist\evenend@before \let\evenend@next\evenend@switchnow \fi
+  \fi
+  \evenend@next}
+
+%% 段間の罫：#1は罫の高さ，#2は段の箱の高さ
+\def\evenend@sep#1#2{%
+  \hfil
+  \vbox to#2{%
+    \hbox{\normalcolor\vrule \@width\evenend@colrule \@height#1\@depth\z@}%
+    \vss}%
+  \hfil}
+
+\def\evenend@normalcol{%
+  \global\advance\evenend@colno\@ne
+  \global\setbox\@leftcolumn\hbox{%
+    \unhbox\@leftcolumn
+    \ifnum\evenend@colno>\@ne \evenend@sep\@colht\@colht \fi
+    \hb@xt@\columnwidth{\box\@outputbox \hss}}%
+  \ifnum\evenend@colno<\evenend@N
+    \global\@firstcolumnfalse
+  \else
+    \setbox\@outputbox\vbox{\hb@xt@\textwidth{\unhbox\@leftcolumn}}%
+    \directlua{evenend.reportoverfull()}%
+    \evenend@shippage
+  \fi}
+
+\def\evenend@shippage{%
+  \global\evenend@colno\z@
+  \global\@firstcolumntrue
+  \global\evenend@pagebadfalse
+  \global\setbox\@leftcolumn\box\voidb@x
+  \directlua{evenend.reset()}%
+  %% このページで確定したブロックを上に積む
+  \ifvoid\evenend@pagetop\else
+    \setbox\@outputbox\vbox{%
+      \offinterlineskip
+      \unvbox\evenend@pagetop
+      \box\@outputbox}%
+    \global\setbox\evenend@pagetop\box\voidb@x
+  \fi
+  \@combinedblfloats
+  \@outputpage
+  \begingroup
+    \@dblfloatplacement
+    \@startdblcolumn
+    \@whilesw\if@fcolmade \fi{\@outputpage\@startdblcolumn}%
+  \endgroup}
+
+%% まだ出ていない（持ち越された）フロートをLua側に渡す（段抜きは深さ1sp）．
+%% 段数を切り換えるときだけ：そのブロックのフロートはそのブロックの中に置く．
+%% 文書末などでは，持ち越されたフロートはLaTeXが同じ段数で後のページに出す．
+%% 段内フロートは段の上に置くので，渡す前にフックevenend/deferredfloatを
+%% 呼ぶ（\evenendfloatboxがその箱．フロートの中身の位置を整えるパッケージ用）
+\NewHook{evenend/deferredfloat}
+\def\evenend@collectdeferred{%
+  \global\evenend@dblbotadj\z@
+  \ifevenend@switch
+    %% stfloatsが版面の下端に予約した段抜きフロートも，このブロックの下に置く
+    \ifdefined\@dblbotlist
+      \begingroup
+        \def\@elt##1{%
+          \global\advance\evenend@dblbotadj\dimexpr\ht##1+\dp##1+%
+            \ifdim\evenend@dblbotadj=\z@ \dbltextfloatsep\else\dblfloatsep\fi\relax
+          \directlua{evenend.adddeferred('dbl', \number##1)}}%
+        \@dblbotlist
+      \endgroup
+    \fi
+    \begingroup
+      \def\@elt##1{%
+        \ifdim\dp##1=1sp
+          \directlua{evenend.adddeferred('dbl', \number##1)}%
+        \else
+          \let\evenendfloatbox##1%
+          \UseHook{evenend/deferredfloat}%
+          \directlua{evenend.adddeferred('col', \number##1)}%
+        \fi}%
+      \@deferlist
+    \endgroup
+  \fi}
+
+\def\evenend@balance{%
+  \evenend@collectdeferred
+  \begingroup
+    \setbox\evenend@topfigbox\vbox{\topfigrule}%
+    \setbox\evenend@botfigbox\vbox{\botfigrule}%
+    \setbox\evenend@fnrulebox\vbox{%
+      \color@begingroup\normalcolor\footnoterule\color@endgroup}%
+    \splittopskip\topskip
+    \splitmaxdepth\maxdepth
+    \vbadness\@M
+    \vfuzz\maxdimen
+    \directlua{evenend.balance{
+      N       = \the\evenend@N,
+      colht   = \number\dimexpr\@colht+\evenend@dblbotadj\relax,
+      colmode = \ifevenend@colmode true\else false\fi,
+      block   = \ifevenend@switch true\else false\fi,
+      floatgrid = \ifevenend@floatgrid true\else false\fi,
+      headblock = \ifevenend@headblock\ifvoid\evenend@pagetop false\else true\fi\else false\fi,
+      footins = \number\footins,
+      blskip  = \number\baselineskip,
+      scratch = \number\evenend@scratch,
+      topfig  = \number\evenend@topfigbox,
+      botfig  = \number\evenend@botfigbox,
+      fnrule  = \number\evenend@fnrulebox,
+    }}%
+    \ifnum\evenend@status>\z@
+      \PackageInfo{evenend}{Page \thepage: columns balanced at
+        \the\evenend@height\ifevenend@switch\space (block)\fi}%
+      %% 持ち越されたフロートは揃えた段組に入れたので，リストから外す
+      \ifevenend@switch
+        \xdef\@freelist{\@freelist\@deferlist}%
+        \global\let\@deferlist\@empty
+        \ifdefined\@dblbotlist
+          \xdef\@freelist{\@freelist\@dblbotlist}%
+          \global\let\@dblbotlist\@empty
+          \global\advance\@colht\evenend@dblbotadj
+        \fi
+      \fi
+    \fi
+  \endgroup}
+
+\def\evenend@makerow{%
+  \global\setbox\@leftcolumn\box\voidb@x
+  \@tempcnta\z@
+  \setbox\@tempboxa\hbox{}%
+  \@whilenum\@tempcnta<\evenend@N\do{%
+    \advance\@tempcnta\@ne
+    \directlua{evenend.getcolumn(\the\@tempcnta, \number\evenend@colbox)}%
+    \setbox\@tempboxa\hbox{%
+      \unhbox\@tempboxa
+      \ifnum\@tempcnta>\@ne \evenend@sep\evenend@ruleht\evenend@colboxht \fi
+      \hb@xt@\columnwidth{\box\evenend@colbox \hss}}}%
+  \directlua{evenend.getdbl(\number\evenend@colbox)}%
+  \setbox\@outputbox\vbox{%
+    \offinterlineskip
+    \ifdim\evenend@headshift=\z@\else \kern\evenend@headshift \fi
+    \hb@xt@\textwidth{\unhbox\@tempboxa}%
+    \ifvoid\evenend@colbox\else \box\evenend@colbox \fi}}
+
+%% ---------------------------------------------------------------------
+%% 柱（マーク）：段組のモードでは，ページを出力するときに，ページの本文全体から
+%% 読む順序でマークを集め，1段組と同じ方法で柱の情報を更新する（揃えた段や積んだ
+%% ブロックでは，マークが入れ子の箱の中にあり，段ごとの更新では正しくならない）
+\newbox\evenend@markbox
+\AtBeginDocument{%
+  \ifdefined\@expl@@@mark@update@dblcol@structures@@
+    \let\@expl@@@mark@update@dblcol@structures@@\relax
+    \AddToHook{build/page/before}{%
+      \if@twocolumn
+        \directlua{evenend.collectmarks(\number\@outputbox, \number\evenend@markbox)}%
+        \begingroup
+          \setbox\@outputbox\box\evenend@markbox
+          \@expl@@@mark@update@singlecol@structures@@
+        \endgroup
+      \fi}%
+  \fi}
+
+%% ---------------------------------------------------------------------
+%% 段組の環境：evenendmulticols（常に定義）と，multicolを読み込んでいなければ
+%% multicols，multicols*，\columnbreak．
+%% ・ページの本文（主垂直リスト）では，\evenendcolumnsで段数を切り換える（段組の
+%%   モードで使う．1段組の文書では，クラスオプションtwocolumnとcolumns=1で読み込む）
+%% ・箱の中（tcolorbox，minipage，フロートなど．内部垂直モード）では，中身を段幅で
+%%   組んでからLua側でN段に分けて揃え，1つの箱にする
+\newif\ifevenend@inmc
+\newbox\evenend@boxcontent
+\newbox\evenend@boxout
+\newdimen\evenend@boxtop    % 箱の段組の上端から1行目のベースラインまで
+\newdimen\evenend@boxcw
+\newdimen\evenend@boxlw     % 箱の中の行長（段組の全幅）
+\newdimen\evenend@boxfirst  % 各段の1行目の高さの最大値
+%% \begin{evenendmulticols}[キー=値]{段数}[前置き]
+\NewDocumentEnvironment{evenendmulticols}{O{} m o}
+  {\evenend@mc@begin{#1}{#2}{#3}}{\evenend@mc@end{}}
+\AtBeginDocument{%
+  \@ifpackageloaded{multicol}{}{%
+    %% \begin{multicols}{段数}[前置き][前置きの前のアキ（使わない）]
+    \NewDocumentEnvironment{multicols}{m o o}
+      {\evenend@mc@begin{}{#1}{#2}}{\evenend@mc@end{}}%
+    \NewDocumentEnvironment{multicols*}{m o o}
+      {\evenend@mc@begin{}{#1}{#2}}{\evenend@mc@end{*}}%
+    \providecommand\columnbreak{\par\vfil\penalty-\@M}%
+    %% tcolorboxなどは\columnbreakがあるとmulticolがあるとみなし，multicolの
+    %% \doublecol@numberを見るので，0（multicolの段組の中ではない）で用意する
+    \ifdefined\doublecol@number\else \newcount\doublecol@number \fi
+  }}
+%% #1：キー（columnsep，columnseprule），#2：段数，#3：前置き
+\def\evenend@mc@begin#1#2#3{%
+  \par
+  \ifinner
+    \let\evenend@mc@end\evenend@box@end
+    \evenend@box@begin{#1}{#2}{#3}%
+  \else
+    \let\evenend@mc@end\evenend@page@end
+    \ifevenend@inmc
+      \PackageError{evenend}{Nested multicols is not supported}{}%
+    \fi
+    \global\evenend@inmctrue
+    %% 環境の後は，環境の前の段組の段数・段間・段間罫に戻す
+    \xdef\evenend@mc@saved{[columnsep=\the\evenend@colsep,
+      columnseprule=\the\evenend@colrule]{\the\evenend@N}}%
+    \IfValueT{#3}{\evenendcolumns{1}#3\par}%
+    \evenendcolumns[#1]{#2}%
+  \fi}
+\def\evenend@page@end#1{%
+  \par
+  \edef\evenend@tmp{\noexpand\evenendcolumns#1\evenend@mc@saved}%
+  \evenend@tmp
+  \global\evenend@inmcfalse}
+
+%% 箱の中の段組
+\def\evenend@box@begin#1#2#3{%
+  \IfValueT{#3}{#3\par}%
+  \global\evenend@nextN=\numexpr#2\relax
+  \ifnum\evenend@nextN<\@ne \global\evenend@nextN\@ne \fi
+  \global\evenend@nextsep\columnsep
+  \global\evenend@nextrule\columnseprule
+  \SetKeys[evenend/block]{#1}%
+  \edef\evenend@box@N{\the\evenend@nextN}%
+  \edef\evenend@box@sep{\the\evenend@nextsep}%
+  \edef\evenend@box@rule{\the\evenend@nextrule}%
+  \evenend@boxcw\linewidth
+  \ifdim\evenend@boxcw>\hsize \evenend@boxcw\hsize \fi
+  \evenend@boxlw\evenend@boxcw
+  \advance\evenend@boxcw-\numexpr\evenend@box@N-\@ne\relax\dimexpr\evenend@box@sep\relax
+  \divide\evenend@boxcw\evenend@box@N\relax
+  \setbox\evenend@boxcontent\vbox\bgroup
+    \hsize\evenend@boxcw \linewidth\hsize \columnwidth\hsize
+    \@totalleftmargin\z@
+    %% 箱の脚注（minipageの脚注）は，段幅ではなく箱の行長で組む
+    %% （minipageの中では\@footnotetextが\@mpfootnotetextと同じもの）
+    \ifx\@footnotetext\@mpfootnotetext
+      \let\evenend@mpfootnotetext\@mpfootnotetext
+      \long\def\@footnotetext##1{%
+        \begingroup
+          \columnwidth\evenend@boxlw
+          \evenend@mpfootnotetext{##1}%
+        \endgroup}%
+    \fi
+    \let\evenend@mc@begin\evenend@nested}
+\def\evenend@nested#1#2#3{%
+  \PackageError{evenend}{Nested multicols is not supported}{}%
+  \let\evenend@mc@end\@gobble}
+\def\evenend@box@end#1{%
+    \par
+  \egroup
+  \begingroup
+    \splittopskip\topskip
+    \splitmaxdepth\maxdepth
+    \vbadness\@M \vfuzz\maxdimen
+    \directlua{evenend.boxbalance{
+      N       = \evenend@box@N,
+      content = \number\evenend@boxcontent,
+      out     = \number\evenend@boxout,
+      scratch = \number\evenend@scratch,
+      cw      = \number\evenend@boxcw,
+      sep     = \number\dimexpr\evenend@box@sep\relax,
+      rule    = \number\dimexpr\evenend@box@rule\relax,
+      topskip = \number\topskip,
+      blskip  = \number\baselineskip,
+    }}%
+  \endgroup
+  \ifvoid\evenend@boxout\else
+    %% 前の行からのベースライン間を\baselineskipにする（箱の先頭では詰めて置く）
+    \ifdim\prevdepth>-1000\p@
+      \vskip\dimexpr\baselineskip-\prevdepth-\evenend@boxtop\relax
+      \nointerlineskip
+    \else
+      %% 箱などの先頭：1行目の上端を箱の上端に合わせる（通常の1行目と同じ）
+      \nointerlineskip
+      \kern-\dimexpr\evenend@boxtop-\evenend@boxfirst\relax
+    \fi
+    \box\evenend@boxout
+  \fi}
+
+\endinput
+\fi
+
+%% ---------------------------------------------------------------------
+%% レジスタとフラグ
+\newcount\evenend@N        \evenend@N=2
+\newcount\evenend@initN    % 読み込み時の段数（\twocolumnで戻る）
+\newcount\evenend@nextN    % \evenendcolumnsで切り換える先の段数
+\newcount\evenend@colno    % 現在のページで出力済みの段数
+\newcount\evenend@status   % Luaからの返り値
+\newdimen\evenend@ruleht
+\newdimen\evenend@height   % 揃えた段の見かけの下端
+\newdimen\evenend@colboxht % 段の箱の高さ
+\newdimen\evenend@rowht    % 揃えた段組の高さ（下に置く段抜きフロートを含む）
+\newdimen\evenend@baseline % 揃えた段組の最終行のベースライン
+\newdimen\evenend@pagecolht % このページの段組が始まるときの段の高さ（行の位置の基準）
+\newdimen\evenend@dblbotadj % 版面下端に予約された段抜きフロートの分（\@colhtに戻す）
+\newdimen\evenend@colsep   % いまの段組の段間
+\newdimen\evenend@colrule  % いまの段組の段間罫の太さ
+\newdimen\evenend@nextsep  % 次の段組の段間
+\newdimen\evenend@nextrule % 次の段組の段間罫の太さ
+\newdimen\evenend@headshift % headingskip=block：段組の上に足すアキ（見出しの上アキの分）
+\newbox\evenend@pagetop    % このページで確定した段組（ブロック）の並び
+\newbox\evenend@scratch
+\newbox\evenend@topfigbox
+\newbox\evenend@botfigbox
+\newbox\evenend@fnrulebox
+\newbox\evenend@colbox
+\newattribute\evenend@fnattr
+
+\newif\ifevenend@enabled   \evenend@enabledtrue
+\newif\ifevenend@final     % 次に出力される本文段が最終ページのもの
+\newif\ifevenend@lastcol   % この段が最終ページの最後の本文段
+\newif\ifevenend@captured  % 直前の段を取り込んだ
+\newif\ifevenend@pagebad   % 取り込めなかった段（フロートだけの段など）がある
+\newif\ifevenend@colmode   % 脚注を段の下端に置く
+\newif\ifevenend@debug
+\newif\ifevenend@onecolumn \evenend@onecolumntrue % \onecolumnの前でも揃える
+\newif\ifevenend@switch    % 段数の切り換えを待っている
+\newif\ifevenend@floatgrid \evenend@floatgridtrue % フロートの並びを行送りの倍数にする
+\newif\ifevenend@headblock % 見出しの上アキを段組の間のアキに含める
+
+%% ---------------------------------------------------------------------
+%% オプション
+\def\evenend@s@page{page}
+\def\evenend@s@column{column}
+\def\evenend@s@block{block}
+\DeclareKeys[evenend]{
+  columns.code     = {\evenend@N=\numexpr#1\relax
+                      \ifnum\evenend@N<\@ne
+                        \PackageError{evenend}{columns must be positive}{}%
+                        \evenend@N=\tw@
+                      \fi},
+  columns.usage    = load,
+  footnote.code    = {\edef\evenend@tmp{#1}%
+                      \ifx\evenend@tmp\evenend@s@page
+                        \evenend@colmodefalse
+                      \else\ifx\evenend@tmp\evenend@s@column
+                        \evenend@colmodetrue
+                      \else
+                        \PackageError{evenend}{Unknown value `#1' for
+                          footnote}{Use `page' or `column'.}%
+                      \fi\fi},
+  footnote.usage   = general,
+  debug.if         = evenend@debug,
+  enable.if        = evenend@enabled,
+  onecolumn.if     = evenend@onecolumn,
+  floatgrid.if     = evenend@floatgrid,
+  blockskip.code   = {\def\evenend@blockskip{#1}},
+  blockskip.usage  = general,
+  blockmin.code    = {\def\evenend@blockmin{#1}},
+  blockmin.usage   = general,
+  headingskip.code = {\edef\evenend@tmp{#1}%
+                      \ifx\evenend@tmp\evenend@s@column
+                        \evenend@headblockfalse
+                      \else\ifx\evenend@tmp\evenend@s@block
+                        \evenend@headblocktrue
+                      \else
+                        \PackageError{evenend}{Unknown value `#1' for
+                          headingskip}{Use `column' or `block'.}%
+                      \fi\fi},
+  headingskip.usage = general,
+}
+%% 段組を切り換えたときの，前の段組の最終行から次の段組の1行目までのベースライン間
+\def\evenend@blockskip{2\baselineskip}
+%% 段数を切り換えた後の残りの高さがこれより小さければ，そこで改ページする
+\def\evenend@blockmin{5\baselineskip}
+\ProcessKeyOptions[evenend]
+\evenend@initN=\evenend@N
+
+\newcommand\evenendsetup[1]{\SetKeys[evenend]{#1}}
+
+\directlua{
+  require('evenend')
+  evenend.setattr(luatexbase.attributes['evenend@fnattr'])
+}
+
+%% ---------------------------------------------------------------------
+%% ユーザー命令
+\newcommand\evenend{\global\evenend@enabledtrue}
+\newcommand\raggedend{\global\evenend@enabledfalse}
+%% 現在のページを揃えてから改ページする
+%% 段落を閉じて本文をすべてページに送ってからフラグを立てる
+%% （最後の段落で段があふれたときの出力を最終段と取り違えないため）
+\newcommand\evenendclearpage{%
+  \par
+  \if@twocolumn \global\evenend@finaltrue \fi
+  \clearpage}
+
+%% \onecolumnで段組を終えるときも揃える
+\AddToHook{cmd/onecolumn/before}{%
+  \ifevenend@enabled \ifevenend@onecolumn \if@twocolumn
+    \par \global\evenend@finaltrue
+  \fi \fi \fi}
+
+%% 確定したブロックを積んだままページが空で\clearpageになると，出力ルーチンが
+%% 呼ばれずブロックが出力されないので，空の箱を置いて出力させる（空の箱は
+%% Lua側で捨てる）
+\AddToHook{cmd/clearpage/before}{%
+  \if@twocolumn \ifvmode \ifvoid\evenend@pagetop\else
+    \ifdim\pagegoal=\maxdimen \ifnum\evenend@colno=\z@
+      \nointerlineskip\vbox{}%
+    \fi \fi
+  \fi \fi \fi}
+
+%% LaTeXの\@doclearpageは，ページの中身を高さ0に\vsplitしてマークなどを取り出し，
+%% 分けた箱は捨てる．ページが上の空の箱だけのとき，捨てる箱に\topskipの分の
+%% Overfullの警告が出るので，この\vsplitでは警告を出さない
+\ExplSyntaxOn
+\AtBeginDocument
+  {
+    \tl_if_in:NnT \@doclearpage { \setbox \@tempboxa \vsplit \@cclv to \z@ }
+      {
+        \tl_replace_once:Nnn \@doclearpage
+          { \setbox \@tempboxa \vsplit \@cclv to \z@ } { \evenend@vsplitzero }
+      }
+  }
+\ExplSyntaxOff
+\def\evenend@vsplitzero{%
+  \edef\evenend@vfuzz{\number\vfuzz}%
+  \vfuzz\maxdimen
+  \setbox\@tempboxa\vsplit\@cclv to\z@
+  \vfuzz\evenend@vfuzz sp\relax}
+
+\AddToHook{enddocument}{%
+  \ifevenend@enabled \if@twocolumn \par \global\evenend@finaltrue \fi \fi}
+
+%% ---------------------------------------------------------------------
+%% N段組
+%% 段組ごとの段間と段間罫：段組を始めるときに決め，その段組の間は変えない
+%% （\evenendcolumnsの省略可能な引数で指定しなければ，そのときの\columnsepと
+%% \columnseprule）
+\def\evenend@takesep{%
+  \global\evenend@colsep\columnsep
+  \global\evenend@colrule\columnseprule
+  \global\evenend@nextsep\columnsep
+  \global\evenend@nextrule\columnseprule}
+\def\evenend@setwidth{%
+  \global\columnwidth\textwidth
+  \global\advance\columnwidth -\numexpr\evenend@N-\@ne\relax\evenend@colsep
+  \global\divide\columnwidth\evenend@N
+  \global\hsize\columnwidth
+  \global\linewidth\columnwidth}
+
+%% \twocolumnは読み込み時の段数で段組を始める
+\def\twocolumn{%
+  \clearpage
+  \global\evenend@N\evenend@initN
+  \evenend@takesep
+  \evenend@setwidth
+  \global\@twocolumntrue
+  \global\@firstcolumntrue
+  \global\evenend@colno\z@
+  \global\col@number\evenend@N
+  \@ifnextchar[\@topnewpage\@floatplacement}
+\AtBeginDocument{%
+  \evenend@takesep
+  \if@twocolumn
+    \evenend@setwidth
+    \global\col@number\evenend@N
+  \fi}
+
+%% ---------------------------------------------------------------------
+%% 段数の切り換え：ここまでのこのページの段組を揃えて確定し（ブロック），
+%% その下に新しい段数で段組を続ける
+%% \evenendcolumns*はブロックを揃えずに（LaTeXの組み方のまま）確定する
+\newif\ifevenend@nobalance
+\newif\ifevenend@dobalance
+%% \evenendcolumns[段間などの指定]{段数}．*付きでは，ここまでの段組を揃えない
+\NewDocumentCommand\evenendcolumns{s O{} m}{%
+  \IfBooleanTF{#1}{\global\evenend@nobalancetrue}{\global\evenend@nobalancefalse}%
+  \global\evenend@nextsep\columnsep
+  \global\evenend@nextrule\columnseprule
+  \SetKeys[evenend/block]{#2}%
+  \evenend@columns{#3}}
+%% 次の段組だけの段間と段間罫
+\DeclareKeys[evenend/block]{
+  columnsep.code     = {\global\evenend@nextsep=\dimexpr#1\relax},
+  columnseprule.code = {\global\evenend@nextrule=\dimexpr#1\relax},
+}
+\def\evenend@columns#1{%
+  \par
+  \ifinner
+    \PackageError{evenend}{\string\evenendcolumns\space cannot be used in a box}{Use
+      the environment `evenendmulticols' (or `multicols') in a box.}%
+  \else\if@twocolumn
+    \global\evenend@nextN=\numexpr#1\relax
+    \ifnum\evenend@nextN<\@ne
+      \PackageError{evenend}{The number of columns must be positive}{}%
+      \global\evenend@nextN\@ne
+    \fi
+    \ifdim\pagegoal=\maxdimen
+      \ifnum\evenend@colno=\z@
+        \evenend@iffloatspending
+          %% 本文はないが，いまの段組に置くフロートがある：ブロックとして確定する
+          {\evenend@switchout}%
+          %% このページにまだ段組がない：段数だけ変える
+          {\evenend@switchnow}%
+      \else
+        \evenend@switchout
+      \fi
+    \else
+      \evenend@switchout
+    \fi
+  \else
+    \PackageError{evenend}{\string\evenendcolumns\space needs two-column
+      mode}{Use the class option `twocolumn' or \string\twocolumn.}%
+  \fi\fi}
 
 %% いまの段組に置く（置かれるのを待つ）フロートがあるか
 \def\evenend@iffloatspending{%

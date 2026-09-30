@@ -37,6 +37,11 @@ for w in warn:
     else:
         prob.append('warn:' + w[:30])
 
+# 箱の中の段組：最右段など以外の段の下端がそろったか
+for m in re.finditer(r'box column (\d+): ([\d.]+)pt \(no stretch\)', flat):
+    limits.add('box-nostretch')  # 伸ばせるグルーがない（行送りにそろわない中身）
+if 'box balanced' in flat:
+    cover.add('box-columns')
 if 'lowered by the heading space' in flat:
     cover.add('heading-lowered')  # headingskip=block：段組を見出しの上アキの分だけ下げた
 
@@ -117,7 +122,9 @@ def blockwords(pno, j):
 # 数だけあるときに揃えたとみなす（\columnbreakでページが埋まった後に文書が終わるなど，
 # LaTeXがそのまま組んだページもある）．それより前のブロックは揃えて積んである
 def block_balanced(pno, j):
-    J = sorted(set(jj for jj in range(len(meta['blocks'])) if blockwords(pno, jj)) | {j})
+    # ページにあるブロック（本文だけでなく，脚注・図の目印でも数える）
+    J = sorted(set(blk_of[(k, nn)] for (k, nn, e), L in occ.items() if (k, nn) in blk_of
+                   for (pp, w) in L if pp == pno) | {j})
     if j != J[-1]:
         return True
     final = re.search(r'Page %d: columns balanced at [\d.]+pt on' % pno, flat)

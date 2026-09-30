@@ -73,8 +73,24 @@ export TEXMFHOME=/path/to/texmf-evenend
 
 multicolを読み込んでいなければ，`multicols`環境（終わりで揃える），`multicols*`環境
 （揃えない），`\columnbreak`を用意する．`\begin{multicols}{3}[前置き]`の前置きは1段で組む．
-入れ子やリストの中では使えない．段組のモードで使うので，1段組の文書では
+multicolを読み込んでいても使える`evenendmulticols`環境
+（`\begin{evenendmulticols}[columnsep=…,columnseprule=…]{段数}[前置き]`）もある．
+入れ子やリストの中では使えない．ページの本文では段組のモードで使うので，1段組の文書では
 `\documentclass[twocolumn]{…}`と`\usepackage[columns=1]{evenend}`で読み込む．
+
+### 箱の中の段組
+
+tcolorboxの箱，`minipage`，`\parbox`，フロートの中など（内部垂直モード）では，`multicols`環境と
+`evenendmulticols`環境は，出力ルーチンを使わずにその場で段組を組んで1つの箱にする（段組の
+モードでない文書でも使える）．
+
+- 中身を段幅で組み，入り切る最小の高さで各段に分ける．各段の1行目のベースラインをそろえ，
+  最終行のベースラインで下端をそろえる．最右段と`\columnbreak`で終わる段は下を空ける．
+  伸ばせるグルーがなくてそろわない分け方になったときは，高さを上げてそろう分け方を探す．
+- 前後の段落とのベースライン間は`\baselineskip`．箱の先頭では1行目の上端を箱の上端に合わせる．
+- 箱の中の脚注は，その箱の脚注として箱の下に置く（`minipage`と同じ）．
+- 段組は1つの箱になるので，分割できるtcolorbox（`breakable`）でも段組の途中では分けない．
+- 入れ子はできない．`\evenendcolumns`は箱の中では使えない．
 
 ### 柱
 
@@ -192,7 +208,8 @@ evenendが組む段では，行ドリしないフロートがあっても本文�
 ## マニュアル
 
 `doc/lualatex/evenend/`にマニュアル（`evenend-ja.tex`）と見本（`evenend-sample.tex`，
-`evenend-sample-column.tex`，`evenend-sample-switch.tex`，`evenend-sample-colsep.tex`）がある．
+`evenend-sample-column.tex`，`evenend-sample-switch.tex`，`evenend-sample-colsep.tex`，
+`evenend-sample-box.tex`）がある．
 マニュアルは見本のページを貼り込むので，
 見本を先に組む．
 
@@ -202,6 +219,7 @@ lualatex evenend-sample.tex
 lualatex evenend-sample-column.tex
 lualatex evenend-sample-switch.tex
 lualatex evenend-sample-colsep.tex
+lualatex evenend-sample-box.tex
 lualatex evenend-ja.tex
 lualatex evenend-ja.tex
 ```
@@ -234,6 +252,7 @@ test/run.sh test/t1-basic.tex
   `test/rand/many.sh 1 1000 > result.txt; test/rand/summary.py result.txt`
 - `tcb/`：tcolorboxの箱（分割しない箱，分割できる箱，フロートにした箱）との組み合わせ
 - `mc/`：multicols互換の環境と柱（マーク）のテスト（`mkcheck.py`で柱を調べる）
+- `box/`：箱の中の段組（tcolorbox，minipage，フロート，脚注，`\columnbreak`，分割できる箱）
 - `gy/`：gyoudori（行ドリ）の`float`オプションとの組み合わせの一括テスト（48通り）．
   `genf.py`（文書を作る），`chk.awk`（本文の行とフロートが行送りの位置にあるかを調べる），
   `runl.sh`（1件），`sweep.sh`（一括）．gyoudoriの置き場所は環境変数`GYOUDORI`で指定する．

@@ -432,12 +432,17 @@ local function snap_chunk(head, topskip, bs)
         end
         -- フロートの前後のグルーは伸縮させない（段を詰めるときに伸縮すると，後の
         -- 行が行送りの位置からずれる）
+        -- （前後の行とのあいだのグルーはすべて）
         local function rigid(g) if g then node.setglue(g, g.width, 0, 0, 0, 0) end end
-        rigid(gafter)
         do
-          local m = n.prev
+          local m = n.next
+          while m and m ~= q do
+            if m.id == GLUE then rigid(m) end
+            m = m.next
+          end
+          m = n.prev
           while m and not is_line(m) and m.id ~= VLIST do
-            if m.id == GLUE then rigid(m); break end
+            if m.id == GLUE then rigid(m) end
             m = m.prev
           end
         end
@@ -1385,6 +1390,202 @@ function M.getcolumn(i, n)
   local b = M.out and M.out[i]
   if b then M.out[i] = nil end
   tex.setbox(n, b)
+end
+
+-- ---------------------------------------------------------------------
+-- 箱の中の段組（tcolorboxなど．出力ルーチンを使わない）
+-- 段幅で組んだ中身（箱p.content）をN段に分け，揃えた行を箱p.outに入れる．
+-- 各段の1行目のベースラインをそろえ（段の上端からの位置T），最終行のベースラインで
+-- 下端をそろえる．最右段（と\columnbreakで終わる段）は下を空けてよい
+local SPLITTOPSKIP = 11  -- glueのsubtype：\splittopskip
+function M.boxbalance(p)
+  local N = p.N
+  local src = tex.getbox(p.content)
+  local list = src and src.list
+  if src then src.list = nil end
+  tex.setbox(p.content, nil)
+  list = strip_tail(list, true)
+  tex.setdimen('global', 'evenend@boxtop', 0)
+  tex.setdimen('global', 'evenend@boxfirst', 0)
+  -- 箱や罫のない中身（空の環境）は出さない
+  local hasbox = false
+  for n in node.traverse(list) do
+    if n.id == HLIST or n.id == VLIST or n.id == RULE then hasbox = true break end
+  end
+  if not hasbox then
+    if list then flush_list(list) end
+    tex.setbox('global', p.out, nil)
+    return
+  end
+  local SCR = p.scratch
+
+  -- 段の高さhで分ける．入り切れば各段の中身（リスト）を返す
+  local function split(h)
+    tex.setbox(SCR, (vpack(copy_list(list))))
+    local parts = {}
+    for i = 1, N - 1 do
+      local b = tex.getbox(SCR) and tex.splitbox(SCR, h, 'exactly')
+      parts[i] = b and b.list or false
+      if b then b.list = nil; node.free(b) end
+    end
+    local rest = tex.getbox(SCR)
+    parts[N] = rest and rest.list or false
+    if rest then rest.list = nil end
+    tex.setbox(SCR, nil)
+    local ok = true
+    if parts[N] then
+      if natural(parts[N]) > h then ok = false end
+      -- 最右段に強制改段（\columnbreak）が残る：この高さでは段が足りない
+      for q in node.traverse_id(PENALTY, parts[N]) do
+        if q.penalty <= -10000 then ok = false break end
+      end
+    end
+    return parts, ok
+  end
+  local function free(parts)
+    for i = 1, N do if parts[i] then flush_list(parts[i]) end end
+  end
+
+  -- 入り切る最小の高さ
+  local total = natural(list)
+  local lo, hi = 0, total
+  local parts, ok = split(hi)
+  if not ok then
+    -- 強制改段が多すぎる：分けずに1段目にすべて入れる
+    free(parts)
+    parts = { list }
+    for i = 2, N do parts[i] = false end
+    list = nil
+  else
+    free(parts)
+    local step = 65536 / 10  -- 0.1pt
+    while hi - lo > step do
+      local m = math.floor((lo + hi) / 2)
+      local ps, o = split(m)
+      free(ps)
+      if o then hi = m else lo = m end
+    end
+    parts = split(hi)
+  end
+
+  -- 各段の先頭：\splittopskipのグルーを除き，1行目のベースラインを段の上端からTの
+  -- 位置にそろえる．各段の最終行のベースラインの位置natと，その最大値Hを求める
+  local topskip = p.topskip
+  local T, F, nat, H, lastfull
+  local function prepare(parts)
+    T, F = topskip, 0  -- F：1行目の高さの最大値
+    local first = {}
+    for i = 1, N do
+      local l = parts[i]
+      if l then
+        local n = l
+        while n and n.id ~= HLIST and n.id ~= VLIST and n.id ~= RULE do
+          local nx = n.next
+          if n.id == GLUE and (n.subtype == SPLITTOPSKIP or n.subtype == TOPSKIP) then
+            l = node.remove(l, n)
+            node.free(n)
+          end
+          n = nx
+        end
+        parts[i] = l
+        first[i] = n
+        if n and n.height > T then T = n.height end
+        if n and n.height > F then F = n.height end
+      end
+    end
+    for i = 1, N do
+      if first[i] then
+        local g = mkglue(T - first[i].height)
+        parts[i] = node.insert_before(parts[i], first[i], g)
+      end
+    end
+    H, nat = 0, {}
+    for i = 1, N do
+      nat[i] = parts[i] and natural(parts[i]) or 0
+      if nat[i] > H then H = nat[i] end
+    end
+    -- 中身のある最後の段
+    lastfull = N
+    while lastfull > 1 and not parts[lastfull] do lastfull = lastfull - 1 end
+  end
+  -- 最右段より前の段が，伸ばせるグルーもなく最終行の位置に届かないか
+  local function misaligned(parts)
+    for i = 1, lastfull - 1 do
+      if parts[i] and nat[i] < H - 655 then
+        local stretch = false
+        for g in node.traverse_id(GLUE, parts[i]) do
+          if g.stretch > 0 then stretch = true break end
+        end
+        if not stretch then return true end
+      end
+    end
+    return false
+  end
+  prepare(parts)
+  -- 届かない段があれば（行の途中の分割を避けて1行早く分けたときなど），段の高さを
+  -- 上げて，そろう分け方を探す
+  if list and misaligned(parts) then
+    local step = 65536
+    for hh = hi + step, total, step do
+      local ps, o = split(hh)
+      if o then
+        local saveT, saveF, savenat, saveH, savelast = T, F, nat, H, lastfull
+        prepare(ps)
+        if not misaligned(ps) then
+          free(parts)
+          parts = ps
+          break
+        end
+        T, F, nat, H, lastfull = saveT, saveF, savenat, saveH, savelast
+      end
+      free(ps)
+    end
+  end
+  if list then flush_list(list) end
+  list = nil
+
+  local row = newlist()
+  local cw, sep, rule = p.cw, p.sep, p.rule
+  local maxdp = 0
+  for i = 1, N do
+    if i > 1 then
+      local k1 = node.new(KERN); k1.kern = math.floor((sep - rule) / 2)
+      append(row, k1)
+      if rule > 0 then
+        local r = node.new(RULE)
+        r.width, r.height, r.depth = rule, H, 0
+        append(row, r)
+      end
+      local k2 = node.new(KERN); k2.kern = sep - rule - k1.kern
+      append(row, k2)
+    end
+    local l = parts[i]
+    local col
+    if not l then
+      col = vpack(mkglue(0), H, 'exactly')
+    else
+      -- 下端をそろえる段はグルーを伸ばす．最右段などの短い段は下を空ける
+      local ragged = (i >= lastfull) and (H - nat[i] > p.blskip / 2)
+      if ragged then
+        local t = node.tail(l)
+        node.insert_after(l, t, vssglue())
+      end
+      col = vpack(l, H, 'exactly')
+      -- 下端がそろったか（伸ばせるグルーがなくて届かない段）
+      local short = not ragged and H - nat[i] > 655 and col.glue_sign ~= 1
+      info('  box column %d: %s%s', i, pt(nat[i]),
+        ragged and ' (ragged)' or short and ' (no stretch)' or '')
+    end
+    col.width = cw
+    if col.depth > maxdp then maxdp = col.depth end
+    append(row, col)
+  end
+  local out = node.hpack(row.head)
+  out.height, out.depth = H, maxdp
+  tex.setbox('global', p.out, out)
+  tex.setdimen('global', 'evenend@boxtop', T)
+  tex.setdimen('global', 'evenend@boxfirst', F)
+  info('box balanced at %s (%d columns, first baseline %s)', pt(H), N, pt(T))
 end
 
 return M

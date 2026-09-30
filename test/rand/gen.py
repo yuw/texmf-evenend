@@ -147,7 +147,19 @@ for b in range(nblocks):
             # tcolorbox（中身は小さい字．目印は付けない）
             kind = R.choice(['plain', 'breakable', 'float'])
             opt = {'plain': 'title=box', 'breakable': 'breakable,title=box', 'float': 'float=t,title=box'}[kind]
-            out.append(r'\begin{tcolorbox}[%s]%s\end{tcolorbox}' % (opt, sentences(R.choice([1, 3, 8, 20]))))
+            body = sentences(R.choice([1, 3, 8, 20]))
+            # 番号300000以上：箱の中の段組（別の乱数列で選ぶ）
+            if seed >= 300000 and R2.random() < 0.4:
+                k = R2.choice([2, 2, 3])
+                inner = r'\par '.join(sentences(R2.choice([1, 2, 4])) for _ in range(R2.choice([1, 2, 4, 6])))
+                if R2.random() < 0.2:
+                    inner += r'\columnbreak ' + sentences(2)
+                body = (sentences(1) if R2.random() < 0.5 else '') + \
+                       r'\begin{multicols}{%d}%s\end{multicols}' % (k, inner) + \
+                       (sentences(1) if R2.random() < 0.5 else '')
+                meta.setdefault('boxcols', 0)
+                meta['boxcols'] += 1
+            out.append(r'\begin{tcolorbox}[%s]%s\end{tcolorbox}' % (opt, body))
         if extra2 and N > 1 and R.random() < 0.1:
             out.append(r'\columnbreak')
         for e in [e for e in events if e[0] == 'dbl' and e[1] == p]:

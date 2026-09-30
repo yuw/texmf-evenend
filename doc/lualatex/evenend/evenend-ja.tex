@@ -13,7 +13,7 @@
 \title{\pkg{evenend}パッケージ\\[.5\baselineskip]
   \large 多段組の最終ページで各段の下端を揃える}
 \author{Yuwsuke Kieda}
-\date{v20260930.2}
+\date{v20260930.3}
 
 \begin{document}
 \maketitle
@@ -393,7 +393,13 @@ LaTeXが組んだ段がはみ出す（Overfull）警告は，そのページを�
 \section{multicol互換の環境}\label{sec:multicol}
 
 \pkg{multicol}を読み込んでいなければ，同じ書き方の\texttt{multicols}環境，
-\texttt{multicols*}環境，\cs{columnbreak}を用意する．
+\texttt{multicols*}環境，\cs{columnbreak}を用意する．\pkg{multicol}を読み込んでいても
+使える\texttt{evenendmulticols}環境も用意する（段間などを指定できる）．
+\begin{verbatim}
+\begin{evenendmulticols}[columnsep=1\zw, columnseprule=0pt]{3}[前置き]
+...
+\end{evenendmulticols}
+\end{verbatim}
 \begin{verbatim}
 \begin{multicols}{3}[\section{3段の節}]
 ...
@@ -409,12 +415,50 @@ LaTeXが組んだ段がはみ出す（Overfull）警告は，そのページを�
     ページやブロックの中でも守る（改めた段は下を空ける）．
   \item 入れ子やリストの中での使用はできない．前置きの前のアキ（第3引数）は使わない．
 \end{itemize}
-段組のモードで使うので，1段組の文書では，クラスオプション\opt{twocolumn}と\opt{columns=1}
-で読み込む（読み込み時の段数が1になり，全体を1段で組む）．
+ページの本文で使うときは段組のモードで使うので，1段組の文書では，クラスオプション
+\opt{twocolumn}と\opt{columns=1}で読み込む（読み込み時の段数が1になり，全体を1段で組む）．
 \begin{verbatim}
 \documentclass[twocolumn]{jlreq}
 \usepackage[columns=1]{evenend}
 \end{verbatim}
+
+\subsection{箱の中の段組}\label{sec:boxcols}
+
+\pkg{tcolorbox}の箱，\texttt{minipage}，\cs{parbox}，フロートの中など（内部垂直モード）
+では，\texttt{multicols}環境と\texttt{evenendmulticols}環境は，出力ルーチンを使わずに
+その場で段組を組み，1つの箱にする（段組のモードでない文書でも使える．
+図\ref{fig:box}）．
+\begin{figure}[tb]
+  \centering
+  \fbox{\includegraphics[page=1,width=.5\linewidth]{evenend-sample-box.pdf}}
+  \caption{\pkg{tcolorbox}の中の段組（\texttt{evenend-sample-box.tex}）}
+  \label{fig:box}
+\end{figure}
+\begin{verbatim}
+\begin{tcolorbox}[title=2段の箱]
+前の段落．
+\begin{multicols}{2}
+...
+\end{multicols}
+後の段落．
+\end{tcolorbox}
+\end{verbatim}
+\begin{itemize}
+  \item 中身を段幅（箱の中の行長から段数と段間で決める）で組み，入り切る最小の高さで
+    各段に分ける．各段の1行目のベースラインをそろえ，最終行のベースラインで下端を
+    そろえる（段の中のグルーを伸ばす）．最右段と\cs{columnbreak}で終わる段は下を空ける．
+    伸ばせるグルーがなくてそろわない分け方になったときは，高さを上げてそろう分け方を
+    探す（行間が不ぞろいな中身では，わずかにそろわないことがある）．
+  \item 前後の段落とのベースライン間は\cs{baselineskip}になる．箱の先頭に置いたときは，
+    1行目の上端を箱の上端に合わせる（通常の1行目と同じ）．
+  \item 段間と段間罫は，環境の始まりのときの\cs{columnsep}，\cs{columnseprule}か，
+    \texttt{evenendmulticols}のキー\opt{columnsep}，\opt{columnseprule}の値．
+  \item 箱の中の脚注は，その箱の脚注として箱の下に置く（\texttt{minipage}と同じ）．
+  \item 段組は1つの箱になるので，分割できる\pkg{tcolorbox}（\texttt{breakable}）でも，
+    段組の途中ではページを分けない（前後の段落の間では分けられる）．
+  \item 入れ子（箱の中の段組の中の段組）はできない．\cs{evenendcolumns}は箱の中では
+    使えない．
+\end{itemize}
 
 \section{柱}
 
@@ -435,7 +479,8 @@ LaTeXが組んだ段がはみ出す（Overfull）警告は，そのページを�
   \item \pkg{tcolorbox}：併用できる．本文中の箱（1.5行を超える高さのもの）は，本文中の
     フロートと同じく分けられない塊として扱い，\opt{floatgrid}では後の行を行送りの
     位置に合わせる．分割できる箱（\texttt{breakable}）は，tcolorboxが分けた位置で
-    段を改めたまま揃える．フロートにした箱も使える．
+    段を改めたまま揃える．フロートにした箱も使える．箱の中で段組を組むには，
+    \texttt{multicols}環境か\texttt{evenendmulticols}環境を使う（\ref{sec:boxcols}節）．
   \item \pkg{multicol}：読み込めば，\texttt{multicols}環境と\cs{columnbreak}は\pkg{multicol}の
     ものになる（evenendの段組とは別のもの）．
   \item \pkg{flushend}，\pkg{balance}など\cs{@outputdblcol}を置き換えるパッケージ：
@@ -468,7 +513,8 @@ LaTeXが組んだ段がはみ出す（Overfull）警告は，そのページを�
   \item[\texttt{tex/lualatex/evenend/}] \texttt{evenend.sty}，\texttt{evenend.lua}
   \item[\texttt{doc/lualatex/evenend/}] このマニュアル（\texttt{evenend-ja.tex}）と
     見本（\texttt{evenend-sample.tex}，\texttt{evenend-sample-column.tex}，
-    \texttt{evenend-sample-switch.tex}，\texttt{evenend-sample-colsep.tex}）
+    \texttt{evenend-sample-switch.tex}，\texttt{evenend-sample-colsep.tex}，
+    \texttt{evenend-sample-box.tex}）
   \item[\texttt{LICENSE}] ライセンス（MIT）
   \item[\texttt{test/}] テスト文書と補助スクリプト（\texttt{run.sh}，
     \texttt{colbottoms.py}，\texttt{fuzz.sh}，\texttt{fuzzswitch.sh}，
@@ -477,7 +523,8 @@ LaTeXが組んだ段がはみ出す（Overfull）警告は，そのページを�
     \texttt{t11}〜\texttt{t13}はフロートと段数の切り換えの組み合わせ，\texttt{t14}は
     段組ごとの段間と段間罫．\texttt{test/rand/}は
     乱数で作った文書による網羅テスト（\ref{sec:randtest}節）．\texttt{test/tcb/}は
-    \pkg{tcolorbox}との組み合わせ，\texttt{test/mc/}はmulticols互換の環境と柱，
+    \pkg{tcolorbox}との組み合わせ，\texttt{test/box/}は箱の中の段組，
+    \texttt{test/mc/}はmulticols互換の環境と柱，
     \texttt{test/gy/}は\pkg{gyoudori}の\opt{float}オプションとの組み合わせの一括テスト
     （\texttt{sweep.sh}．\pkg{gyoudori}の置き場所は環境変数\texttt{GYOUDORI}で指定する）
 \end{description}
@@ -488,6 +535,7 @@ lualatex evenend-sample.tex
 lualatex evenend-sample-column.tex
 lualatex evenend-sample-switch.tex
 lualatex evenend-sample-colsep.tex
+lualatex evenend-sample-box.tex
 lualatex evenend-ja.tex
 lualatex evenend-ja.tex
 \end{verbatim}
@@ -502,7 +550,7 @@ lualatex evenend-ja.tex
 ページをまたぐ長い脚注を加える．番号200000以上では，さらに\pkg{tcolorbox}の箱（分割しない
 箱，分割できる箱，フロートにした箱），\cs{columnbreak}，\cs{evenendcolumns*}を加える．
 番号300000以上では，さらに\opt{headingskip=block}にし，切り換えの一部で段組ごとの段間と
-段間罫を指定する．
+段間罫を指定し，\pkg{tcolorbox}の箱の一部で中身を段組にする．
 
 \texttt{check.py}は，組んだ文書について次を調べる．
 \begin{itemize}
