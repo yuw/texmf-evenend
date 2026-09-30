@@ -64,6 +64,8 @@ export TEXMFHOME=/path/to/texmf-evenend
 - `\evenendclearpage`：いまのページを揃えてから改ページする（章末などに）
 - `\evenendsetup{キー=値}`：オプションの変更
 - `\evenendcolumns{段数}`：その位置から段数を変える（1も可）
+- `\evenendcolumns[columnsep=寸法,columnseprule=寸法]{段数}`：その段組だけの段間と段間罫を
+  指定して段数を変える
 - `\evenendcolumns*{段数}`：段数を変えるが，その前のブロックは揃えない
 - `\columnbreak`：そこで段を改める（揃えるページやブロックの中でも守る）
 
@@ -120,6 +122,10 @@ multicolを読み込んでいなければ，`multicols`環境（終わりで揃�
 - 切り換えの直後に文書が終わっても，積んだブロックを出力する．
 - 段組のモード（`twocolumn`）で使う．1段のブロックも`\evenendcolumns{1}`で作る．
   `\twocolumn`は読み込み時の段数で段組を始め直す．
+- 段間（`\columnsep`）と段間罫の太さ（`\columnseprule`）は段組ごとに決まる．段組を始める
+  ときの値をその段組で使い（ページをまたいでも同じ），途中で変えても次の段組から効く．
+  `\evenendcolumns`の省略可能な引数`columnsep`，`columnseprule`はその段組だけの値．
+  `multicols`環境は始まりのときの値を使い，終わりで環境の前の段組の値に戻す．
 
 ### フロートの前後の行の位置（`floatgrid`）
 
@@ -186,7 +192,8 @@ evenendが組む段では，行ドリしないフロートがあっても本文�
 ## マニュアル
 
 `doc/lualatex/evenend/`にマニュアル（`evenend-ja.tex`）と見本（`evenend-sample.tex`，
-`evenend-sample-column.tex`，`evenend-sample-switch.tex`）がある．マニュアルは見本の最終ページを貼り込むので，
+`evenend-sample-column.tex`，`evenend-sample-switch.tex`，`evenend-sample-colsep.tex`）がある．
+マニュアルは見本のページを貼り込むので，
 見本を先に組む．
 
 ```bash
@@ -194,6 +201,7 @@ cd doc/lualatex/evenend
 lualatex evenend-sample.tex
 lualatex evenend-sample-column.tex
 lualatex evenend-sample-switch.tex
+lualatex evenend-sample-colsep.tex
 lualatex evenend-ja.tex
 lualatex evenend-ja.tex
 ```

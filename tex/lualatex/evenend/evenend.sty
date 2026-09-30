@@ -1,5 +1,5 @@
 \NeedsTeXFormat{LaTeX2e}[2023-06-01]
-\ProvidesPackage{evenend}[2026/09/30 v20260930.0 Balance the last page of multi-column text (LuaLaTeX) by Yuwsuke Kieda]
+\ProvidesPackage{evenend}[2026/09/30 v20260930.2 Balance the last page of multi-column text (LuaLaTeX) by Yuwsuke Kieda]
 
 \ifdefined\directlua\else
   \PackageError{evenend}{LuaLaTeX is required}{}
@@ -20,6 +20,10 @@
 \newdimen\evenend@baseline % 揃えた段組の最終行のベースライン
 \newdimen\evenend@pagecolht % このページの段組が始まるときの段の高さ（行の位置の基準）
 \newdimen\evenend@dblbotadj % 版面下端に予約された段抜きフロートの分（\@colhtに戻す）
+\newdimen\evenend@colsep   % いまの段組の段間
+\newdimen\evenend@colrule  % いまの段組の段間罫の太さ
+\newdimen\evenend@nextsep  % 次の段組の段間
+\newdimen\evenend@nextrule % 次の段組の段間罫の太さ
 \newdimen\evenend@headshift % headingskip=block：段組の上に足すアキ（見出しの上アキの分）
 \newbox\evenend@pagetop    % このページで確定した段組（ブロック）の並び
 \newbox\evenend@scratch
@@ -148,9 +152,17 @@
 
 %% ---------------------------------------------------------------------
 %% N段組
+%% 段組ごとの段間と段間罫：段組を始めるときに決め，その段組の間は変えない
+%% （\evenendcolumnsの省略可能な引数で指定しなければ，そのときの\columnsepと
+%% \columnseprule）
+\def\evenend@takesep{%
+  \global\evenend@colsep\columnsep
+  \global\evenend@colrule\columnseprule
+  \global\evenend@nextsep\columnsep
+  \global\evenend@nextrule\columnseprule}
 \def\evenend@setwidth{%
   \global\columnwidth\textwidth
-  \global\advance\columnwidth -\numexpr\evenend@N-\@ne\relax\columnsep
+  \global\advance\columnwidth -\numexpr\evenend@N-\@ne\relax\evenend@colsep
   \global\divide\columnwidth\evenend@N
   \global\hsize\columnwidth
   \global\linewidth\columnwidth}
@@ -159,6 +171,7 @@
 \def\twocolumn{%
   \clearpage
   \global\evenend@N\evenend@initN
+  \evenend@takesep
   \evenend@setwidth
   \global\@twocolumntrue
   \global\@firstcolumntrue
@@ -166,6 +179,7 @@
   \global\col@number\evenend@N
   \@ifnextchar[\@topnewpage\@floatplacement}
 \AtBeginDocument{%
+  \evenend@takesep
   \if@twocolumn
     \evenend@setwidth
     \global\col@number\evenend@N
@@ -177,9 +191,18 @@
 %% \evenendcolumns*はブロックを揃えずに（LaTeXの組み方のまま）確定する
 \newif\ifevenend@nobalance
 \newif\ifevenend@dobalance
-\newcommand\evenendcolumns{%
-  \@ifstar{\global\evenend@nobalancetrue\evenend@columns}%
-          {\global\evenend@nobalancefalse\evenend@columns}}
+%% \evenendcolumns[段間などの指定]{段数}．*付きでは，ここまでの段組を揃えない
+\NewDocumentCommand\evenendcolumns{s O{} m}{%
+  \IfBooleanTF{#1}{\global\evenend@nobalancetrue}{\global\evenend@nobalancefalse}%
+  \global\evenend@nextsep\columnsep
+  \global\evenend@nextrule\columnseprule
+  \SetKeys[evenend/block]{#2}%
+  \evenend@columns{#3}}
+%% 次の段組だけの段間と段間罫
+\DeclareKeys[evenend/block]{
+  columnsep.code     = {\global\evenend@nextsep=\dimexpr#1\relax},
+  columnseprule.code = {\global\evenend@nextrule=\dimexpr#1\relax},
+}
 \def\evenend@columns#1{%
   \par
   \if@twocolumn
@@ -224,6 +247,8 @@
 
 \def\evenend@switchnow{%
   \global\evenend@N\evenend@nextN
+  \global\evenend@colsep\evenend@nextsep
+  \global\evenend@colrule\evenend@nextrule
   \evenend@setwidth
   \global\col@number\evenend@N}
 
@@ -453,7 +478,7 @@
 \def\evenend@sep#1#2{%
   \hfil
   \vbox to#2{%
-    \hbox{\normalcolor\vrule \@width\columnseprule \@height#1\@depth\z@}%
+    \hbox{\normalcolor\vrule \@width\evenend@colrule \@height#1\@depth\z@}%
     \vss}%
   \hfil}
 
@@ -611,9 +636,9 @@
   \@ifpackageloaded{multicol}{}{%
     %% \begin{multicols}{段数}[前置き][前置きの前のアキ（使わない）]
     \NewDocumentEnvironment{multicols}{m o o}
-      {\evenend@mc@begin{#1}{#2}}{\evenend@mc@end\evenendcolumns}%
+      {\evenend@mc@begin{#1}{#2}}{\evenend@mc@end{}}%
     \NewDocumentEnvironment{multicols*}{m o o}
-      {\evenend@mc@begin{#1}{#2}}{\evenend@mc@end{\evenendcolumns*}}%
+      {\evenend@mc@begin{#1}{#2}}{\evenend@mc@end{*}}%
     \providecommand\columnbreak{\par\vfil\penalty-\@M}%
     %% tcolorboxなどは\columnbreakがあるとmulticolがあるとみなし，multicolの
     %% \doublecol@numberを見るので，0（multicolの段組の中ではない）で用意する
@@ -624,12 +649,15 @@
     \PackageError{evenend}{Nested multicols is not supported}{}%
   \fi
   \global\evenend@inmctrue
-  \xdef\evenend@mc@saved{\the\evenend@N}%
+  %% 環境の後は，環境の前の段組の段数・段間・段間罫に戻す
+  \xdef\evenend@mc@saved{[columnsep=\the\evenend@colsep,
+    columnseprule=\the\evenend@colrule]{\the\evenend@N}}%
   \IfValueT{#2}{\evenendcolumns{1}#2\par}%
   \evenendcolumns{#1}}
 \def\evenend@mc@end#1{%
   \par
-  #1{\evenend@mc@saved}%
+  \edef\evenend@tmp{\noexpand\evenendcolumns#1\evenend@mc@saved}%
+  \evenend@tmp
   \global\evenend@inmcfalse}
 
 \endinput

@@ -13,6 +13,7 @@ import json, random, sys
 
 seed, base = int(sys.argv[1]), sys.argv[2]
 R = random.Random(seed)
+R2 = random.Random(seed * 7 + 3)  # 追加の要素用（Rの列を変えない）
 
 cls = R.choice(['jlreq', 'jlreq', 'ltjsarticle', 'article'])
 ja = cls != 'article'
@@ -93,7 +94,13 @@ for b in range(nblocks):
     blk['break'] = brk
     if switch:
         star = '*' if (extra2 and b > 0 and R.random() < 0.2) else ''
-        out.append(r'\evenendcolumns%s{%d}' % (star, N))
+        # 番号300000以上：段組ごとの段間と段間罫（別の乱数列で選び，文書の他の部分は変えない）
+        sepopt = ''
+        if seed >= 300000 and R2.random() < 0.4:
+            sp, rl = R2.choice([0, 4, 9, 15, 30]), R2.choice([0, 0.4, 1.5])
+            sepopt = '[columnsep=%gpt,columnseprule=%gpt]' % (sp, rl)
+            blk['sep'] = sp * 72 / 72.27  # bp
+        out.append(r'\evenendcolumns%s%s{%d}' % (star, sepopt, N))
     blk['N'] = N
     if R.random() < 0.6:
         out.append(r'\section{Block %d}' % (b + 1))

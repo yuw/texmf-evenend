@@ -1,0 +1,22 @@
+%% evenend-sample-colsep.tex：evenendの見本（段組ごとの段間と段間罫）
+%% マニュアル（evenend-ja.tex）が貼り込む
+\documentclass[twocolumn,paper=b5,fontsize=9pt]{jlreq}
+\usepackage{evenend}
+\setlength\columnseprule{0.4pt}
+\newcommand\para{吾輩は猫である．名前はまだ無い．どこで生れたかとんと見当がつかぬ．何でも薄暗いじめじめした所でニャーニャー泣いていた事だけは記憶している．\par}
+\begin{document}
+\section{既定（段間2字，罫0.4pt）}
+\para\para
+\evenendcolumns[columnsep=1\zw,columnseprule=0pt]{3}
+\section{段間1字，罫なし}
+\para\para\para
+\evenendcolumns[columnsep=4\zw,columnseprule=1.5pt]{2}
+\section{段間4字，罫1.5pt}
+\para\para
+\evenendcolumns[columnsep=3\zw]{3}
+\section{段間3字}
+\para\para
+\evenendcolumns{2}
+\section{既定に戻る}
+\para
+\end{document}

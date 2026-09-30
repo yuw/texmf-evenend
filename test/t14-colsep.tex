@@ -1,0 +1,31 @@
+%% 段組ごとの段間と段間罫（\evenendcolumns[columnsep=...,columnseprule=...]{段数}）
+\documentclass[twocolumn,paper=b5,fontsize=9pt]{jlreq}
+\usepackage[debug]{evenend}
+\setlength\columnseprule{0.4pt}
+\newcommand\para{吾輩は猫である．名前はまだ無い．どこで生れたかとんと見当がつかぬ．何でも薄暗いじめじめした所でニャーニャー泣いていた事だけは記憶している．\par}
+\makeatletter
+\newcommand\showsep{\typeout{BLOCK N=\the\evenend@N\space sep=\the\evenend@colsep\space rule=\the\evenend@colrule\space width=\the\columnwidth}}
+\makeatother
+\begin{document}
+\section{既定}\showsep
+\para\para
+\evenendcolumns[columnsep=1\zw,columnseprule=0pt]{3}
+\section{段間1字，罫なし}\showsep
+\para\para\para
+\evenendcolumns[columnsep=4\zw,columnseprule=2pt]{2}
+\section{段間4字，太い罫}\showsep
+\para\para
+\evenendcolumns{2}
+\section{既定に戻る}\showsep
+\para\para
+\setlength\columnsep{3\zw}
+\begin{multicols}{3}
+\showsep
+\para\para\para
+\end{multicols}
+\showsep
+\setlength\columnsep{2\zw}
+\evenendcolumns[columnseprule=1pt]{2}
+\section{ページをまたぐ}\showsep
+\para\para\para\para\para\para\para\para\para\para\para\para\para\para\para\para\para\para\para\para
+\end{document}

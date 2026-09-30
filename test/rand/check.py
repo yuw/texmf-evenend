@@ -95,9 +95,17 @@ for j, b in enumerate(meta['blocks']):
         if len(occ[k]) != 1:
             prob.append(f'count:{k[0]}{k[1]}{k[2]}={len(occ[k])}')
 
-def cw(N): return (width - (N - 1) * sep) / N
-def col(x, N):
-    c = int((x - left + sep / 2) // (cw(N) + sep))
+# 段組ごとの段間（\evenendcolumns[columnsep=...]で変えたブロックはjsonにbp単位である）
+def bsep(j):
+    v = meta['blocks'][j].get('sep')
+    return sep if v is None else v
+def cw(N, s=None):
+    s = sep if s is None else s
+    return (width - (N - 1) * s) / N
+def col(x, N, s=None):
+    s = sep if s is None else s
+    # 段間が0のとき，段の先頭の語が境界ちょうどにあるので，少し余裕を持たせる
+    c = int((x - left + s / 2 + 0.5) // (cw(N, s) + s))
     return max(0, min(N - 1, c))
 def blockwords(pno, j):
     """ページpnoにあるブロックjの本文の目印"""
@@ -129,15 +137,15 @@ for j, b in enumerate(meta['blocks']):
         (pn, t), = occ[('N', f, '')]
         if pr != pn:
             cover.add('fn-next-page'); continue
-        c = col(t[0], N)
+        c = col(t[0], N, bsep(j))
         # evenendが揃えたページだけ（LaTeXが組んだページでは，入り切らない脚注を
         # TeXが次の段へ送ることがある）
-        if col(r[0], N) != c and block_balanced(pn, j):
+        if col(r[0], N, bsep(j)) != c and block_balanced(pn, j):
             prob.append(f'fn{f}-column')
         W = pages[pn - 1]
         # 同じブロックの本文・図が脚注より下にない（同じ段）
         for w in blockwords(pn, j):
-            if col(w[0], N) == c and w[1] > t[3] + 0.5:
+            if col(w[0], N, bsep(j)) == c and w[1] > t[3] + 0.5:
                 prob.append(f'fn{f}-text-below'); break
         # 後のブロックの本文が脚注より上にない
         for jj in range(j + 1, len(meta['blocks'])):
@@ -147,8 +155,8 @@ for j, b in enumerate(meta['blocks']):
         # LaTeXが通常どおり組んだページの脚注はLaTeXの担当）
         balanced_pages = set(int(x) for x in re.findall(r'Page (\d+): columns balanced at [\d.]+pt on', flat))
         if meta['footnote'] == 'page' and j == last and pn in balanced_pages:
-            fl = [w for w in W if w[1] >= t[1] - 0.5 and col(w[0], N) == c
-                  and abs(w[0] - t[0]) < cw(N) and w[3] < bottom + 5]
+            fl = [w for w in W if w[1] >= t[1] - 0.5 and col(w[0], N, bsep(j)) == c
+                  and abs(w[0] - t[0]) < cw(N, bsep(j)) and w[3] < bottom + 5]
             fb = max([w[3] for w in fl] or [t[3]])
             if abs(fb - bottom) > 4:
                 if fb > bottom and limits & {'latex-column-overfull'}:
@@ -158,7 +166,7 @@ for j, b in enumerate(meta['blocks']):
         # 同じ段に同じブロックの図があるか（網羅の印）
         for g in b['floats']:
             L = occ[('F', g['id'], 'L')]
-            if L and L[0][0] == pn and col(L[0][1][0], N) == c:
+            if L and L[0][0] == pn and col(L[0][1][0], N, bsep(j)) == c:
                 cover.add('float+fn-same-column')
 
 # ---- 図：幅と，ブロックの範囲に収まっているか
@@ -169,7 +177,7 @@ for j, b in enumerate(meta['blocks']):
             if len(L) != 1 or len(Rr) != 1: continue
             (pl, wl), (_, wr) = L[0], Rr[0]
             span = wr[2] - wl[0]
-            if kind == 'F' and span > cw(b['N']) + 1:
+            if kind == 'F' and span > cw(b['N'], bsep(j)) + 1:
                 prob.append(f'{kind}{g}-too-wide')
             for jj in range(len(meta['blocks'])):
                 if jj == j: continue

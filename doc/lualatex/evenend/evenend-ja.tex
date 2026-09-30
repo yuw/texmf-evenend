@@ -13,7 +13,7 @@
 \title{\pkg{evenend}パッケージ\\[.5\baselineskip]
   \large 多段組の最終ページで各段の下端を揃える}
 \author{Yuwsuke Kieda}
-\date{v20260930.0}
+\date{v20260930.2}
 
 \begin{document}
 \maketitle
@@ -127,8 +127,9 @@ export TEXMFHOME=/path/to/texmf-evenend
 \begin{description}
   \item[\cs{evenend}，\cs{raggedend}] 文書末のページを揃えるかどうかを切り替える．
   \item[\cs{evenendclearpage}] いまのページを揃えてから改ページする．章末などに使う．
-  \item[\cs{evenendcolumns}\texttt{\{}\textit{段数}\texttt{\}}] その位置から段数を変える
-    （\ref{sec:switch}節）．段数には1も指定できる．
+  \item[\cs{evenendcolumns}\texttt{[}\textit{キー}\texttt{=}\textit{値}\texttt{]\{}\textit{段数}\texttt{\}}]
+    その位置から段数を変える（\ref{sec:switch}節）．段数には1も指定できる．省略可能な
+    引数で，その段組だけの段間と段間罫を指定できる（\ref{sec:colsep}節）．
   \item[\cs{evenendcolumns*}\texttt{\{}\textit{段数}\texttt{\}}] 段数を変えるが，その前の
     ブロックは揃えない（LaTeXの組み方のまま，段を上から詰める）．
   \item[\cs{columnbreak}] そこで段を改める（\ref{sec:multicol}節）．
@@ -199,6 +200,39 @@ export TEXMFHOME=/path/to/texmf-evenend
 \cs{evenendcolumns}は段組のモード（クラスオプション\opt{twocolumn}または\cs{twocolumn}）で
 使う．1段のブロックも，段組のモードのまま\cs{evenendcolumns}\texttt{\{1\}}で作る．
 \cs{twocolumn}は，読み込み時の段数（\opt{columns}）で段組を始め直す．
+
+\subsection{段組ごとの段間と段間罫}\label{sec:colsep}
+
+\begin{figure}[tb]
+  \centering
+  \fbox{\includegraphics[page=1,width=.5\linewidth]{evenend-sample-colsep.pdf}}
+  \caption{段組ごとに段間と段間罫を変えたページ（\texttt{evenend-sample-colsep.tex}）}
+  \label{fig:colsep}
+\end{figure}
+
+段間（\cs{columnsep}）と段間罫の太さ（\cs{columnseprule}）は，段組ごとに決まる．
+図\ref{fig:colsep}は，上から次のように指定した．
+\begin{enumerate}
+  \item 指定なし（既定の段間2字，罫0.4pt）
+  \item \verb|\evenendcolumns[columnsep=1\zw,columnseprule=0pt]{3}|
+  \item \verb|\evenendcolumns[columnsep=4\zw,columnseprule=1.5pt]{2}|
+  \item \verb|\evenendcolumns[columnsep=3\zw]{3}|（罫は既定のまま）
+  \item \verb|\evenendcolumns{2}|（既定に戻る）
+\end{enumerate}
+
+段組を始めるときの値をその段組で使い，段組の途中で\cs{columnsep}などを変えても，
+次の段組から効く．ページをまたぐ段組も，同じ段間と段間罫で続く．
+\begin{verbatim}
+\evenendcolumns[columnsep=1\zw, columnseprule=0pt]{3}
+\end{verbatim}
+\begin{itemize}
+  \item \cs{evenendcolumns}の省略可能な引数の\opt{columnsep}，\opt{columnseprule}は，
+    その段組だけの値．指定しなければ，そのときの\cs{columnsep}，\cs{columnseprule}を使う
+    （\cs{setlength}で変えておけば，以後の段組はその値になる）．
+  \item 段幅は，段数と段間から$(\cs{textwidth}-(N-1)\times\textrm{段間})/N$にする．
+  \item \texttt{multicols}環境は，始まりのときの\cs{columnsep}，\cs{columnseprule}を
+    使い，終わりで環境の前の段組の段数・段間・段間罫に戻す．
+\end{itemize}
 
 \begin{figure}[tb]
   \centering
@@ -434,13 +468,14 @@ LaTeXが組んだ段がはみ出す（Overfull）警告は，そのページを�
   \item[\texttt{tex/lualatex/evenend/}] \texttt{evenend.sty}，\texttt{evenend.lua}
   \item[\texttt{doc/lualatex/evenend/}] このマニュアル（\texttt{evenend-ja.tex}）と
     見本（\texttt{evenend-sample.tex}，\texttt{evenend-sample-column.tex}，
-    \texttt{evenend-sample-switch.tex}）
+    \texttt{evenend-sample-switch.tex}，\texttt{evenend-sample-colsep.tex}）
   \item[\texttt{LICENSE}] ライセンス（MIT）
   \item[\texttt{test/}] テスト文書と補助スクリプト（\texttt{run.sh}，
     \texttt{colbottoms.py}，\texttt{fuzz.sh}，\texttt{fuzzswitch.sh}，
     \texttt{blockcheck.py}，\texttt{gridcheck.py}，\texttt{fnfloat.sh}，
     \texttt{fnfloatcheck.py}，\texttt{pagefncheck.py}，\texttt{gridoffset.py}）．
-    \texttt{t11}〜\texttt{t13}はフロートと段数の切り換えの組み合わせ．\texttt{test/rand/}は
+    \texttt{t11}〜\texttt{t13}はフロートと段数の切り換えの組み合わせ，\texttt{t14}は
+    段組ごとの段間と段間罫．\texttt{test/rand/}は
     乱数で作った文書による網羅テスト（\ref{sec:randtest}節）．\texttt{test/tcb/}は
     \pkg{tcolorbox}との組み合わせ，\texttt{test/mc/}はmulticols互換の環境と柱，
     \texttt{test/gy/}は\pkg{gyoudori}の\opt{float}オプションとの組み合わせの一括テスト
@@ -452,6 +487,7 @@ LaTeXが組んだ段がはみ出す（Overfull）警告は，そのページを�
 lualatex evenend-sample.tex
 lualatex evenend-sample-column.tex
 lualatex evenend-sample-switch.tex
+lualatex evenend-sample-colsep.tex
 lualatex evenend-ja.tex
 lualatex evenend-ja.tex
 \end{verbatim}
@@ -465,7 +501,8 @@ lualatex evenend-ja.tex
 \cs{onecolumn}\cs{twocolumn}，\cs{twocolumn}\texttt{[\ldots]}，\pkg{hyperref}，
 ページをまたぐ長い脚注を加える．番号200000以上では，さらに\pkg{tcolorbox}の箱（分割しない
 箱，分割できる箱，フロートにした箱），\cs{columnbreak}，\cs{evenendcolumns*}を加える．
-番号300000以上では，さらに\opt{headingskip=block}にする．
+番号300000以上では，さらに\opt{headingskip=block}にし，切り換えの一部で段組ごとの段間と
+段間罫を指定する．
 
 \texttt{check.py}は，組んだ文書について次を調べる．
 \begin{itemize}
