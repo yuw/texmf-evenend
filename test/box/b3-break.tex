@@ -1,0 +1,19 @@
+%% 分割できるtcolorboxの中の段組（段組の箱は分割しない），1段組の文書での箱の中の段組
+\documentclass{jlreq}
+\usepackage[columns=1]{evenend}
+\usepackage[most]{tcolorbox}
+\setlength\columnseprule{0.4pt}
+\newcommand\para{吾輩は猫である．名前はまだ無い．どこで生れたかとんと見当がつかぬ．何でも薄暗いじめじめした所でニャーニャー泣いていた事だけは記憶している．\par}
+\begin{document}
+\para\para\para\para\para\para\para\para\para\para\para\para\para\para\para\para\para
+\begin{tcolorbox}[breakable,title=分割できる箱]
+\para\para
+\begin{multicols}{3}
+\para\para\para\para\para\para
+\end{multicols}
+\para\para\para\para\para\para
+\begin{multicols}{2}
+\para\para\para\para
+\end{multicols}
+\end{tcolorbox}
+\end{document}

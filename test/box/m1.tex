@@ -1,0 +1,13 @@
+\documentclass[twocolumn]{jlreq}
+\usepackage[debug]{evenend}
+\usepackage[most]{tcolorbox}
+\newcommand\para{吾輩は猫である．名前はまだ無い．どこで生れたかとんと見当がつかぬ．\par}
+\begin{document}
+\evenendcolumns{1}
+\setbox0\vbox{\hsize=20em 最初の段落．
+\begin{multicols}{2}
+\para\para\para
+\end{multicols}
+最後の段落．}
+\showboxdepth=3 \showboxbreadth=30 \showbox0
+\end{document}

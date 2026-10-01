@@ -13,7 +13,7 @@
 \title{\pkg{evenend}パッケージ\\[.5\baselineskip]
   \large 多段組の最終ページで各段の下端を揃える}
 \author{Yuwsuke Kieda}
-\date{v20260930.4}
+\date{v20261002.0}
 
 \begin{document}
 \maketitle
@@ -52,7 +52,11 @@
 \section{動作要件}
 
 \begin{itemize}
-  \item LuaLaTeX（LaTeX 2023-06-01以降）．pLaTeX，upLaTeX，pdfLaTeXでは使えない．
+  \item LuaLaTeX（LaTeX 2024-11-01以降）．pLaTeX，upLaTeX，pdfLaTeXでは使えない．
+    TeX Live 2025（LaTeX 2024-11-01，LuaTeX 1.21）とTeX Live 2026（LaTeX 2026-06-01，
+    LuaTeX 1.24）で動作を確かめている．
+  \item 柱の扱いは，LaTeX 2025-06-01で変わったマークの仕組みに合わせ，それより前の版
+    では，ページ全体のマークから\cs{firstmark}，\cs{botmark}を補う（\ref{sec:marks}節）．
   \item LaTeX標準の段組（クラスオプション\opt{twocolumn}または\cs{twocolumn}）．
     \pkg{multicol}の\texttt{multicols}環境は対象外である．
   \item \pkg{jlreq}，\pkg{ltjsclasses}，\pkg{article}で動作を確かめている（横組のみ）．
@@ -460,13 +464,18 @@ LaTeXが組んだ段がはみ出す（Overfull）警告は，そのページを�
     使えない．
 \end{itemize}
 
-\section{柱}
+\section{柱}\label{sec:marks}
 
 段組のモードでは，柱（\cs{markboth}などのマーク）の情報を，ページを出力するときに1回だけ
 更新する．ページの本文全体から，読む順序（ブロックは上から，段は左から，段の中は上から）で
 マークを集め，1段組と同じ方法で更新する．揃えた段や積んだブロックでも，柱の最初と最後の
 マークは，そのページの本文の最初と最後のものになる．LaTeXの2段組向けの，段ごとの更新は
 使わない．
+
+LaTeX 2025-06-01より前の版では，\cs{leftmark}，\cs{rightmark}がTeXのマーク
+（\cs{firstmark}，\cs{botmark}）を使う．このときは，ページ全体から集めたマークの最初と
+最後を\cs{firstmark}，\cs{botmark}の代わりにする（マークのないページでは，前のページの
+最後のマーク）．
 
 \section{他のパッケージとの併用}
 
@@ -516,7 +525,7 @@ LaTeXが組んだ段がはみ出す（Overfull）警告は，そのページを�
     \texttt{evenend-sample-switch.tex}，\texttt{evenend-sample-colsep.tex}，
     \texttt{evenend-sample-box.tex}）
   \item[\texttt{LICENSE}] ライセンス（MIT）
-  \item[\texttt{test/}] テスト文書と補助スクリプト（\texttt{run.sh}，
+  \item[\texttt{test/}] テスト文書と補助スクリプト（\texttt{run.sh}，\texttt{suite.sh}，
     \texttt{colbottoms.py}，\texttt{fuzz.sh}，\texttt{fuzzswitch.sh}，
     \texttt{blockcheck.py}，\texttt{gridcheck.py}，\texttt{fnfloat.sh}，
     \texttt{fnfloatcheck.py}，\texttt{pagefncheck.py}，\texttt{gridoffset.py}）．

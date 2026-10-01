@@ -1,0 +1,29 @@
+%% evenend-sample-box.tex：evenendの見本（tcolorboxの中の段組）
+%% マニュアル（evenend-ja.tex）が貼り込む
+\documentclass[paper=b5,fontsize=9pt]{jlreq}
+\usepackage[columns=1]{evenend}
+\usepackage[most]{tcolorbox}
+\setlength\columnseprule{0.4pt}
+\newcommand\para{吾輩は猫である．名前はまだ無い．どこで生れたかとんと見当がつかぬ．何でも薄暗いじめじめした所でニャーニャー泣いていた事だけは記憶している．\par}
+\begin{document}
+\section{箱の中の段組}
+\begin{tcolorbox}[title=2段（multicols）]
+箱の中の前の段落．前後の段落とのベースライン間は行送りのまま．
+\begin{multicols}{2}
+\para\para
+\end{multicols}
+箱の中の後の段落．
+\end{tcolorbox}
+\begin{tcolorbox}[title={3段，段間1字，罫なし（evenendmulticols）}]
+\begin{evenendmulticols}[columnsep=1\zw,columnseprule=0pt]{3}
+\para\para\para
+\end{evenendmulticols}
+\end{tcolorbox}
+\begin{tcolorbox}[title=columnbreakと脚注]
+\begin{multicols}{3}
+\para\columnbreak
+脚注を付ける\footnote{箱の中の脚注は箱の下に置く．}．\para\columnbreak
+\para
+\end{multicols}
+\end{tcolorbox}
+\end{document}

@@ -3,7 +3,7 @@
 # 使い方: runl.sh クラス 段数(1|2) ジョブ名 [gyoudoriのオプションなど]
 # gyoudoriの置き場所は環境変数GYOUDORI（既定は/Users/yuw/tmp/texmf-gyoudori）
 cd "$(dirname "$0")"
-export PATH=/usr/local/texlive/2026/bin/universal-darwin:$PATH
+export PATH=/usr/local/texlive/${TLYEAR:-2026}/bin/universal-darwin:$PATH
 export TEXMFHOME="$(cd ../.. && pwd)"
 export TEXINPUTS=${GYOUDORI:-/Users/yuw/tmp/texmf-gyoudori}/tex/latex/gyoudori//:
 cls=$1; col=$2; job=$3; opts=${4:-float}

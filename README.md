@@ -16,7 +16,9 @@ flushendと同じ目的のものだが，次の点を扱う．
 
 ## 動作要件
 
-- LuaLaTeX（LaTeX 2023-06-01以降）
+- LuaLaTeX（LaTeX 2024-11-01以降）．TeX Live 2025（LaTeX 2024-11-01）とTeX Live 2026
+  （LaTeX 2026-06-01）で動作を確認している．テストは環境変数`TLYEAR`（既定は2026）で
+  TeX Liveの版を選べる（例：`TLYEAR=2025 test/run.sh …`）
 - LaTeX標準の段組（クラスオプション`twocolumn`または`\twocolumn`）．multicolの
   `multicols`環境は対象外．
 - jlreq，LuaTeX-jaのクラスで動作を確認している（横組のみ）．
@@ -97,6 +99,8 @@ tcolorboxの箱，`minipage`，`\parbox`，フロートの中など（内部垂�
 段組のモードでは，柱（マーク）の情報をページを出力するときに1回だけ，ページの本文全体から
 読む順序（ブロックは上から，段は左から，段の中は上から）で集めて更新する．揃えた段や積んだ
 ブロックでも，柱の最初と最後のマークはそのページの本文の最初と最後のものになる．
+LaTeX 2025-06-01より前の版（`\leftmark`，`\rightmark`がTeXの`\firstmark`，`\botmark`を
+使う）では，集めたマークの最初と最後をそれらの代わりにする．
 
 ### 段数の切り換え
 
@@ -233,6 +237,7 @@ test/run.sh test/t1-basic.tex
 ```
 
 - `run.sh`：リポジトリをTEXMFHOMEにしてLuaLaTeXを走らせる
+- `suite.sh`：固定のテスト一式（`fuzz.sh`，`fuzzswitch.sh`，`fnfloat.sh`，`gy/sweep.sh`）をまとめて走らせる
 - `colbottoms.py`：最終ページの各段の最下行の位置を表示する
 - `fuzz.sh`：本文の長さを1文ずつ変えて組み，エラーと段の下端を調べる
 - `fuzzswitch.sh`：段数の切り換えを含む文書をブロックごとの分量を変えて組み，エラー，
@@ -256,6 +261,8 @@ test/run.sh test/t1-basic.tex
 - `gy/`：gyoudori（行ドリ）の`float`オプションとの組み合わせの一括テスト（48通り）．
   `genf.py`（文書を作る），`chk.awk`（本文の行とフロートが行送りの位置にあるかを調べる），
   `runl.sh`（1件），`sweep.sh`（一括）．gyoudoriの置き場所は環境変数`GYOUDORI`で指定する．
+  TeX Live 2025（LaTeX 2024-11-01）では，evenendを使わなくても下のフロートが行送りの位置から
+  0.07行ずれる（gyoudori側の版の違い）ので，このテストはTeX Live 2026で使う．
   例：`test/gy/sweep.sh`
 
 ## ライセンス

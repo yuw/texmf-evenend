@@ -1,5 +1,5 @@
-\NeedsTeXFormat{LaTeX2e}[2023-06-01]
-\ProvidesPackage{evenend}[2026/09/30 v20260930.4 Balance the last page of multi-column text (LuaLaTeX) by Yuwsuke Kieda]
+\NeedsTeXFormat{LaTeX2e}[2024-11-01]
+\ProvidesPackage{evenend}[2026/10/02 v20261002.0 Balance the last page of multi-column text (LuaLaTeX) by Yuwsuke Kieda]
 
 \ifdefined\directlua\else
   \PackageError{evenend}{LuaLaTeX is required}{}
@@ -620,14 +620,47 @@
 \AtBeginDocument{%
   \ifdefined\@expl@@@mark@update@dblcol@structures@@
     \let\@expl@@@mark@update@dblcol@structures@@\relax
-    \AddToHook{build/page/before}{%
+    %% \@outputpageの先頭で更新する（LaTeX 2025-06-01以降のフックbuild/page/beforeと
+    %% 同じ位置．フックのない版でも動くように，\@outputpageの前に足す）
+    \let\evenend@orig@outputpage\@outputpage
+    \def\@outputpage{%
       \if@twocolumn
         \directlua{evenend.collectmarks(\number\@outputbox, \number\evenend@markbox)}%
+        \evenend@legacymarks
         \begingroup
           \setbox\@outputbox\box\evenend@markbox
           \@expl@@@mark@update@singlecol@structures@@
         \endgroup
-      \fi}%
+      \fi
+      \evenend@orig@outputpage}%
+  \fi}
+%% LaTeX 2025-06-01より前の版では，\leftmark，\rightmarkはTeXのマーク（\firstmark，
+%% \botmark）を使い，2段組では\@outputdblcolが1段目のマークを補う．evenendは
+%% \@outputdblcolを置き換えるので，ページ全体から集めたマークの最初と最後を
+%% \vsplitで取り出し，\firstmark，\botmark，\topmarkの代わりにする（マークのない
+%% ページでは前のページの最後のマーク）
+\def\evenend@lastbot{}
+\let\evenend@legacymarks\relax
+\AtBeginDocument{%
+  \ifdefined\evenend@orig@outputpage
+    \IfFormatAtLeastTF{2025-06-01}{}{\let\evenend@legacymarks\evenend@legacymarks@}%
+  \fi}
+\def\evenend@legacymarks@{%
+  \begingroup
+    \splitmaxdepth\maxdimen \vbadness\maxdimen \vfuzz\maxdimen
+    \setbox\@tempboxa\copy\evenend@markbox
+    \setbox\@tempboxa\vsplit\@tempboxa to\maxdimen
+    \toks@\expandafter{\splitfirstmark}\xdef\evenend@sfm{\the\toks@}%
+    \toks@\expandafter{\splitbotmark}\xdef\evenend@sbm{\the\toks@}%
+  \endgroup
+  \let\topmark\evenend@lastbot
+  \ifx\evenend@sfm\@empty
+    \let\firstmark\evenend@lastbot
+    \let\botmark\evenend@lastbot
+  \else
+    \let\firstmark\evenend@sfm
+    \let\botmark\evenend@sbm
+    \global\let\evenend@lastbot\evenend@sbm
   \fi}
 
 %% ---------------------------------------------------------------------

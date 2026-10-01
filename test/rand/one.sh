@@ -4,7 +4,7 @@ cd "$(dirname "$0")"
 s=$1; b=d/r$s
 mkdir -p d
 python3 gen.py $s $b
-export PATH=/usr/local/texlive/2026/bin/universal-darwin:$PATH
+export PATH=/usr/local/texlive/${TLYEAR:-2026}/bin/universal-darwin:$PATH
 export TEXMFHOME="$(cd ../.. && pwd)"
 export TEXINPUTS=/Users/yuw/tmp/texmf-gyoudori/tex/latex/gyoudori//:
 (cd d && timeout 180 lualatex -interaction=nonstopmode r$s.tex >/dev/null 2>&1)
