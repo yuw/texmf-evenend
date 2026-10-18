@@ -14,6 +14,8 @@ import json, random, sys
 seed, base = int(sys.argv[1]), sys.argv[2]
 R = random.Random(seed)
 R2 = random.Random(seed * 7 + 3)  # 追加の要素用（Rの列を変えない）
+R3 = random.Random(seed * 11 + 5)  # 段をまたぐフロート用（番号400000以上）
+sid = 0
 
 cls = R.choice(['jlreq', 'jlreq', 'ltjsarticle', 'article'])
 ja = cls != 'article'
@@ -45,6 +47,11 @@ out = []
 opts = ['debug', f'footnote={fnmode}', f'floatgrid={"true" if floatgrid else "false"}']
 if seed >= 300000:
     opts.append('headingskip=block')  # 見出しの上アキを段組の間のアキに含める
+# 番号400000以上：下に段をまたぐ図がある段の脚注を版面の下端に置く（spanfootnote=bottom）
+spanfnbottom = seed >= 400000 and random.Random(seed * 13 + 7).random() < 0.3
+if spanfnbottom:
+    opts.append('spanfootnote=bottom')
+meta['spanfnbottom'] = spanfnbottom
 if N0 != 2:
     opts.append(f'columns={N0}')
 docopt = 'twocolumn' + (',fontsize=10pt' if cls == 'jlreq' else '')
@@ -81,7 +88,7 @@ for b in range(nblocks):
     else:
         N = R.choice([1, 2, 2, 3, 3, 4]) if b > 0 else R.choice([1, 2, 3])
         switch = True
-    blk = {'N': N, 'paras': [], 'fns': [], 'floats': [], 'dbl': []}
+    blk = {'N': N, 'paras': [], 'fns': [], 'floats': [], 'dbl': [], 'spans': []}
     brk = extra and b > 0 and R.random() < 0.25
     if brk:
         # ブロックの境目で改ページする（\evenendclearpage か \onecolumn→\twocolumn）
@@ -149,9 +156,14 @@ for b in range(nblocks):
             opt = {'plain': 'title=box', 'breakable': 'breakable,title=box', 'float': 'float=t,title=box'}[kind]
             body = sentences(R.choice([1, 3, 8, 20]))
             # 番号300000以上：箱の中の段組（別の乱数列で選ぶ）
-            if seed >= 300000 and R2.random() < 0.4:
+            # 段組は分割できない1つの箱になるので，狭い段（3段以上）では作らず，中身も
+            # 段の高さを超えない分量にする（番号400000以上）
+            if seed >= 300000 and R2.random() < 0.4 and (seed < 400000 or N <= 2):
                 k = R2.choice([2, 2, 3])
-                inner = r'\par '.join(sentences(R2.choice([1, 2, 4])) for _ in range(R2.choice([1, 2, 4, 6])))
+                if seed >= 400000:
+                    inner = r'\par '.join(sentences(R2.choice([1, 2])) for _ in range(R2.choice([1, 2, 3])))
+                else:
+                    inner = r'\par '.join(sentences(R2.choice([1, 2, 4])) for _ in range(R2.choice([1, 2, 4, 6])))
                 if R2.random() < 0.2:
                     inner += r'\columnbreak ' + sentences(2)
                 body = (sentences(1) if R2.random() < 0.5 else '') + \
@@ -162,6 +174,15 @@ for b in range(nblocks):
             out.append(r'\begin{tcolorbox}[%s]%s\end{tcolorbox}' % (opt, body))
         if extra2 and N > 1 and R.random() < 0.1:
             out.append(r'\columnbreak')
+        # 番号400000以上：段をまたぐフロート（spanfigure．段数2〜N）
+        if seed >= 400000 and N > 1 and R3.random() < 0.3:
+            sid += 1
+            k = R3.randint(2, N)
+            pos = R3.choice(['t', 'b', 'tb'])
+            h = R3.choice([30, 45, 60, 90])
+            blk['spans'].append({'id': sid, 'k': k, 'pos': pos, 'h': h})
+            out.append(r'\begin{spanfigure}[%s]{%d}\centering\fbox{\parbox[c][%dpt][c]{.95\linewidth}{ZS%dLZ\hfill ZS%dRZ}}\caption{ZT%dZ}\end{spanfigure}'
+                       % (pos, k, h, sid, sid, sid))
         for e in [e for e in events if e[0] == 'dbl' and e[1] == p]:
             wid += 1
             blk['dbl'].append(wid)

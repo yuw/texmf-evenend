@@ -51,6 +51,7 @@ export TEXMFHOME=/path/to/texmf-evenend
 | `enable` | 真偽 | `true` | 文書末のページを揃える |
 | `blockskip` | 寸法 | `2\baselineskip` | 段数の切り換えの前後の行のベースライン間 |
 | `blockmin` | 寸法 | `5\baselineskip` | 切り換えの後に残った高さがこれより小さければ改ページする |
+| `spanfootnote` | `above`／`bottom` | `above` | 下に段をまたぐ図がある段の脚注を，図の上に置くか，図の下（最終ページとブロックでは段の下端，ほかのページでは版面の下端）に置くか |
 | `headingskip` | `column`／`block` | `column` | 切り換えた後の段組が見出しで始まるときの見出しの上アキの扱い |
 | `floatgrid` | 真偽 | `true` | 揃える段で，フロートの前後の本文の行を行送りの位置に合わせる |
 | `debug` | 真偽 | `false` | 段ごとの高さなどをログに書く |
@@ -70,6 +71,30 @@ export TEXMFHOME=/path/to/texmf-evenend
   指定して段数を変える
 - `\evenendcolumns*{段数}`：段数を変えるが，その前のブロックは揃えない
 - `\columnbreak`：そこで段を改める（揃えるページやブロックの中でも守る）
+- `spanfigure`，`spantable`環境：段をまたぐ段内フロート（`\begin{spanfigure}[b]{2}`など）
+
+### 段をまたぐフロート
+
+`\begin{spanfigure}[位置]{段数}`（表は`spantable`）で，3段組の2段ぶんのように，いくつかの段に
+またがる段内フロートを置ける．
+
+- 中身は，またがる段の全幅で組む（`\hsize`と`\linewidth`がその幅）．
+- 置き方は通常の段内フロートと同じ（入る余地があれば書いた位置のページに置き，なければ送る）．
+  置かれた段を左端にして右へ広がり，右端を越える段には置かない．
+- 位置は`t`と`b`だけ（`h`，`p`は使わない）．上・下の領域の割合の制限は外す．
+- 右の段には同じ高さの場所取りを置き，またがる段のあいだで位置をそろえる．段をまたぐフロートが
+  横切る段間では，段間罫は両側の段の本文の領域だけに引く（フロートと\textfloatsepの部分には
+  引かない）．罫の端は，両側の段のフロートに接する行の字面（字の輪郭から求める）にそろえる．段をまたがないフロートの横では，これまでどおり版面の高さいっぱいに引く．
+- クラスの`figure`，`table`環境を呼ぶので，その始まりの設定（キャプションのアキなど）が効く．
+  下に置いたときは，またがる段の脚注をフロートの上に置く．`spanfootnote=bottom`にすると，脚注を
+  図の下に置き，図をまたがる段のいちばん高い脚注の上にそろえる．最終ページとブロックでは，すべての
+  段で脚注の下端を揃えた段の下端に置く．ほかのページでは脚注は版面の下端で，図の右の段の脚注は
+  図の置かれた段の脚注の高さまでに収め，残りを次の段に送る．
+- 同じ位置（上か下）では，1つの段に2つの段をまたぐフロートはかけない．
+- 最終ページやブロックを揃えるときは，置かれた段に固定して揃える．
+- 最終ページ（文書末，`\evenendclearpage`，`\onecolumn`の前）では，持ち越された段内フロート
+  （段をまたぐものを含む）も揃える段組に入れてみる．入り切らなければ入れずに揃える．
+- `\clearpage`のときに残っているものは，段抜きのフロートとしてフロートだけのページに出す．
 
 ### multicol互換の環境
 
@@ -132,7 +157,8 @@ LaTeX 2025-06-01より前の版（`\leftmark`，`\rightmark`がTeXの`\firstmark
   持ち越された段抜きフロートはそのブロックの下に段抜きで置く．入り切らなければ本文だけで
   揃えてページを終え，持ち越したフロートは次のページの上に元の段数のブロックとして置いてから
   段数を変える．持ち越された段内フロートを入れる前にフック`evenend/deferredfloat`を呼ぶ
-  （`\evenendfloatbox`がその箱．gyoudoriなどが中身の位置を整えるのに使う）．
+  （`\evenendfloatbox`がその箱．gyoudoriなどが中身の位置を整えるのに使う．gyoudoriは
+  v20261018.0から，`float`オプションのとき自分でこのフックに処理を入れる）．
 - stfloatsがそのページの下端に予約した段抜きフロートも，切り換えのときにそのブロックの下に
   置く．ブロックを積んだページには，その後に現れた段抜きフロートを置かない（持ち越して，
   次の切り換えでそのブロックの下に置く）．
@@ -213,7 +239,7 @@ evenendが組む段では，行ドリしないフロートがあっても本文�
 
 `doc/lualatex/evenend/`にマニュアル（`evenend-ja.tex`）と見本（`evenend-sample.tex`，
 `evenend-sample-column.tex`，`evenend-sample-switch.tex`，`evenend-sample-colsep.tex`，
-`evenend-sample-box.tex`）がある．
+`evenend-sample-box.tex`，`evenend-sample-span.tex`）がある．
 マニュアルは見本のページを貼り込むので，
 見本を先に組む．
 
@@ -224,6 +250,7 @@ lualatex evenend-sample-column.tex
 lualatex evenend-sample-switch.tex
 lualatex evenend-sample-colsep.tex
 lualatex evenend-sample-box.tex
+lualatex evenend-sample-span.tex
 lualatex evenend-ja.tex
 lualatex evenend-ja.tex
 ```
@@ -257,6 +284,7 @@ test/run.sh test/t1-basic.tex
   `test/rand/many.sh 1 1000 > result.txt; test/rand/summary.py result.txt`
 - `tcb/`：tcolorboxの箱（分割しない箱，分割できる箱，フロートにした箱）との組み合わせ
 - `mc/`：multicols互換の環境と柱（マーク）のテスト（`mkcheck.py`で柱を調べる）
+- `span/`：段をまたぐフロート（上・下，最終ページ，3段にまたがるもの，脚注，gyoudori）
 - `box/`：箱の中の段組（tcolorbox，minipage，フロート，脚注，`\columnbreak`，分割できる箱）
 - `gy/`：gyoudori（行ドリ）の`float`オプションとの組み合わせの一括テスト（48通り）．
   `genf.py`（文書を作る），`chk.awk`（本文の行とフロートが行送りの位置にあるかを調べる），

@@ -63,11 +63,13 @@ for bm in re.finditer(r'evenend: balanced at ([\d.]+)pt(.*?)(?=evenend: balanced
                 limits.add('floatgrid-dropped')  # floatgridのままでは入り切らなかった
             elif t == 'column break':
                 cover.add('column-break')  # \columnbreakで終わる段（下を空ける）
+            elif t == 'overfull':
+                limits.add('column-overfull')  # 段の中身が段の高さを超える（段いっぱいの箱など）
             elif t == 'blocked':
                 limits.add('blocked')  # 次の段の先頭の材料（本文中の図，長い脚注の付いた行）が入らない
             else:
                 prob.append(f'bottom:{v:.1f}/{h:.1f}' + (f'({t})' if t else ''))
-    if cols and cols[-1] is not None and cols[-1] > h + 0.01:
+    if cols and cols[-1] is not None and cols[-1] > h + 0.01 and pl[-1][1] != 'overfull':
         prob.append(f'last-taller:{cols[-1]:.1f}/{h:.1f}')
 
 # ---- PDF
@@ -79,7 +81,7 @@ for pg in re.findall(r'<page[^>]*>(.*?)</page>', xml, re.S):
 occ = defaultdict(list)  # (種類, 番号, 端) -> [(ページ, 語)]
 for pno, W in enumerate(pages, 1):
     for w in W:
-        for k, n, e in re.findall(r'Z([BERNFWCD])(\d+)([LR]?)Z', w[4]):
+        for k, n, e in re.findall(r'Z([BERNFWCDST])(\d+)([LR]?)Z', w[4]):
             occ[(k, int(n), e)].append((pno, w))
 
 blk_of = {}
@@ -88,6 +90,7 @@ for j, b in enumerate(meta['blocks']):
     for f in b['fns']: blk_of[('R', f)] = j; blk_of[('N', f)] = j
     for f in b['floats']: blk_of[('F', f['id'])] = j
     for f in b['dbl']: blk_of[('W', f)] = j
+    for f in b.get('spans', []): blk_of[('S', f['id'])] = j
 last = len(meta['blocks']) - 1
 
 # 材料がちょうど1回ずつ
@@ -95,9 +98,14 @@ for j, b in enumerate(meta['blocks']):
     keys = [('B', p, '') for p in b['paras']] + [('E', p, '') for p in b['paras']] \
          + [('R', f, '') for f in b['fns']] + [('N', f, '') for f in b['fns']] \
          + [('F', f['id'], e) for f in b['floats'] for e in 'LR'] \
-         + [('W', f, e) for f in b['dbl'] for e in 'LR']
+         + [('W', f, e) for f in b['dbl'] for e in 'LR'] \
+         + [('S', f['id'], e) for f in b.get('spans', []) for e in 'LR']
     for k in keys:
         if len(occ[k]) != 1:
+            # LaTeXが組んだ段のはみ出し（分割できない高い箱など）で版面の外に押し出された
+            if len(occ[k]) == 0 and k[0] in 'FS' and latex:
+                limits.add('float-pushed-off-by-overfull')
+                continue
             prob.append(f'count:{k[0]}{k[1]}{k[2]}={len(occ[k])}')
 
 # 段組ごとの段間（\evenendcolumns[columnsep=...]で変えたブロックはjsonにbp単位である）
@@ -161,7 +169,18 @@ for j, b in enumerate(meta['blocks']):
         # footnote=pageの最後の段組では版面の下端（evenendが組んだページだけ．
         # LaTeXが通常どおり組んだページの脚注はLaTeXの担当）
         balanced_pages = set(int(x) for x in re.findall(r'Page (\d+): columns balanced at [\d.]+pt on', flat))
-        if meta['footnote'] == 'page' and j == last and pn in balanced_pages:
+        # 既定（spanfootnote=above）では，下に段をまたぐ図がある段の脚注は図の上に置く
+        under_span = False
+        if not meta.get('spanfnbottom'):
+            for (k2, n2, e2), L2 in occ.items():
+                if k2 != 'S' or e2 != 'L': continue
+                for (pp, wl2) in L2:
+                    R2 = occ.get(('S', n2, 'R'))
+                    if pp == pn and R2 and wl2[0] - 2 <= t[0] <= R2[0][1][2] + 2 and wl2[1] > t[3]:
+                        under_span = True
+        # spanfootnote=bottomでは，最終ページの脚注は段の下端に置く（版面の下端ではない）
+        if meta['footnote'] == 'page' and j == last and pn in balanced_pages and not under_span \
+           and not meta.get('spanfnbottom'):
             fl = [w for w in W if w[1] >= t[1] - 0.5 and col(w[0], N, bsep(j)) == c
                   and abs(w[0] - t[0]) < cw(N, bsep(j)) and w[3] < bottom + 5]
             fb = max([w[3] for w in fl] or [t[3]])
@@ -194,6 +213,48 @@ for j, b in enumerate(meta['blocks']):
                 if jj > j and any(w[3] < wl[1] - 0.5 for w in bw):
                     prob.append(f'{kind}{g}-below-block{jj+1}'); break
 
+# ---- 段をまたぐフロート：左端と右端の段，本文との重なり，ブロックの範囲
+for j, b in enumerate(meta['blocks']):
+    for g in b.get('spans', []):
+        L, Rr = occ[('S', g['id'], 'L')], occ[('S', g['id'], 'R')]
+        if len(L) != 1 or len(Rr) != 1: continue
+        (pl, wl), (pr, wr) = L[0], Rr[0]
+        if pl != pr:
+            prob.append(f"S{g['id']}-split"); continue
+        W = pages[pl - 1]
+        # フロートだけのページに出たもの（\clearpageで残ったもの）は段の検査をしない
+        floatpage = not any(blk_of.get((k, n)) is not None for (k, n, e), LL in occ.items()
+                            if k in 'BE' for (pp, w) in LL if pp == pl)
+        if floatpage:
+            cover.add('span-floatpage'); continue
+        N, s_ = b['N'], bsep(j)
+        cl, cr = col(wl[0], N, s_), col(wr[2] - 1, N, s_)
+        if cr - cl + 1 != g['k']:
+            prob.append(f"S{g['id']}-columns:{cl+1}-{cr+1}/k{g['k']}")
+        # 図の枠（中央の行の上下に高さの半分）に本文などの語が重ならないか
+        yc = (wl[1] + wl[3]) / 2
+        hh = g['h'] * 72 / 72.27 / 2 + 1
+        # \twocolumn[...]のタイトルの行（evenendがなくても，その直下の上のフロートの枠が
+        # タイトルの字面に触れる）は除く
+        title_y = [tw[3] for tw in W if 'ZTITLEZ' in tw[4]]
+        for w in W:
+            if w is wl or w is wr or re.search(r'ZS\d+[LR]Z', w[4]): continue
+            if any(abs(w[3] - ty) < 2 for ty in title_y): continue
+            if w[2] > wl[0] + 1 and w[0] < wr[2] - 1 and w[3] > yc - hh and w[1] < yc + hh:
+                if latex:
+                    limits.add('span-overlap-by-overfull')  # LaTeXが組んだ段のはみ出しと重なる
+                else:
+                    prob.append(f"S{g['id']}-overlap")
+                break
+        cover.add('span-' + ('top' if g['pos'] == 't' else 'bot' if g['pos'] == 'b' else 'tb'))
+        for jj in range(len(meta['blocks'])):
+            if jj == j: continue
+            bw = blockwords(pl, jj)
+            if jj < j and any(w[1] > wl[3] + 0.5 for w in bw):
+                prob.append(f"S{g['id']}-above-block{jj+1}"); break
+            if jj > j and any(w[3] < wl[1] - 0.5 for w in bw):
+                prob.append(f"S{g['id']}-below-block{jj+1}"); break
+
 # ---- 行送りの位置（jlreqでfloatgridのとき．evenendが全体を組んだページだけ．
 #      段抜きの図のあるページは除く）
 if meta['class'] == 'jlreq' and (meta['floatgrid'] or meta['gyoudori']):
@@ -202,7 +263,7 @@ if meta['class'] == 'jlreq' and (meta['floatgrid'] or meta['gyoudori']):
         if pno > len(pages): continue
         W = pages[pno - 1]
         if any(re.search(r'ZW\d+', w[4]) for w in W): continue
-        caps = set(round(w[3], 1) for w in W if re.search(r'Z[CF]\d+', w[4]))
+        caps = set(round(w[3], 1) for w in W if re.search(r'Z[CFST]\d+', w[4]))
         ys = sorted(set(round(w[3], 2) for w in W if abs((w[3] - w[1]) - bodyh) < 0.2
                         and round(w[3], 1) not in caps and w[3] < bottom + 1))
         if not ys: continue

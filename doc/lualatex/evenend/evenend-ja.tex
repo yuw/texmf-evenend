@@ -13,7 +13,7 @@
 \title{\pkg{evenend}パッケージ\\[.5\baselineskip]
   \large 多段組の最終ページで各段の下端を揃える}
 \author{Yuwsuke Kieda}
-\date{v20261002.0}
+\date{v20261018.0}
 
 \begin{document}
 \maketitle
@@ -94,7 +94,8 @@ export TEXMFHOME=/path/to/texmf-evenend
     \opt{blockskip} & 寸法 & \verb|2\baselineskip| & 段組の切り換えの前後の行の間隔 \\
     \opt{blockmin} & 寸法 & \verb|5\baselineskip| & 切り換えの後に続けて組む最小の高さ \\
     \opt{headingskip} & \opt{column}／\opt{block} & \opt{column} & 見出しの上アキの扱い（切り換え） \\
-    \opt{floatgrid} & 真偽 & \opt{true} & フロートの前後の行を行送りの位置に合わせる \\
+    \opt{spanfootnote} & \opt{above}／\opt{bottom} & \opt{above} & 段をまたぐ下の図と脚注の順 \\
+    \opt{floatgrid} & 真偽 & \opt{true} & フロートの前後の行を行送りにそろえる \\
     \opt{debug} & 真偽 & \opt{false} & 段ごとの高さなどをログに書く \\
     \hline
   \end{tabular}
@@ -113,6 +114,17 @@ export TEXMFHOME=/path/to/texmf-evenend
     次の段組の1行目までのベースライン間．
   \item[\opt{blockmin}] \cs{evenendcolumns}で段数を切り換えた後，そのページに残った高さが
     これより小さければ，そこで改ページして次のページから新しい段数で組む．
+  \item[\opt{spanfootnote}] 下に段をまたぐフロート（\ref{sec:span}節）がある段の脚注の
+    置き場所．\opt{above}では，脚注をそのフロートの上に置く（\opt{footnote=page}でも）．
+    \opt{bottom}では，脚注をフロートの下に置き，フロートは，またがる段のうちいちばん
+    高い脚注の上にそろえる．
+    \begin{itemize}
+      \item 最終ページとブロック（揃える段組）では，すべての段で，脚注の下端を揃えた段の
+        下端に置く（\opt{footnote=column}と同じ組み方）．
+      \item それ以外のページでは，脚注を版面の下端に置く．フロートの右の段の脚注は，
+        フロートの置かれた段の脚注の高さまでに収め，残りは次の段に送る（LaTeXが脚注を
+        段の終わりで分けるのと同じ）．
+    \end{itemize}
   \item[\opt{headingskip}] 切り換えた後の段組が見出しで始まるときの，見出しの上アキの
     扱い．\opt{column}では，段組の間は常に\opt{blockskip}で，見出しの上アキは
     見出しのある1段目の中にある（他の段の1行目は段組の上端から始まる）．
@@ -137,6 +149,8 @@ export TEXMFHOME=/path/to/texmf-evenend
   \item[\cs{evenendcolumns*}\texttt{\{}\textit{段数}\texttt{\}}] 段数を変えるが，その前の
     ブロックは揃えない（LaTeXの組み方のまま，段を上から詰める）．
   \item[\cs{columnbreak}] そこで段を改める（\ref{sec:multicol}節）．
+  \item[\texttt{spanfigure}，\texttt{spantable}環境] 段をまたぐ段内フロート
+    （\ref{sec:span}節）．
   \item[\cs{evenendsetup}\texttt{\{}\textit{キー}\texttt{=}\textit{値}\texttt{\}}]
     オプションを変える．
 \end{description}
@@ -323,13 +337,16 @@ export TEXMFHOME=/path/to/texmf-evenend
     指定がなくフロート段に置けないものなど）は次のページでもう一度ブロックに組む．
 \end{itemize}
 こうして，段数を変えた後のブロックに前のブロックのフロートが（前の段幅のまま）入る
-ことはない．文書末，\cs{evenendclearpage}，\cs{onecolumn}の前では，持ち越された
-フロートはこれまでどおりLaTeXが後のページに同じ段数で出す．
+ことはない．文書末，\cs{evenendclearpage}，\cs{onecolumn}の前の最終ページでも，
+持ち越された段内フロート（段をまたぐものを含む）を揃える段組に入れてみる．入り切らな
+ければ入れずに揃え，持ち越されたフロートはこれまでどおりLaTeXが後のページに同じ段数で
+出す．持ち越された段抜きフロートは後のページに出す．
 
-持ち越された段内フロートをブロックに入れる前に，フック\texttt{evenend/deferredfloat}を
-呼ぶ．\cs{evenendfloatbox}がそのフロートの箱である．フロートの中身の位置を
-整えるパッケージは，ここで上のフロートとして組み直せる．たとえば\pkg{gyoudori}では
-次のようにする．
+持ち越された段内フロートを揃える段組（ブロックと最終ページ）に入れる前に，フック
+\texttt{evenend/deferredfloat}を呼ぶ．\cs{evenendfloatbox}がそのフロートの箱である．
+フロートの中身の位置を整えるパッケージは，ここで上のフロートとして組み直せる．
+\pkg{gyoudori}は，v20261018.0から，\opt{float}オプションのとき自分でこのフックに処理を
+入れる（それより前の版では，次のように書く）．
 \begin{verbatim}
 \makeatletter
 \AddToHook{evenend/deferredfloat}{%
@@ -338,6 +355,54 @@ export TEXMFHOME=/path/to/texmf-evenend
     \@gyoudori@floatpos\@gyoudori@floatshift}
 \makeatother
 \end{verbatim}
+
+\subsection{段をまたぐフロート}\label{sec:span}
+
+3段組の2段ぶんのように，いくつかの段にまたがる段内フロートを置ける（図\ref{fig:span}）．
+\begin{verbatim}
+\begin{spanfigure}[b]{2}
+\centering
+\includegraphics[width=\linewidth]{fig.pdf}
+\caption{2段にまたがる図}
+\end{spanfigure}
+\end{verbatim}
+\begin{figure}[tb]
+  \centering
+  \fbox{\includegraphics[page=1,width=.4\linewidth]{evenend-sample-span.pdf}}\hspace{2\zw}%
+  \fbox{\includegraphics[page=2,width=.4\linewidth]{evenend-sample-span.pdf}}
+  \caption{3段組で2段にまたがる図（\texttt{evenend-sample-span.tex}）．左は上に置いたもの，
+    右は下に置いたもの（最終ページ）}
+  \label{fig:span}
+\end{figure}
+\begin{itemize}
+  \item 環境は\texttt{spanfigure}と\texttt{spantable}．クラスの\texttt{figure}，
+    \texttt{table}環境を呼ぶので，その始まりの設定（キャプションのアキなど）が効く．\texttt{\{}\textit{段数}\texttt{\}}は
+    またがる段数．中身は，またがる段の全幅（段幅$\times$段数$+$段間$\times$（段数$-1$））で
+    組む（\cs{hsize}と\cs{linewidth}がその幅）．
+  \item 置き方は通常の段内フロートと同じで，書いた位置のページに入る余地があれば置き，
+    なければ後の段・ページに送る．置かれた段を左端にして，右へ段数ぶんに広がる．
+    右端を越える段（3段組で2段にまたがるフロートなら3段目）には置かない．
+  \item 位置は\opt{t}（上）と\opt{b}（下）だけを使う（\opt{h}，\opt{p}は使わない）．
+    上・下の領域の割合（\cs{topfraction}など）の制限は外す（\opt{!}を付ける）．
+  \item 右の段には，同じ高さの空の箱（場所取り）を，上なら段の最初，下なら段の最後に
+    置く．段をまたぐフロートも，置かれた段の最初（最後）に並べ直すので，またがる段の
+    あいだで位置がそろう．段をまたぐフロートが横切る段間では，段間罫は本文の領域だけに
+    引く．罫の端は，段間の両側の段の，上のフロートの下の最初の行の字面の上端（高い方）と，
+    下のフロートの上の最後の行（その段の脚注をフロートの上に置いたときは脚注の最後の行）の
+    字面の下端（低い方）にそろえる．字面は字の輪郭から求める．段をまたがないフロートの
+    横では，これまでどおり版面の高さいっぱいに引く．
+  \item 下に置いたときは，またがる段の脚注をフロートの上に置く（またがる段のあいだで
+    フロートの位置がそろうように）．\opt{spanfootnote=bottom}にすると，脚注をフロートの
+    下（最終ページとブロックでは段の下端，それ以外のページでは版面の下端）に置き，
+    フロートを，またがる段のうちいちばん高い脚注の上にそろえる．フロートの下の脚注の横の
+    段間罫は，脚注の区切り線の上端から脚注の最後の行の字面の下端まで引く．
+  \item 同じ位置（上か下）では，1つの段に2つの段をまたぐフロートはかけない．
+  \item 最終ページやブロックを揃えるときは，置かれた段に固定し，右の段の場所取りを
+    作り直して揃える．
+  \item \cs{clearpage}（文書末，\cs{evenendclearpage}など）のときに残っているものは，
+    段抜きのフロートとしてフロートだけのページに出す（左上に，またがる幅で置かれる）．
+  \item 版面より高いものは，上か下に置ける高さに抑える（警告を出す）．
+\end{itemize}
 
 \subsection{フロートの前後の行の位置}\label{sec:floatgrid}
 
@@ -435,7 +500,7 @@ LaTeXが組んだ段がはみ出す（Overfull）警告は，そのページを�
 \begin{figure}[tb]
   \centering
   \fbox{\includegraphics[page=1,width=.5\linewidth]{evenend-sample-box.pdf}}
-  \caption{\pkg{tcolorbox}の中の段組（\texttt{evenend-sample-box.tex}）}
+  \caption{\pkg{tcolorbox}の中の段組（\texttt{evenend-sample-box.tex}，\texttt{evenend-sample-span.tex}）}
   \label{fig:box}
 \end{figure}
 \begin{verbatim}
@@ -483,8 +548,9 @@ LaTeX 2025-06-01より前の版では，\cs{leftmark}，\cs{rightmark}がTeXの�
   \item \pkg{hyperref}：併用できる．
   \item \pkg{stfloats}：併用できる．段抜きのフロートを下に置いても揃う．
   \item \pkg{gyoudori}：併用できる．行ドリしたフロートも，行送りの位置に揃う．
-    段数の切り換えで持ち越されたフロートも揃えるには，フック
-    \texttt{evenend/deferredfloat}を使う（\ref{sec:floats}節）．
+    持ち越されたフロートも，\pkg{gyoudori}がフック\texttt{evenend/deferredfloat}で
+    行取りする（\ref{sec:floats}節．v20261018.0より前の\pkg{gyoudori}では，利用者がフックに
+    書く）．
   \item \pkg{tcolorbox}：併用できる．本文中の箱（1.5行を超える高さのもの）は，本文中の
     フロートと同じく分けられない塊として扱い，\opt{floatgrid}では後の行を行送りの
     位置に合わせる．分割できる箱（\texttt{breakable}）は，tcolorboxが分けた位置で
@@ -532,7 +598,7 @@ LaTeX 2025-06-01より前の版では，\cs{leftmark}，\cs{rightmark}がTeXの�
     \texttt{t11}〜\texttt{t13}はフロートと段数の切り換えの組み合わせ，\texttt{t14}は
     段組ごとの段間と段間罫．\texttt{test/rand/}は
     乱数で作った文書による網羅テスト（\ref{sec:randtest}節）．\texttt{test/tcb/}は
-    \pkg{tcolorbox}との組み合わせ，\texttt{test/box/}は箱の中の段組，
+    \pkg{tcolorbox}との組み合わせ，\texttt{test/box/}は箱の中の段組，\texttt{test/span/}は段をまたぐフロート，
     \texttt{test/mc/}はmulticols互換の環境と柱，
     \texttt{test/gy/}は\pkg{gyoudori}の\opt{float}オプションとの組み合わせの一括テスト
     （\texttt{sweep.sh}．\pkg{gyoudori}の置き場所は環境変数\texttt{GYOUDORI}で指定する）
@@ -545,6 +611,7 @@ lualatex evenend-sample-column.tex
 lualatex evenend-sample-switch.tex
 lualatex evenend-sample-colsep.tex
 lualatex evenend-sample-box.tex
+lualatex evenend-sample-span.tex
 lualatex evenend-ja.tex
 lualatex evenend-ja.tex
 \end{verbatim}
@@ -560,6 +627,9 @@ lualatex evenend-ja.tex
 箱，分割できる箱，フロートにした箱），\cs{columnbreak}，\cs{evenendcolumns*}を加える．
 番号300000以上では，さらに\opt{headingskip=block}にし，切り換えの一部で段組ごとの段間と
 段間罫を指定し，\pkg{tcolorbox}の箱の一部で中身を段組にする．
+番号400000以上では，さらに2段以上の段組に段をまたぐフロート（\texttt{spanfigure}）を
+加え，一部の文書で\opt{spanfootnote=bottom}にする（箱の中の段組は2段以下の段組だけで，
+中身を短くする）．
 
 \texttt{check.py}は，組んだ文書について次を調べる．
 \begin{itemize}

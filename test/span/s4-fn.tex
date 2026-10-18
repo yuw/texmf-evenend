@@ -1,0 +1,14 @@
+%% 段をまたぐフロート：footnote=pageの最終ページで，下の図と脚注（既定：脚注を図の上に置く）
+\documentclass[twocolumn,paper=b5,fontsize=9pt]{jlreq}
+\usepackage[columns=3,debug]{evenend}
+\setlength\columnseprule{0.4pt}
+\newcommand\para{吾輩は猫である．名前はまだ無い．どこで生れたかとんと見当がつかぬ．何でも薄暗いじめじめした所でニャーニャー泣いていた事だけは記憶している．吾輩はここで始めて人間というものを見た．\par}
+\newcommand\fig[2]{\centering\fbox{\parbox[c][#2][c]{.95\linewidth}{\centering #1}}\caption{#1}}
+\begin{document}
+\section{脚注と下の図}
+脚注\footnote{1段目の脚注．}を付ける．\para
+\begin{spanfigure}[b]{2}
+\fig{2段にまたがる図（下）}{50pt}
+\end{spanfigure}
+\para\para 脚注\footnote{2段目の脚注．長めの脚注の本文．長めの脚注の本文．長めの脚注の本文．}を付ける．\para\para\para\para\para
+\end{document}

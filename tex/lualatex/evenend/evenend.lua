@@ -33,6 +33,10 @@ local has_attr    = node.has_attribute
 
 -- 本文中のフロート（[h]）の印
 local INTEXT = luatexbase.new_attribute('evenend@intext')
+-- 段をまたぐフロート：またがる段数（置かれた段の箱）と，右の段の場所取りの箱
+local SPAN = luatexbase.new_attribute('evenend@span')
+local PH = luatexbase.new_attribute('evenend@ph')
+local FPS = luatexbase.new_attribute('evenend@fps')
 
 M.cols    = {}   -- 現在のページの段ごとの取り込み
 M.fncount = 0
@@ -300,19 +304,221 @@ function M.reportoverfull()
   end
 end
 
-function M.addfloat(where, boxnum)
+-- 行の箱nの中の字の高さと深さの最大（字がなければnil）．段間罫を行の字（和字では
+-- 字の枠）の上端・下端で止めるのに使う（行の箱の寸法には支柱の分が入ることがある）
+-- 字の輪郭（曲線）から求めた正確な字面の上端・下端（ベースラインからの高さと深さ）．
+-- フォントの字の高さと深さは輪郭の制御点まで含めた外接矩形なので，曲線の多い字
+-- （「無」の点など）では字面より大きい．段間罫の端を決める行だけに使う
+local shapes, tightcache = {}, {}
+local function tight_glyph(g)
+  local f = font.getfont(g.font)
+  local key = g.font .. ':' .. g.char
+  local c = tightcache[key]
+  if c ~= nil then return c ~= false and c[1] or nil, c ~= false and c[2] or nil end
+  local res = false
+  local ch = f and f.characters and f.characters[g.char]
+  local file = f and f.filename
+  if ch and ch.index and file and fonts and fonts.handlers and fonts.handlers.otf
+    and fonts.handlers.otf.readers and fonts.handlers.otf.readers.loadshapes then
+    local sh = shapes[file]
+    if sh == nil then
+      local ok, r = pcall(fonts.handlers.otf.readers.loadshapes, file)
+      sh = ok and r or false
+      shapes[file] = sh
+    end
+    local gl = sh and sh.glyphs and sh.glyphs[ch.index]
+    if gl and gl.segments and (sh.units or 0) > 0 then
+      local ymin, ymax
+      local function add(y)
+        if not ymin or y < ymin then ymin = y end
+        if not ymax or y > ymax then ymax = y end
+      end
+      local function cubic(y0, y1, y2, y3)
+        add(y3)
+        -- 導関数の根（0<t<1）での値
+        local a = -y0 + 3 * y1 - 3 * y2 + y3
+        local b = 2 * (y0 - 2 * y1 + y2)
+        local cc = y1 - y0
+        local function at(t)
+          if t > 0 and t < 1 then
+            local u = 1 - t
+            add(u * u * u * y0 + 3 * u * u * t * y1 + 3 * u * t * t * y2 + t * t * t * y3)
+          end
+        end
+        if math.abs(a) < 1e-9 then
+          if math.abs(b) > 1e-9 then at(-cc / b) end
+        else
+          local disc = b * b - 4 * a * cc
+          if disc >= 0 then
+            local r = math.sqrt(disc)
+            at((-b + r) / (2 * a)); at((-b - r) / (2 * a))
+          end
+        end
+      end
+      local cy = 0
+      for _, sg in ipairs(gl.segments) do
+        local op = sg[#sg]
+        if op == 'm' or op == 'l' then cy = sg[2]; add(cy)
+        elseif op == 'c' then cubic(cy, sg[2], sg[4], sg[6]); cy = sg[6]
+        elseif op == 'q' then  -- 2次曲線は3次に直す
+          local y1, y2 = sg[2], sg[4]
+          cubic(cy, cy + 2 / 3 * (y1 - cy), y2 + 2 / 3 * (y1 - y2), y2); cy = y2
+        end
+      end
+      if ymin then
+        local sc = f.size / sh.units
+        res = { math.floor(ymax * sc + 0.5), math.floor(-ymin * sc + 0.5) }
+      end
+    end
+  end
+  tightcache[key] = res
+  if res then return res[1], res[2] end
+  return nil
+end
+-- 行（hlist）の字面の上端・下端（ベースラインからの高さと深さ）．tightなら輪郭から求める
+local function line_extent(n, tight)
+  local mh, md
+  for g in node.traverse(n.list) do
+    if g.id == GLYPH then
+      local gh, gd = g.height, g.depth
+      if tight and gh + gd > 0 then
+        local th, td = tight_glyph(g)
+        if th then gh, gd = math.min(gh, th), math.min(gd, td) end
+      end
+      if not mh or gh > mh then mh = gh end
+      if not md or gd > md then md = gd end
+    elseif g.id == HLIST and g.list then
+      local a, b = line_extent(g, tight)
+      if a then
+        a, b = a - g.shift, b + g.shift
+        if not mh or a > mh then mh = a end
+        if not md or b > md then md = b end
+      end
+    end
+  end
+  return mh, md
+end
+-- 段間罫の端：要素r（{q=箱, y=箱の上端の位置}）の字面の上端と下端．行は行の中の字の
+-- 輪郭で見る．字のない箱と罫は箱の大きさで見る
+local function edge_top(r)
+  if not r then return nil end
+  local q = r.q
+  if q.id == HLIST and q.list then
+    local h = line_extent(q, true)
+    if h then return r.y + q.height - h end
+  end
+  return r.y
+end
+local function edge_bot(r)
+  if not r then return nil end
+  local q = r.q
+  if q.id == HLIST and q.list then
+    local _, d = line_extent(q, true)
+    if d then return r.y + q.height + d end
+  end
+  return r.y + q.height + q.depth
+end
+-- LaTeXが組む段の段間罫：組み上げた段の箱（\@outputbox）をたどり，上のnt個と下のnb個の
+-- フロート（場所取りを含む）を除いて，下のフロートより前（本文と，その下の脚注）と後
+-- （spanfootnote=bottomの脚注）の，最初の要素の上端と最後の要素の下端を求める．
+-- 行は行の中の字の上端・下端で見る．フロートに接する罫（\topfigruleなど）は除く．
+-- 段colnoの右の段の場所取りの有無（phtop，phbot）で，左の段との間の罫の区間を決める
+local texprev
+function M.colrule(boxnum, colno, nt, nb, phtop, phbot)
+  local b = tex.getbox(boxnum)
+  local items = {}
+  if b and b.list then
+    local y = 0
+    for q in node.traverse(b.list) do
+      local id = q.id
+      if id == GLUE then y = y + node.effective_glue(q, b)
+      elseif id == KERN then y = y + q.kern
+      elseif id == HLIST or id == VLIST or id == RULE then
+        if q.height + q.depth > 0 then
+          items[#items + 1] = { v = id == VLIST, r = id == RULE, q = q, y = y }
+        end
+        y = y + q.height + q.depth
+      end
+    end
+  end
+  -- 上のnt個と下のnb個のVLISTがフロート
+  local nv = 0
+  for _, it in ipairs(items) do if it.v then nv = nv + 1 end end
+  local k = 0
+  for _, it in ipairs(items) do
+    if it.v then
+      k = k + 1
+      if k <= nt then it.ft = true elseif k > nv - nb then it.fb = true end
+    end
+  end
+  for j, it in ipairs(items) do
+    if it.r and ((items[j - 1] and items[j - 1].ft) or (items[j + 1] and items[j + 1].fb)) then it.skip = true end
+  end
+  local g, seenbot = {}, false
+  for _, it in ipairs(items) do
+    if it.fb then seenbot = true
+    elseif not (it.ft or it.skip) then
+      if not seenbot then g.top = g.top or it; g.bot = it
+      else g.fntop = g.fntop or it; g.fnbot = it end
+    end
+  end
+  local function lo(x, y2) if x and y2 then return math.min(x, y2) end return x or y2 end
+  local function hi(x, y2) if x and y2 then return math.max(x, y2) end return x or y2 end
+  local rtop, rend, r2top, r2end = 0, 0, 0, 0
+  local a = colno > 1 and texprev or nil
+  if a and phtop then rtop = lo(edge_top(a.top), edge_top(g.top)) or 0 end
+  if a and phbot then
+    rend = hi(edge_bot(a.bot), edge_bot(g.bot)) or 0
+    r2top = lo(edge_top(a.fntop), edge_top(g.fntop)) or 0
+    r2end = hi(edge_bot(a.fnbot), edge_bot(g.fnbot)) or 0
+  end
+  texprev = g
+  tex.setdimen('global', 'evenend@rtop', rtop)
+  tex.setdimen('global', 'evenend@rend', rend)
+  tex.setdimen('global', 'evenend@rtwotop', r2top)
+  tex.setdimen('global', 'evenend@rtwoend', r2end)
+end
+
+-- 段をまたぐフロートの箱（段数k）と場所取りの箱に印を付ける
+function M.markspan(boxnum, k)
+  local b = tex.getbox(boxnum)
+  if b then node.set_attribute(b, SPAN, k) end
+end
+-- 幅wの段をまたぐフロートが，段幅cw・段間sepの段組でまたがる段数（tex.sprintで返す）
+function M.spank(w, cw, sep)
+  local k = math.ceil((w + sep) / (cw + sep) - 0.001)
+  if k < 1 then k = 1 end
+  tex.sprint(tostring(k))
+end
+function M.markph(boxnum)
+  local b = tex.getbox(boxnum)
+  if b then node.set_attribute(b, PH, 1) end
+end
+
+-- span：段をまたぐフロートなら段数，場所取りなら-1（TeX側の記録から）
+local function markcopy(b, span)
+  local n = node.copy(b)
+  if span and span > 0 then node.set_attribute(n, SPAN, span)
+  elseif span and span < 0 then node.set_attribute(n, PH, 1) end
+  return n
+end
+function M.addfloat(where, boxnum, span)
   local c = M.cols[#M.cols]
   local b = tex.getbox(boxnum)
   if c and b then
-    table.insert(c[where], node.copy(b))
+    table.insert(c[where], markcopy(b, span))
   end
 end
 
 -- まだ出ていない（持ち越された）フロート：kindは'col'（段内）か'dbl'（段抜き）
 M.deferred = { col = {}, dbl = {} }
-function M.adddeferred(kind, boxnum)
+function M.adddeferred(kind, boxnum, span, fps)
   local b = tex.getbox(boxnum)
-  if b then table.insert(M.deferred[kind], node.copy(b)) end
+  if b then
+    local n = markcopy(b, span)
+    if fps then node.set_attribute(n, FPS, fps) end
+    table.insert(M.deferred[kind], n)
+  end
 end
 
 -- フロートだけの段（LaTeXが\@tryfcolumnで作る）：その中身を自然な高さに組み直して
@@ -500,6 +706,8 @@ function M.balance(p)
   local cols = M.cols
   local N, colht = p.N, p.colht
   if p.block then p.colmode = true end
+  -- spanfootnote=bottom：揃える段組では，脚注の下端を段の下端に置く（段下端の脚注）
+  if p.spanfnbottom then p.colmode = true end
   -- 行送りへの切り上げで入り切らなければ，切り上げずにやり直すので，持ち越された
   -- フロートの写しをとっておく
   local saved_deferred
@@ -739,13 +947,29 @@ function M.balance(p)
   end
   local fs_sh, tfs_sh = shrink('floatsep'), shrink('textfloatsep')
   -- ブロックのフロート（段に置かれたものと持ち越されたもの）を番号順に並べる
+  -- 段をまたぐフロートは段数spanを持つ．場所取りの箱は捨て，割り振りに合わせて作り直す
   local F = {}
+  local function spanof(b)
+    local k = node.has_attribute(b, SPAN)
+    if k and k > 1 and k <= N then return k end
+    return nil
+  end
   for k, c in ipairs(cols) do
-    for _, f in ipairs(c.top) do F[#F + 1] = { box = node.copy(f), pos = 'top', orig = k } end
-    for _, f in ipairs(c.bot) do F[#F + 1] = { box = node.copy(f), pos = 'bot', orig = k } end
+    for _, pos in ipairs({ 'top', 'bot' }) do
+      for _, f in ipairs(c[pos]) do
+        if not node.has_attribute(f, PH) then
+          F[#F + 1] = { box = node.copy(f), pos = pos, orig = k, span = spanof(f) }
+        end
+      end
+    end
   end
   for _, f in ipairs(M.deferred.col) do
-    F[#F + 1] = { box = f, pos = 'top', orig = 1, deferred = true }
+    -- 段をまたぐフロートは，位置の指定（\countのビット：2が上，4が下）に下が
+    -- あれば下にも置ける
+    local fps = node.has_attribute(f, FPS) or 2
+    F[#F + 1] = { box = f, pos = 'top', orig = 1, deferred = true, span = spanof(f),
+                  canbot = p.deferbot ~= false and (fps // 4) % 2 == 1,
+                  cantop = (fps // 2) % 2 == 1 }
   end
   M.deferred.col = {}
   M.pool = F  -- 失敗したときにM.resetが片付ける
@@ -764,8 +988,38 @@ function M.balance(p)
   end
   local function set_assign(assign)
     for i = 1, N do tops[i], bots[i] = {}, {} end
+    -- 段をまたぐフロートとその場所取りは，上なら段の最初，下なら段の最後に置く
+    -- （またがる段のあいだで位置がそろうように）
+    local spantop, spanbot = {}, {}
     for j, f in ipairs(F) do
-      table.insert(f.pos == 'top' and tops[assign[j]] or bots[assign[j]], f.box)
+      local c = math.abs(assign[j])
+      if f.span then
+        if f.deferred then f.pos = assign[j] < 0 and 'bot' or 'top' end
+        local lst = f.pos == 'top' and spantop or spanbot
+        lst[c] = lst[c] or {}
+        table.insert(lst[c], f.box)
+        f.ph = f.ph or {}
+        for m = 1, f.span - 1 do
+          if not f.ph[m] then
+            local v = node.new(VLIST)
+            v.width, v.height, v.depth = 0, f.box.height, f.box.depth
+            node.set_attribute(v, PH, 1)
+            f.ph[m] = v
+          end
+          lst[c + m] = lst[c + m] or {}
+          table.insert(lst[c + m], f.ph[m])
+        end
+      else
+        table.insert(f.pos == 'top' and tops[c] or bots[c], f.box)
+      end
+    end
+    for i = 1, N do
+      if spantop[i] then
+        for k = #spantop[i], 1, -1 do table.insert(tops[i], 1, spantop[i][k]) end
+      end
+      if spanbot[i] then
+        for _, b in ipairs(spanbot[i]) do table.insert(bots[i], b) end
+      end
     end
     for i = 1, N do
       local t, b = 0, 0
@@ -791,6 +1045,18 @@ function M.balance(p)
     end
   end
 
+  -- 段iの下に段をまたぐフロートか場所取りがあるか．その段では，footnote=pageでも
+  -- 脚注を版面の下端でなくフロートの上に置く（段の下端モードと同じに扱う．LaTeXが組む
+  -- 段の\evenend@fnabovespanと同じ）．またがる段のあいだでフロートの位置がそろう
+  -- spanfootnote=bottom：揃える段組（最終ページとブロック）では，すべての段で脚注の
+  -- 下端を段の下端に置き（段下端の脚注と同じ組み方），段をまたぐ図は，またがる段の
+  -- うちいちばん高い脚注の上にそろえる
+  local spanfnbottom = p.spanfnbottom
+  local function sbot(i)
+    if spanfnbottom then return false end
+    local bl = bots[i] and bots[i][#bots[i]]
+    return bl and (node.has_attribute(bl, PH) or node.has_attribute(bl, SPAN)) and true or false
+  end
   local total_h, textdp = natural(text.head)
   -- 本文の行の標準の深さ（いちばん多い深さ）．本文で終わる段は，最終行の実際の
   -- 深さではなく，この深さでそろえる（ベースラインをそろえるため）
@@ -808,7 +1074,7 @@ function M.balance(p)
   local SCR = p.scratch
 
   -- 段の高さhで詰めてみる．入り切れば段ごとの結果を返す
-  local function fill(h)
+  local function fill_once(h, E)
     tex.setbox(SCR, (vpack(copy_list(text.head))))
     local res = {}
     local ok = true
@@ -816,7 +1082,9 @@ function M.balance(p)
       local fl = fl_top[i] + fl_bot[i]
       local function cap(fids)
         local f, fd = fnblock(fids)
-        if p.colmode then
+        -- 段をまたぐ図のまとまりの段は，まとまりのいちばん高い脚注の分を見込む
+        if E and E[i] and E[i] > f then f = E[i] end
+        if p.colmode or sbot(i) then
           -- 段の下端の脚注は，最終行のベースラインを本文の最終行のベースラインに
           -- そろえる．本文の最終行の深さと脚注の塊を行送りの倍数に切り上げて
           -- 見込み，端数は脚注の上のfilで吸収する（本文の行を丸ごと減らす）
@@ -881,7 +1149,7 @@ function M.balance(p)
       end
       local f, fd = fnblock(fnids(i, r.ids))
       r.fn, r.fd = f, fd
-      r.used = fl_top[i] + r.ht + fl_bot[i] + (p.colmode and f > 0 and (r.dp + f) or 0)
+      r.used = fl_top[i] + r.ht + fl_bot[i] + ((p.colmode or sbot(i)) and f > 0 and (r.dp + f) or 0)
       res[i] = r
       if not ok then break end
     end
@@ -897,6 +1165,48 @@ function M.balance(p)
     for _, r in ipairs(res) do if r.list then flush_list(r.list) end end
   end
   local step = 65536
+
+  -- 下に段をまたぐ図がある段のまとまり：段iが属するまとまりの最初の段（なければnil）
+  local function spangroups()
+    local g = {}
+    for i = 1, N do
+      local bl = bots[i][#bots[i]]
+      local k = bl and node.has_attribute(bl, SPAN)
+      if k and k > 1 then
+        for j = i, math.min(N, i + k - 1) do g[j] = i end
+      end
+    end
+    return g
+  end
+  -- spanfootnote=bottomのとき：段をまたぐ図のまとまりの段では，まとまりのいちばん高い
+  -- 脚注の分を見込んで詰める（段ごとの見込みEを決めて詰め直す）．res.Gに段ごとの
+  -- 見込みを返す
+  local function fill(h)
+    if not spanfnbottom then return fill_once(h) end
+    local g = spangroups()
+    if not next(g) then return fill_once(h) end
+    local E = {}
+    for _ = 1, 6 do
+      local res = fill_once(h, E)
+      if not res then return nil end
+      local G = {}
+      for j, c0 in pairs(g) do
+        local f = res[j].fn or 0
+        if not G[c0] or f > G[c0] then G[c0] = f end
+      end
+      local changed = false
+      for j, c0 in pairs(g) do
+        if (E[j] or 0) + 655 < G[c0] then E[j] = G[c0]; changed = true end
+      end
+      if not changed then
+        res.G = {}
+        for j, c0 in pairs(g) do res.G[j] = G[c0] end
+        return res
+      end
+      free_res(res)
+    end
+    return nil
+  end
 
   -- 4. 入り切る最小の高さを探す（いまのフロートの割り振りで）
   local function min_h()
@@ -937,6 +1247,21 @@ function M.balance(p)
     local from = math.max(minc, math.min(f.orig, N))
     local to = (fixed and not f.deferred) and from or N
     if fixed and not f.deferred and math.min(f.orig, N) < minc then return end
+    -- 段をまたぐフロート：置かれた段に固定する（持ち越されたものは，右端を越えない段）
+    if f.span then
+      if f.deferred then
+        -- 持ち越されたもの：上（正）か下（負）．右端を越えない段
+        from, to = math.max(minc, 1), N - f.span + 1
+        for c = from, to do
+          if f.cantop or not f.canbot then cur[j] = c enum(j + 1, c, cur, fixed) end
+          if f.canbot then cur[j] = -c enum(j + 1, c, cur, fixed) end
+        end
+        return
+      else
+        if f.orig < minc then return end
+        from, to = f.orig, f.orig
+      end
+    end
     for c = from, to do
       cur[j] = c
       enum(j + 1, c, cur, fixed)
@@ -947,6 +1272,30 @@ function M.balance(p)
     assigns = {}
     enum(1, 1, {}, true)
   end
+  -- 段をまたぐフロートが，同じ位置（上か下）で同じ段にかからないか
+  local function span_ok(a)
+    local cover = { top = {}, bot = {} }
+    for j, f in ipairs(F) do
+      if f.span then
+        -- 同じ段から同じ段数にまたがるものどうしは積み重ねてよい（またがる段の
+        -- あいだで並びが同じになる）
+        local pos = f.pos
+        if f.deferred then pos = a[j] < 0 and 'bot' or 'top' end
+        local c0 = math.abs(a[j])
+        local key = c0 .. ':' .. f.span
+        for c = c0, c0 + f.span - 1 do
+          if c > N or (cover[pos][c] and cover[pos][c] ~= key) then return false end
+          cover[pos][c] = key
+        end
+      end
+    end
+    return true
+  end
+  do
+    local ok = {}
+    for _, a in ipairs(assigns) do if span_ok(a) then ok[#ok + 1] = a end end
+    assigns = ok
+  end
   local best, besth, bestmoves
   for _, a in ipairs(assigns) do
     set_assign(a)
@@ -955,7 +1304,7 @@ function M.balance(p)
     if hh then
       local moves = 0
       for j, f in ipairs(F) do
-        if not f.deferred then moves = moves + a[j] - math.min(f.orig, N) end
+        if not f.deferred then moves = moves + math.abs(a[j]) - math.min(f.orig, N) end
       end
       if not besth or hh < besth - step / 2
          or (math.abs(hh - besth) <= step / 2 and moves < bestmoves) then
@@ -1003,13 +1352,24 @@ function M.balance(p)
     for i = 1, N do
       local r = res[i]
       local hasbot = #bots[i] > 0
-      if p.colmode and r.fn > 0 then
+      -- 下に段をまたぐフロート（場所取り）がある段：段下端の脚注はその上に置くので，
+      -- 段は下のフロートで終わる
+      local spanbot = false
+      do
+        local bl = bots[i][#bots[i]]
+        if bl and (node.has_attribute(bl, PH) or node.has_attribute(bl, SPAN)) then spanbot = true end
+      end
+      if r.fn > 0 and spanbot and not spanfnbottom then
+        -- （脚注の最終行の深さr.fdも数える．脚注の後に\textfloatsepとフロートが続く）
+        nat[i] = fl_top[i] + (r.list and r.ht + r.dp or 0) + r.fn + r.fd + fl_bot[i]
+        over[i] = 0
+      elseif p.colmode and math.max(r.fn, res.G and res.G[i] or 0) > 0 then
         -- 段下端の脚注はfilで段の下端に付くので，本文（と下のフロート）の後に
         -- 脚注が収まる最初の行の位置（字面の下端）をこの段の下端とみなす
         -- 脚注の最終行のベースラインを，本文の後で脚注が収まる最初の行の位置に置く
         -- 本文の後にグルーなどが残っていれば（最後の箱の後のアキ），それも含める
         local B = fl_top[i] + (r.list and math.max(lastbase(r.list), r.ht) or 0)
-        local need = (r.list and r.dp or 0) + fl_bot[i] + r.fn
+        local need = (r.list and r.dp or 0) + fl_bot[i] + math.max(r.fn, res.G and res.G[i] or 0)
         if p.blskip > 0 and r.list then
           -- 段の先頭の行が\topskipより高い（脚注の合印の付いた行など）と，本文の
           -- 行が行送りの位置からわずかに下がる．行送りの位置で見て，下がった分は
@@ -1035,6 +1395,8 @@ function M.balance(p)
         for j, f in ipairs(bots[i]) do
           t = t + f.height + f.depth + ((j > 1 or #tops[i] > 0) and floatsep or 0)
         end
+        -- 下のフロートもあれば，組むとおり（上の並び，\textfloatsep，下の並び）に数える
+        if #bots[i] > 0 then t = fl_top[i] + fl_bot[i] end
         nat[i], over[i] = t, 0
       elseif hasbot then
         nat[i], over[i] = fl_top[i] + r.ht + (r.list and r.dp or 0) + fl_bot[i], 0
@@ -1136,7 +1498,7 @@ function M.balance(p)
   local base
   for i = 1, N do
     local endstext = res[i].list and not (#bots[i] > 0)
-                     and not (p.colmode and res[i].fn > 0)
+                     and not ((p.colmode or sbot(i)) and res[i].fn > 0)
     if not base and endstext and math.abs(nat[i] + over[i] - h) < 655 then
       base = h - over[i]
     end
@@ -1168,10 +1530,14 @@ function M.balance(p)
     return boxlist_copy(n)
   end
   M.out = {}
+  M.rule = {}
+  local colinfo = {}
   local usefnpage = false
   for i = 1, N do
     local r = res[i]
     local l = newlist()
+    -- 段間罫のために，段の中の本文・脚注でない要素（フロートと罫）を覚えておく
+    local skip, botset = {}, {}
     if #tops[i] > 0 then
       -- floatgridでは上のフロートまわりのアキを伸縮させず，行送りの倍数に
       -- 切り上げた分を本文の前に足す
@@ -1182,8 +1548,13 @@ function M.balance(p)
       for j, f in ipairs(tops[i]) do
         if j > 1 then append(l, sep('floatsep')) end
         append(l, f)
+        skip[node.direct.todirect(f)] = true
       end
-      append(l, figrule(p.topfig))
+      do
+        local fr = figrule(p.topfig)
+        for q in node.traverse(fr) do skip[node.direct.todirect(q)] = true end
+        append(l, fr)
+      end
       append(l, sep('textfloatsep'))
       if ext_top[i] > 0 then append(l, mkglue(ext_top[i])) end
     end
@@ -1200,11 +1571,18 @@ function M.balance(p)
         segs[id].head = nil
       end
     end
+    -- 段間罫を避ける，段の中の脚注の領域の高さ（段の下端の脚注のとき）
+    -- 段の中の脚注の領域の高さ（段の下端の脚注のとき）．fnnotesは\skip\footinsを除いた分
+    local fnarea, fnnotes = 0, 0
+    if (p.colmode or sbot(i)) and fl.head then
+      fnarea = natural(fl.head)
+      fnnotes = fnarea - (tex.getglue(p.footins))
+    end
     -- 段の高さ：見かけの下端がそろう位置．版面下端の脚注があれば，組み上げた
     -- 脚注の並びの実際の高さの分だけ上で止める
     local target = h - over[i]
     local pushed = false
-    if not p.colmode and fl.head then
+    if not (p.colmode or sbot(i)) and fl.head then
       local fnh = natural(fl.head)
       if colht - fnh < target then target, pushed = colht - fnh, true end
     end
@@ -1225,20 +1603,47 @@ function M.balance(p)
     end
     local ragged = (i >= lastfull or pushed or blocked) and target - nat[i] > p.blskip / 2
     -- 本文の下のアキ：下フロートと（段下端モードの）脚注は段の下端に付ける
-    if ragged or (p.colmode and #ids > 0) then
+    local gallow = res.G and res.G[i] or 0
+    if ragged or ((p.colmode or sbot(i)) and (#ids > 0 or gallow > 0)) then
       append(l, filglue())
+    end
+    -- 下に段をまたぐフロート（場所取り）がある段では，段下端の脚注をフロートの上に
+    -- 置く（またがる段のあいだでフロートの位置がそろうように）
+    local spanbot = false
+    do
+      local bl = bots[i][#bots[i]]
+      if bl and (node.has_attribute(bl, PH) or node.has_attribute(bl, SPAN)) then spanbot = true end
+    end
+    if spanbot and fl.head and not spanfnbottom then
+      append(l, fl.head)
+      fl.head = nil
     end
     if #bots[i] > 0 then
       if ext_bot[i] > 0 then append(l, mkglue(ext_bot[i])) end
       append(l, regglue('textfloatsep'))
-      append(l, figrule(p.botfig))
+      do
+        local fr = figrule(p.botfig)
+        for q in node.traverse(fr) do
+          local d = node.direct.todirect(q)
+          skip[d] = true; botset[d] = true
+        end
+        append(l, fr)
+      end
       for j, f in ipairs(bots[i]) do
         if j > 1 then append(l, regglue('floatsep')) end
         append(l, f)
+        local d = node.direct.todirect(f)
+        skip[d] = true; botset[d] = true
       end
     end
     local body
+    local gapadd = 0  -- 図の下に足したアキ（脚注の分．見かけの下端の報告に使う）
     if p.colmode then
+      -- 段をまたぐ図のまとまりの段：図の下端をそろえるため，脚注との間を空ける
+      if gallow > 0 then
+        local own = (#ids > 0) and (fnblock(ids)) or 0
+        if gallow - own > 0 then gapadd = gallow - own; append(l, mkglue(gapadd)) end
+      end
       append(l, fl.head)
       body = vpack(l.head or node.new(GLUE), target, 'exactly')  -- 空の段もある
     else
@@ -1257,7 +1662,7 @@ function M.balance(p)
       local b = body
       if fl.head and not p.colmode then b = body.list end
       -- 段下端の脚注はfilで段の下端に付けてある
-      local filfn = p.colmode and #ids > 0
+      local filfn = (p.colmode or sbot(i)) and #ids > 0
       local placed = (b.glue_sign ~= 0 and (b.glue_order == 0 or filfn)) and target or nat[i]
       if filfn then placed = target end
       -- 組み上げた箱を実際にたどって，最後に見える要素の下端を求める
@@ -1310,15 +1715,65 @@ function M.balance(p)
         geo = vis(body, 0)
       end
       placed = geo - over[i]
-      if ragged and not filfn then placed = nat[i] end
+      -- 脚注のない段で，図の下に脚注の分のアキを足して下端をそろえた（\vfilで段の
+      -- 下端に付けてある）
+      if #ids == 0 and gapadd > 0 then placed = target end
+      if ragged and not filfn and gapadd == 0 then placed = nat[i] end
       local floatsonly = r.ht == 0 and (#tops[i] + #bots[i]) > 0
       -- 伸ばせるグルーがなくて届かない（行送りの位置にそろわない組版の限界）
       local nostretch = not ragged and not filfn and b.glue_sign ~= 1 and placed < target - 655
+      -- 段の中身が段の高さを超える（段いっぱいの分割できない箱など）
+      local overfull = nat[i] + over[i] > colht + 655
       info('  column %d placed %s%s', i, pt(placed + over[i]),
+        overfull and ' (overfull)' or
         pushed and ' (pushed)' or floatsonly and ' (floats only)'
         or colbreak and ' (column break)'
         or (blocked and (ragged or nostretch)) and ' (blocked)'
         or ragged and ' (ragged)' or nostretch and ' (no stretch)' or '')
+    end
+    -- 段間罫：段をまたぐフロートの場所取りがこの段にあれば，罫はフロートの所を避け，
+    -- 段間の両側の本文（と脚注）の行のある範囲に引く．組み上げた段をたどって，下の
+    -- フロートより前（本文と，その上に置いた脚注）と後（spanfootnote=bottomの脚注）の，
+    -- 最初の行の上端と最後の行の下端を求める
+    do
+      local inner = body
+      if not p.colmode and fl.head and body.list and body.list.id == VLIST then inner = body.list end
+      local y, seenbot = 0, false
+      local pt0, pb0, pt1, pb1
+      for q in node.traverse(inner.list) do
+        local id = q.id
+        if id == GLUE then y = y + node.effective_glue(q, inner)
+        elseif id == KERN then y = y + q.kern
+        elseif id == HLIST or id == VLIST or id == RULE then
+          local rec = { q = q, y = y }
+          local d = node.direct.todirect(q)
+          if skip[d] then
+            if botset[d] then seenbot = true end
+          elseif q.height + q.depth > 0 then
+            if not seenbot then pt0 = pt0 or rec; pb0 = rec
+            else pt1 = pt1 or rec; pb1 = rec end
+          end
+          y = y + q.height + q.depth  -- 次の要素へは箱の大きさで進む
+        end
+      end
+      local t1, bl = tops[i][1], bots[i][#bots[i]]
+      colinfo[i] = {
+        top = pt0, bot = pb0, fntop = pt1, fnbot = pb1,  -- 罫の端は要るときに測る
+        ph_top = t1 and node.has_attribute(t1, PH) and true or false,
+        ph_bot = bl and node.has_attribute(bl, PH) and true or false,
+      }
+      local function lo(x, y2) if x and y2 then return math.min(x, y2) end return x or y2 end
+      local function hi(x, y2) if x and y2 then return math.max(x, y2) end return x or y2 end
+      local rtop, rend, r2top, r2end = 0, 0, 0, 0
+      local a, c = colinfo[i - 1], colinfo[i]
+      if a and c.ph_top then rtop = lo(edge_top(a.top), edge_top(c.top)) or 0 end
+      if a and c.ph_bot then
+        rend = hi(edge_bot(a.bot), edge_bot(c.bot)) or 0
+        -- spanfootnote=bottom：図の下の脚注の横にも引く（脚注の下端まで）
+        r2top = lo(edge_top(a.fntop), edge_top(c.fntop)) or 0
+        r2end = hi(edge_bot(a.fnbot), edge_bot(c.fnbot)) or 0
+      end
+      M.rule[i] = { rtop, rend, r2top, r2end }
     end
     local o = newlist()
     append(o, body)
@@ -1389,6 +1844,11 @@ end
 function M.getcolumn(i, n)
   local b = M.out and M.out[i]
   if b then M.out[i] = nil end
+  local r = M.rule and M.rule[i] or { 0, 0, 0, 0 }
+  tex.setdimen('global', 'evenend@rtop', r[1])
+  tex.setdimen('global', 'evenend@rend', r[2])
+  tex.setdimen('global', 'evenend@rtwotop', r[3] or 0)
+  tex.setdimen('global', 'evenend@rtwoend', r[4] or 0)
   tex.setbox(n, b)
 end
 

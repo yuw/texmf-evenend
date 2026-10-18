@@ -1,0 +1,19 @@
+%% evenend-sample-span.tex：evenendの見本（段をまたぐフロート）
+%% マニュアル（evenend-ja.tex）が貼り込む
+\documentclass[twocolumn,paper=b5,fontsize=9pt]{jlreq}
+\usepackage[columns=3]{evenend}
+\setlength\columnseprule{0.4pt}
+\newcommand\para{吾輩は猫である．名前はまだ無い．どこで生れたかとんと見当がつかぬ．何でも薄暗いじめじめした所でニャーニャー泣いていた事だけは記憶している．吾輩はここで始めて人間というものを見た．\par}
+\newcommand\fig[2]{\centering\fbox{\parbox[c][#2][c]{.95\linewidth}{\centering #1}}\caption{#1}}
+\begin{document}
+\section{段をまたぐフロート}
+\para
+\begin{spanfigure}[t]{2}
+\fig{\texttt{\string\begin\{spanfigure\}[t]\{2\}}}{48pt}
+\end{spanfigure}
+\para\para\para\para\para\para\para
+\begin{spanfigure}[b]{2}
+\fig{\texttt{\string\begin\{spanfigure\}[b]\{2\}}}{48pt}
+\end{spanfigure}
+\para\para\para\para\para\para\para\para\para\para
+\end{document}

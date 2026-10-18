@@ -1,5 +1,5 @@
 \NeedsTeXFormat{LaTeX2e}[2024-11-01]
-\ProvidesPackage{evenend}[2026/10/02 v20261002.0 Balance the last page of multi-column text (LuaLaTeX) by Yuwsuke Kieda]
+\ProvidesPackage{evenend}[2026/10/18 v20261018.0 Balance the last page of multi-column text (LuaLaTeX) by Yuwsuke Kieda]
 
 \ifdefined\directlua\else
   \PackageError{evenend}{LuaLaTeX is required}{}
@@ -44,12 +44,15 @@
 \newif\ifevenend@switch    % 段数の切り換えを待っている
 \newif\ifevenend@floatgrid \evenend@floatgridtrue % フロートの並びを行送りの倍数にする
 \newif\ifevenend@headblock % 見出しの上アキを段組の間のアキに含める
+\newif\ifevenend@spanfnbottom % footnote=pageの最終ページで，下に段をまたぐ図がある段の脚注を版面の下端に置く
 
 %% ---------------------------------------------------------------------
 %% オプション
 \def\evenend@s@page{page}
 \def\evenend@s@column{column}
 \def\evenend@s@block{block}
+\def\evenend@s@above{above}
+\def\evenend@s@bottom{bottom}
 \DeclareKeys[evenend]{
   columns.code     = {\evenend@N=\numexpr#1\relax
                       \ifnum\evenend@N<\@ne
@@ -85,6 +88,16 @@
                           headingskip}{Use `column' or `block'.}%
                       \fi\fi},
   headingskip.usage = general,
+  spanfootnote.code = {\edef\evenend@tmp{#1}%
+                      \ifx\evenend@tmp\evenend@s@above
+                        \evenend@spanfnbottomfalse
+                      \else\ifx\evenend@tmp\evenend@s@bottom
+                        \evenend@spanfnbottomtrue
+                      \else
+                        \PackageError{evenend}{Unknown value `#1' for
+                          spanfootnote}{Use `above' or `bottom'.}%
+                      \fi\fi},
+  spanfootnote.usage = general,
 }
 %% 段組を切り換えたときの，前の段組の最終行から次の段組の1行目までのベースライン間
 \def\evenend@blockskip{2\baselineskip}
@@ -259,12 +272,15 @@
 %% 段の取り込み：\@makecolの直前
 \def\evenend@capture{%
   \if@twocolumn
+    \evenend@spanprep
     \directlua{evenend.capture(\number\footins)}%
     \begingroup
-      \def\@elt##1{\directlua{evenend.addfloat('top',\number##1)}}%
+      \def\@elt##1{\directlua{evenend.addfloat('top',\number##1,\evenend@spankof##1)}}%
       \@toplist
-      \def\@elt##1{\directlua{evenend.addfloat('bot',\number##1)}}%
+      \def\@elt##1{\directlua{evenend.addfloat('bot',\number##1,\evenend@spankof##1)}}%
       \@botlist
+      %% この段のフロートの箱は出力の後に空くので，段をまたぐフロートの記録を消す
+      \def\@elt##1{\evenend@spanclear##1}\@toplist\@botlist
     \endgroup
     \global\evenend@capturedtrue
     \ifevenend@debug
@@ -284,7 +300,7 @@
     \if@twocolumn
       \edef\evenend@vfuzz{\number\vfuzz}%
       \vfuzz\maxdimen
-      \evenend@orig@makecol
+      \evenend@fnabovespan\evenend@orig@makecol
       \directlua{evenend.checkcol(\number\@outputbox, \evenend@vfuzz)}%
       \vfuzz\evenend@vfuzz sp\relax
     \else
@@ -328,9 +344,18 @@
         Page \thepage\space contains a float column;\MessageBreak
         not balanced}%
     \else
-      \evenend@balance
-      \ifevenend@switch\else
-        \ifnum\evenend@status>\z@\else \evenend@warnfail \fi
+      \ifevenend@switch
+        \evenend@balance
+      \else
+        %% 最終ページ：持ち越された段内フロートも入れて揃えてみる．入り切らなければ，
+        %% 入れずに揃える（持ち越されたフロートはLaTeXが後のページに出す）
+        \global\evenend@takedeferredtrue
+        \evenend@balance
+        \global\evenend@takedeferredfalse
+        \ifnum\evenend@status>\z@\else
+          \evenend@iftakable{\evenend@balance}{}%
+          \ifnum\evenend@status>\z@\else \evenend@warnfail \fi
+        \fi
       \fi
     \fi\fi
   \fi
@@ -413,6 +438,9 @@
   \global\@firstcolumntrue
   \global\evenend@pagebadfalse
   \global\setbox\@leftcolumn\box\voidb@x
+  \global\let\evenend@resv\@empty
+  \global\let\evenend@resvfn\@empty
+  \evenend@fnrestore
   \directlua{evenend.reset()}}
 
 %% 揃えられなかったとき：持ち越したフロートを除いて本文だけで揃えられれば，
@@ -452,15 +480,47 @@
   \fi}
 
 %% 持ち越されたフロートだけのブロックを組む
+\let\evenend@flrest\@empty
+%% \@deferlistの最後の要素を\evenend@flrestの先頭へ移す（2つ以上あるときだけ．
+%% 移したら\evenend@tmpを\@firstoftwoにする）
+\def\evenend@poplast{%
+  \let\evenend@tmp\@secondoftwo
+  \global\let\evenend@a\@empty \global\let\evenend@b\@empty
+  \def\@elt##1{\xdef\evenend@a{\unexpanded\expandafter{\evenend@a}\unexpanded\expandafter{\evenend@b}}\gdef\evenend@b{\@elt##1}}%
+  \@deferlist
+  \let\@elt\relax
+  \ifx\evenend@a\@empty\else
+    \global\let\@deferlist\evenend@a
+    \xdef\evenend@flrest{\unexpanded\expandafter{\evenend@b}\unexpanded\expandafter{\evenend@flrest}}%
+    \let\evenend@tmp\@firstoftwo
+  \fi
+  \evenend@tmp}
 \def\evenend@floatblock{%
   \directlua{evenend.reset() evenend.emptycolumn()}%
   \global\evenend@switchtrue
   \evenend@balance
   \global\evenend@switchfalse
   \ifnum\evenend@status>\z@
-    \evenend@pushblock
-    \let\evenend@next\relax
+    \ifx\evenend@flrest\@empty
+      \evenend@pushblock
+      \let\evenend@next\relax
+    \else
+      %% 一部だけ組めた：このページに積んでページを終え，残りで次のページにもう一度
+      \evenend@makerow
+      \evenend@pushrow
+      \ifdim\@colht<\z@ \global\@colht\z@ \fi
+      \setbox\@outputbox\vbox to\@colht{}%
+      \xdef\evenend@flrest{\unexpanded\expandafter{\@deferlist}\unexpanded\expandafter{\evenend@flrest}}%
+      \global\let\@deferlist\@empty
+      \evenend@shippage
+      \global\let\@deferlist\evenend@flrest
+      \global\let\evenend@flrest\@empty
+      \let\evenend@next\evenend@floatblock
+    \fi
   \else
+   \evenend@poplast{\let\evenend@next\evenend@floatblock}{%
+   \xdef\@deferlist{\unexpanded\expandafter{\@deferlist}\unexpanded\expandafter{\evenend@flrest}}%
+   \global\let\evenend@flrest\@empty
     %% フロートだけのブロックも組めない（段より高いフロートなど）：LaTeXの
     %% フロート段として元の段数のまま出し，ページを終える．残ったフロート
     %% （[p]のないものなど）は，次のページでもう一度ブロックに組んでみる
@@ -473,23 +533,47 @@
       \evenend@normalcol}%
     \let\evenend@next\evenend@floatblock
     \ifx\@deferlist\@empty \let\evenend@next\evenend@switchnow \fi
-    \ifx\@deferlist\evenend@before \let\evenend@next\evenend@switchnow \fi
+    \ifx\@deferlist\evenend@before \let\evenend@next\evenend@switchnow \fi}%
   \fi
   \evenend@next}
 
-%% 段間の罫：#1は罫の高さ，#2は段の箱の高さ
+%% 段間の罫：#1は罫の高さ，#2は段の箱の高さ．段をまたぐフロートのある所は
+%% 避ける（\evenend@rtopから\evenend@rendまで．\evenend@rendが0なら#1まで）
+%% \evenend@rtwotopが0でなければ，\evenend@rtwotopから\evenend@rtwoendまでにも引く
+%% （spanfootnote=bottomで，段をまたぐ図の下の脚注の横）
+\newdimen\evenend@rtop
+\newdimen\evenend@rend
+\newdimen\evenend@rtwotop
+\newdimen\evenend@rtwoend
 \def\evenend@sep#1#2{%
   \hfil
   \vbox to#2{%
-    \hbox{\normalcolor\vrule \@width\evenend@colrule \@height#1\@depth\z@}%
+    \offinterlineskip  % 2本めの罫の前に行間のアキを入れない
+    \kern\evenend@rtop
+    \hbox{\normalcolor\vrule \@width\evenend@colrule
+      \@height\dimexpr\ifdim\evenend@rend>\z@\evenend@rend\else#1\fi-\evenend@rtop\relax
+      \@depth\z@}%
+    \ifdim\evenend@rtwotop>\z@
+      \kern\dimexpr\evenend@rtwotop-\ifdim\evenend@rend>\z@\evenend@rend\else#1\fi\relax
+      \hbox{\normalcolor\vrule \@width\evenend@colrule
+        \@height\dimexpr\evenend@rtwoend-\evenend@rtwotop\relax \@depth\z@}%
+    \fi
     \vss}%
   \hfil}
 
 \def\evenend@normalcol{%
   \global\advance\evenend@colno\@ne
+  %% 段をまたぐフロートの場所取りがこの段にあれば，罫はその所を避け，段間の両側の
+  %% 本文（と脚注）の行の字のある範囲に引く．組み上げた段の箱をLua側でたどって測る
+  \directlua{evenend.colrule(\number\@outputbox, \number\evenend@colno,
+    \number\evenend@nt, \number\evenend@nb,
+    \ifdim\evenend@phtop>\z@ true\else false\fi,
+    \ifdim\evenend@phbot>\z@ true\else false\fi)}%
   \global\setbox\@leftcolumn\hbox{%
     \unhbox\@leftcolumn
-    \ifnum\evenend@colno>\@ne \evenend@sep\@colht\@colht \fi
+    \ifnum\evenend@colno>\@ne
+      \evenend@sep\@colht\@colht
+    \fi
     \hb@xt@\columnwidth{\box\@outputbox \hss}}%
   \ifnum\evenend@colno<\evenend@N
     \global\@firstcolumnfalse
@@ -500,6 +584,9 @@
   \fi}
 
 \def\evenend@shippage{%
+  \global\let\evenend@resv\@empty
+  \global\let\evenend@resvfn\@empty
+  \evenend@fnrestore
   \global\evenend@colno\z@
   \global\@firstcolumntrue
   \global\evenend@pagebadfalse
@@ -522,13 +609,34 @@
   \endgroup}
 
 %% まだ出ていない（持ち越された）フロートをLua側に渡す（段抜きは深さ1sp）．
-%% 段数を切り換えるときだけ：そのブロックのフロートはそのブロックの中に置く．
-%% 文書末などでは，持ち越されたフロートはLaTeXが同じ段数で後のページに出す．
+%% 段数を切り換えるとき：そのブロックのフロートはそのブロックの中に置く．
+%% 文書末などの最終ページ：段内フロートだけを渡す（入り切らなければ渡さずに揃え，
+%% 持ち越されたフロートはLaTeXが同じ段数で後のページに出す）．
 %% 段内フロートは段の上に置くので，渡す前にフックevenend/deferredfloatを
 %% 呼ぶ（\evenendfloatboxがその箱．フロートの中身の位置を整えるパッケージ用）
 \NewHook{evenend/deferredfloat}
+\newif\ifevenend@takedeferred
+%% 持ち越された段内フロート（段抜きでないもの）があるか
+\def\evenend@iftakable{%
+  \let\evenend@tmp\@secondoftwo
+  \def\@elt##1{\ifdim\dp##1=1sp\else\let\evenend@tmp\@firstoftwo\fi}%
+  \@deferlist
+  \let\@elt\relax
+  \evenend@tmp}
 \def\evenend@collectdeferred{%
   \global\evenend@dblbotadj\z@
+  \ifevenend@takedeferred
+    \begingroup
+      \def\@elt##1{%
+        \ifdim\dp##1=1sp\else
+          \evenend@ifpasscol##1{%
+            \let\evenendfloatbox##1%
+            \UseHook{evenend/deferredfloat}%
+            \directlua{evenend.adddeferred('col', \number##1, \evenend@spankof##1, \number\count##1)}}{}%
+        \fi}%
+      \@deferlist
+    \endgroup
+  \fi
   \ifevenend@switch
     %% stfloatsが版面の下端に予約した段抜きフロートも，このブロックの下に置く
     \ifdefined\@dblbotlist
@@ -545,9 +653,10 @@
         \ifdim\dp##1=1sp
           \directlua{evenend.adddeferred('dbl', \number##1)}%
         \else
-          \let\evenendfloatbox##1%
-          \UseHook{evenend/deferredfloat}%
-          \directlua{evenend.adddeferred('col', \number##1)}%
+          \evenend@ifpasscol##1{%
+            \let\evenendfloatbox##1%
+            \UseHook{evenend/deferredfloat}%
+            \directlua{evenend.adddeferred('col', \number##1, \evenend@spankof##1, \number\count##1)}}{}%
         \fi}%
       \@deferlist
     \endgroup
@@ -570,6 +679,10 @@
       colmode = \ifevenend@colmode true\else false\fi,
       block   = \ifevenend@switch true\else false\fi,
       floatgrid = \ifevenend@floatgrid true\else false\fi,
+      %% フックevenend/deferredfloatに処理があれば（gyoudoriなど），持ち越されたフロートは
+      %% 上に置く前提で組み直されるので，上だけに置く
+      deferbot = \IfHookEmptyTF{evenend/deferredfloat}{true}{false},
+      spanfnbottom = \ifevenend@spanfnbottom true\else false\fi,
       headblock = \ifevenend@headblock\ifvoid\evenend@pagetop false\else true\fi\else false\fi,
       footins = \number\footins,
       blskip  = \number\baselineskip,
@@ -582,9 +695,27 @@
       \PackageInfo{evenend}{Page \thepage: columns balanced at
         \the\evenend@height\ifevenend@switch\space (block)\fi}%
       %% 持ち越されたフロートは揃えた段組に入れたので，リストから外す
+      \ifevenend@takedeferred
+        %% 入れた段内フロートを持ち越しのリストから外す（段抜きのものは残す）
+        \global\let\evenend@a\@empty \global\let\evenend@b\@empty
+        \def\@elt##1{\ifdim\dp##1=1sp \g@addto@macro\evenend@b{\@elt##1}\else
+          \evenend@ifpasscol##1{\evenend@spanclear##1\g@addto@macro\evenend@a{\@elt##1}}%
+            {\g@addto@macro\evenend@b{\@elt##1}}\fi}%
+        \@deferlist
+        \let\@elt\relax
+        \xdef\@freelist{\@freelist\evenend@a}%
+        \global\let\@deferlist\evenend@b
+      \fi
       \ifevenend@switch
-        \xdef\@freelist{\@freelist\@deferlist}%
-        \global\let\@deferlist\@empty
+        %% 入れたフロートを持ち越しのリストから外す（段組より広い段をまたぐフロートは残す）
+        \global\let\evenend@a\@empty \global\let\evenend@b\@empty
+        \def\@elt##1{\ifdim\dp##1=1sp \g@addto@macro\evenend@a{\@elt##1}\else
+          \evenend@ifpasscol##1{\evenend@spanclear##1\g@addto@macro\evenend@a{\@elt##1}}%
+            {\g@addto@macro\evenend@b{\@elt##1}}\fi}%
+        \@deferlist
+        \let\@elt\relax
+        \xdef\@freelist{\@freelist\evenend@a}%
+        \global\let\@deferlist\evenend@b
         \ifdefined\@dblbotlist
           \xdef\@freelist{\@freelist\@dblbotlist}%
           \global\let\@dblbotlist\@empty
@@ -611,6 +742,320 @@
     \ifdim\evenend@headshift=\z@\else \kern\evenend@headshift \fi
     \hb@xt@\textwidth{\unhbox\@tempboxa}%
     \ifvoid\evenend@colbox\else \box\evenend@colbox \fi}}
+
+%% ---------------------------------------------------------------------
+%% 段をまたぐフロート：\begin{spanfigure}[位置]{段数}，spantable
+%% 置かれた段を左端にして，右へ段数ぶんの幅で組む．置かれた段では中身を右の段まで
+%% はみ出させ，右の段には同じ高さの空の箱（場所取り）を，上なら段の最初，下なら段の
+%% 最後のフロートとして置く．右端を越える段と，フロートだけの段には置かない．
+%% 位置はtとbだけ（hとpは使わない）で，!を付けて上・下の領域の割合の制限を外す
+\newcount\evenend@spank
+\newdimen\evenend@phtop    % 出力する段の上の場所取りの高さ
+\newdimen\evenend@phbot    % 出力する段の下の場所取りの高さ
+\newif\ifevenend@spanbot   % 出力する段の下に段をまたぐフロートか場所取りがある
+\newcount\evenend@nt       % 出力する段の上のフロートの数（場所取りを含む）
+\newcount\evenend@nb       % 同じく下のフロートの数
+\newdimen\evenend@spanwd
+\newif\ifevenend@infcol    % \@tryfcolumnの中（フロートだけの段を作ろうとしている）
+\def\evenend@resv{}        % このページで場所取りを置く段：\evenend@rv{段}{t|b}{高さ}
+\NewDocumentEnvironment{spanfigure}{O{\fps@figure} m}
+  {\evenend@spanbegin{figure}{#1}{#2}}{\evenend@spanend}
+\NewDocumentEnvironment{spantable}{O{\fps@table} m}
+  {\evenend@spanbegin{table}{#1}{#2}}{\evenend@spanend}
+\def\evenend@spanbegin#1#2#3{%
+  \global\evenend@spank=\numexpr#3\relax
+  \ifnum\evenend@spank<\@ne \global\evenend@spank\@ne \fi
+  \ifnum\evenend@spank>\evenend@N
+    \PackageWarning{evenend}{A span float wider than the number of columns;\MessageBreak
+      using \the\evenend@N\space columns}%
+    \global\evenend@spank\evenend@N
+  \fi
+  %% 位置：tとbだけを残し，!を付ける
+  \let\evenend@tmp\@empty
+  \edef\evenend@fps{#2}%
+  \expandafter\@tfor\expandafter\reserved@a\expandafter:\expandafter=\evenend@fps\do{%
+    \if\reserved@a t\edef\evenend@tmp{\evenend@tmp t}\fi
+    \if\reserved@a b\edef\evenend@tmp{\evenend@tmp b}\fi}%
+  \ifx\evenend@tmp\@empty \def\evenend@tmp{tb}\fi
+  \global\evenend@spanwd=\numexpr\evenend@spank\relax\columnwidth
+  \global\advance\evenend@spanwd\numexpr\evenend@spank-\@ne\relax\evenend@colsep
+  %% フロートの箱の中身は，またがる段の全幅で組む
+  \let\evenend@orig@endfloatbox\@endfloatbox
+  \def\@endfloatbox{\evenend@orig@endfloatbox \evenend@spanfix}%
+  %% クラスのfigure（table）環境の始まりの処理を活かすため，その環境を呼び，
+  %% 中の\@floatだけを差し替える
+  \edef\evenend@spanfloat{\noexpand\@xfloat{#1}[!\evenend@tmp]}%
+  \def\@float##1{\evenend@spanfloat \hsize\evenend@spanwd \linewidth\hsize}%
+  \def\evenend@spanend{\csname end#1\endcsname}%
+  \csname #1\endcsname}
+%% 組み上げた箱：幅は段幅にし（中身は右へはみ出す），段数を記録する
+\def\evenend@spanfix{%
+  \ifnum\@floatpenalty<\z@
+    %% 上か下に置ける高さに抑える（置けないと最後まで置けないので）
+    \@tempdima\dimexpr\textheight-\textfloatsep\relax
+    \ifdim\ht\@currbox>\@tempdima
+      \PackageWarning{evenend}{Span float too large for page}%
+      \global\ht\@currbox\@tempdima
+    \fi
+    \global\wd\@currbox\columnwidth
+    \directlua{evenend.markspan(\number\@currbox, \the\evenend@spank)}%
+    \expandafter\xdef\csname evenend@span@\number\@currbox\endcsname
+      {\number\evenend@spanwd}%
+  \fi}
+%% 段をまたぐフロート#1が，いまの段組（段幅と段間）でまたがる段数．記録は箱の中身の
+%% 幅なので，段数を切り換えた後の段組に持ち越されても正しく数える
+\def\evenend@spankeff#1{\directlua{evenend.spank(\csname evenend@span@\number#1\endcsname,
+  \number\columnwidth, \number\evenend@colsep)}}
+%% 持ち越されたフロート#1を，揃えるいまの段組に入れられるか（段をまたぐフロートは，
+%% 段組の幅を越えないときだけ）
+\def\evenend@ifpasscol#1{%
+  \ifcsname evenend@span@\number#1\endcsname
+    \ifnum\evenend@spankeff#1>\evenend@N
+      \expandafter\expandafter\expandafter\@secondoftwo
+    \else
+      \expandafter\expandafter\expandafter\@firstoftwo
+    \fi
+  \else
+    \expandafter\@firstoftwo
+  \fi}
+\def\evenend@ifspan#1{%
+  \ifcsname evenend@span@\number#1\endcsname
+    \expandafter\@firstoftwo
+  \else\ifcsname evenend@ph@\number#1\endcsname
+    \expandafter\expandafter\expandafter\@firstoftwo
+  \else
+    \expandafter\expandafter\expandafter\@secondoftwo
+  \fi\fi}
+%% フロートを置けるか（LaTeXの段幅の検査に足す）：段をまたぐフロートは，
+%% 置く段から右へ段数ぶんが右端を越えず，フロートだけの段でないときだけ置く．
+%% またがる段に，同じ位置（上か下）の場所取りやほかの段をまたぐフロートがあれば，
+%% その位置には置かない（位置の指定からその位置を一時的に外し，置き終えたら戻す）
+\def\evenend@spantest#1{%
+  \ifevenend@infcol
+    \global\@testtrue
+  \else
+    \ifnum\numexpr\evenend@colno+\evenend@spankeff#1\relax
+          >\evenend@N
+      \global\@testtrue
+    \else
+      \evenend@spanconflicts#1%
+      \@tempcnta\count#1\relax
+      \@tempcntb\@tempcnta \divide\@tempcntb\tw@
+      \ifodd\@tempcntb \ifevenend@conft \advance\@tempcnta-\tw@ \fi \fi
+      \@tempcntb\count#1\relax \divide\@tempcntb4\relax
+      \ifodd\@tempcntb \ifevenend@confb \advance\@tempcnta-4\relax \fi \fi
+      %% 上にも下にも置けない
+      \@tempcntb\@tempcnta \divide\@tempcntb\tw@
+      \ifodd\@tempcntb\else
+        \@tempcntb\@tempcnta \divide\@tempcntb4\relax
+        \ifodd\@tempcntb\else \global\@testtrue \fi
+      \fi
+      \ifnum\@tempcnta=\count#1\else
+        \xdef\evenend@spanrestore{\global\count\number#1=\the\count#1\relax}%
+        \global\count#1\@tempcnta
+      \fi
+    \fi
+  \fi}
+\newif\ifevenend@conft
+\newif\ifevenend@confb
+\let\evenend@spanrestore\relax
+%% 置こうとしている段から右へ段数ぶんの段で，上・下それぞれに衝突があるか
+\def\evenend@spanconflicts#1{%
+  \global\evenend@conftfalse \global\evenend@confbfalse
+  \edef\evenend@c{\the\numexpr\evenend@colno+\@ne}%
+  \edef\evenend@e{\the\numexpr\evenend@colno+\evenend@spankeff#1}%
+  \def\evenend@rv##1##2##3{%
+    \ifnum##1<\evenend@c\relax\else\ifnum##1>\evenend@e\relax\else
+      \if##2t\global\evenend@confttrue\else\global\evenend@confbtrue\fi
+    \fi\fi}%
+  \evenend@resv
+  \def\@elt##1{\evenend@ifspan##1{\global\evenend@confttrue}{}}\@toplist
+  \def\@elt##1{\evenend@ifspan##1{\global\evenend@confbtrue}{}}\@botlist
+  \let\@elt\relax}
+\AtBeginDocument{%
+  \let\evenend@orig@testwrongwidth\@testwrongwidth
+  \def\@testwrongwidth#1{%
+    \evenend@orig@testwrongwidth#1%
+    \ifcsname evenend@span@\number#1\endcsname \evenend@spantest#1\fi}%
+  \let\evenend@orig@tryfcolumn\@tryfcolumn
+  \def\@tryfcolumn#1{%
+    \global\evenend@infcoltrue
+    \evenend@orig@tryfcolumn#1%
+    \global\evenend@infcolfalse}%
+  \let\evenend@orig@startcolumn\@startcolumn
+  \let\@startcolumn\evenend@startcolumn
+  %% 位置の指定を一時的に外したときは，置き終えたら戻す
+  \let\evenend@orig@addtocurcol\@addtocurcol
+  \def\@addtocurcol{\evenend@orig@addtocurcol
+    \evenend@spanrestore\global\let\evenend@spanrestore\relax}%
+  \let\evenend@orig@addtonextcol\@addtonextcol
+  \def\@addtonextcol{\evenend@orig@addtonextcol
+    \evenend@spanrestore\global\let\evenend@spanrestore\relax}
+  \let\evenend@orig@doclearpage\@doclearpage
+  \def\@doclearpage{\evenend@spantodbl\evenend@orig@doclearpage}}
+%% \clearpageでは，LaTeXは残ったフロートをフロートだけのページにしか出さない．
+%% 段をまたぐフロートはフロートだけの段に置かないので，段抜きのフロートとして出す
+%% （フロートだけのページの左上に，またがる幅で置かれる）
+\def\evenend@spantodbl{%
+  \def\@elt##1{%
+    \ifcsname evenend@span@\number##1\endcsname
+      \evenend@spanclear##1%
+      \global\dp##1=1sp
+      \PackageInfo{evenend}{A span float is output on a float page}%
+    \fi}%
+  \@deferlist
+  \let\@elt\relax}
+%% 段の始まり：この段に場所取りがあれば，フロートだけの段は作らず，場所取りを
+%% 上（下）のフロートとして先に置いてから，持ち越されたフロートを試す
+\def\evenend@startcolumn{%
+  \edef\evenend@c{\the\numexpr\evenend@colno+\@ne}%
+  \let\evenend@hasresv\@empty
+  \def\evenend@rv##1##2##3{\ifnum##1=\evenend@c\relax \def\evenend@hasresv{x}\fi}%
+  \evenend@resv
+  \ifx\evenend@hasresv\@empty
+    \evenend@orig@startcolumn
+  \else
+    \global\@colroom\@colht
+    \global\@fcolmadefalse
+    \def\evenend@rv##1##2##3{\ifnum##1=\evenend@c\relax \evenend@placeholder{##2}{##3}\fi}%
+    \evenend@resv
+    %% spanfootnote=bottom：この段の脚注は，場所取りの中の下（左の段の脚注の高さまで）に
+    %% 収める．脚注で本文の量を減らさないように，\count\footinsと\skip\footinsを0にする
+    \def\evenend@rf##1##2{\ifnum##1=\evenend@c\relax \evenend@fnadjust{##2}\fi}%
+    \evenend@resvfn
+    \def\evenend@rf##1##2{\ifnum##1=\evenend@c\relax\else\noexpand\evenend@rf{##1}{##2}\fi}%
+    \xdef\evenend@resvfn{\evenend@resvfn}%
+    \def\evenend@rv##1##2##3{\ifnum##1=\evenend@c\relax\else
+      \noexpand\evenend@rv{##1}{##2}{##3}\fi}%
+    \xdef\evenend@resv{\evenend@resv}%
+    \begingroup
+      \let\reserved@b\@deferlist
+      \global\let\@deferlist\@empty
+      \let\@elt\@scolelt
+      \reserved@b
+    \endgroup
+  \fi}
+\def\evenend@resvfn{}       % spanfootnote=bottom：\evenend@rf{段}{左の段の脚注の高さ}
+\newif\ifevenend@fnadj
+\newcount\evenend@savefncount
+\newskip\evenend@savefnskip
+\newdimen\evenend@savefndimen
+\def\evenend@fnadjust#1{%
+  \ifevenend@fnadj\else
+    \global\evenend@savefncount\count\footins
+    \global\evenend@savefnskip\skip\footins
+    \global\evenend@savefndimen\dimen\footins
+  \fi
+  \global\evenend@fnadjtrue
+  \global\count\footins\z@
+  \global\skip\footins\z@
+  \global\dimen\footins\dimexpr#1-\evenend@savefnskip\relax
+  \ifdim\dimen\footins<\z@ \global\dimen\footins\z@ \fi}
+\def\evenend@fnrestore{%
+  \ifevenend@fnadj
+    \global\count\footins\evenend@savefncount
+    \global\skip\footins\evenend@savefnskip
+    \global\dimen\footins\evenend@savefndimen
+    \global\evenend@fnadjfalse
+  \fi}
+\def\evenend@placeholder#1#2{%
+  \@next\@currbox\@freelist{%
+    \global\setbox\@currbox\vbox to#2{\vss}%
+    \global\count\@currbox\z@
+    \directlua{evenend.markph(\number\@currbox)}%
+    \expandafter\gdef\csname evenend@ph@\number\@currbox\endcsname{}%
+    \if#1t\@flupdates\@topnum\@toproom\@toplist
+    \else\@flupdates\@botnum\@botroom\@botlist\fi
+  }{\@fltovf}}
+%% 段を出力するとき（\@makecolの前）：段をまたぐフロートと場所取りを，上なら最初，
+%% 下なら最後に並べ直し，段をまたぐフロートの右の段に場所取りを予約する．
+%% この段のフロートの箱は出力の後に空くので，記録を消す
+\def\evenend@spanprep{%
+  %% spanfootnote=bottom：脚注を場所取りの中に収めた段は，脚注の分だけ場所取りを縮める
+  \ifevenend@fnadj
+    \evenend@fnrestore
+    \ifvoid\footins\else
+      \def\@elt##1{\ifcsname evenend@ph@\number##1\endcsname
+        \global\ht##1\dimexpr\ht##1-\skip\footins-\ht\footins-\dp\footins\relax\fi}%
+      \@botlist
+      \let\@elt\relax
+    \fi
+  \fi
+  %% 段間罫のために，上・下のフロートの数を数える
+  \global\evenend@nt\z@ \global\evenend@nb\z@
+  \def\@elt##1{\global\advance\evenend@nt\@ne}\@toplist
+  \def\@elt##1{\global\advance\evenend@nb\@ne}\@botlist
+  \global\evenend@phtop\z@ \global\evenend@phbot\z@
+  \def\@elt##1{\ifcsname evenend@ph@\number##1\endcsname
+    \global\evenend@phtop\dimexpr\ht##1+\dp##1\relax\fi}\@toplist
+  \def\@elt##1{\ifcsname evenend@ph@\number##1\endcsname
+    \global\evenend@phbot\dimexpr\ht##1+\dp##1\relax\fi}\@botlist
+  \global\evenend@spanbotfalse
+  \def\@elt##1{\evenend@ifspan##1{\global\evenend@spanbottrue}{}}\@botlist
+  \def\@elt##1{\evenend@ifspan##1%
+    {\g@addto@macro\evenend@a{\@elt##1}}{\g@addto@macro\evenend@b{\@elt##1}}}%
+  \global\let\evenend@a\@empty \global\let\evenend@b\@empty
+  \@toplist
+  \let\@elt\relax
+  \xdef\@toplist{\evenend@a\evenend@b}%
+  \def\@elt##1{\evenend@ifspan##1%
+    {\g@addto@macro\evenend@a{\@elt##1}}{\g@addto@macro\evenend@b{\@elt##1}}}%
+  \global\let\evenend@a\@empty \global\let\evenend@b\@empty
+  \@botlist
+  \let\@elt\relax
+  \xdef\@botlist{\evenend@b\evenend@a}%
+  \def\@elt##1{\evenend@addresv##1t}\@toplist
+  \def\@elt##1{\evenend@addresv##1b}\@botlist
+  \let\@elt\relax}
+%% 箱#1が段をまたぐフロートならその段数，場所取りなら-1，ほかは0（Lua側に渡す．
+%% gyoudoriなどが箱を組み直すと箱の属性は消えるので，記録から渡す）
+\def\evenend@spankof#1{%
+  \ifcsname evenend@span@\number#1\endcsname \evenend@spankeff#1
+  \else\ifcsname evenend@ph@\number#1\endcsname -1\else 0\fi\fi}
+\def\evenend@addresv#1#2{%
+  \ifcsname evenend@span@\number#1\endcsname
+    %% spanfootnote=bottom：下に置いた図の右の段の場所取りは，この段の脚注の分も含める
+    %% （右の段の脚注は，その中の下に収める）
+    \dimen@\z@
+    \ifevenend@spanfnbottom \if#2b\ifvoid\footins\else
+      \dimen@\dimexpr\skip\footins+\ht\footins+\dp\footins\relax
+    \fi\fi\fi
+    \@tempcnta\@ne
+    \@whilenum\@tempcnta<\evenend@spankeff#1\relax\do{%
+      \xdef\evenend@resv{\unexpanded\expandafter{\evenend@resv}%
+        \noexpand\evenend@rv{\the\numexpr\evenend@colno+\@ne+\@tempcnta\relax}{#2}%
+          {\the\dimexpr\ht#1+\dp#1+\dimen@\relax}}%
+      \ifevenend@spanfnbottom \if#2b%
+        \xdef\evenend@resvfn{\unexpanded\expandafter{\evenend@resvfn}%
+          \noexpand\evenend@rf{\the\numexpr\evenend@colno+\@ne+\@tempcnta\relax}{\the\dimen@}}%
+      \fi\fi
+      \advance\@tempcnta\@ne}%
+  \fi}
+%% 下に段をまたぐフロートがある段では，脚注をフロートの上に置く（またがる段の
+%% あいだでフロートの位置がそろうように）．段の中の積み順はソケット
+%% build/column/outputboxで決まるので，その段を組むあいだだけプラグを換える
+\ExplSyntaxOn
+\cs_new_protected:Npn \evenend@fnabovespan #1
+  {
+    \bool_lazy_and:nnTF
+      { \legacy_if_p:n { evenend@spanbot } }
+      { \socket_if_exist_p:n { build/column/outputbox } }
+      {
+        \str_set_eq:Nc \l_tmpa_str { l__socket_build/column/outputbox_plug_str }
+        \legacy_if:nTF { evenend@spanfnbottom }
+          { \str_set:Nn \l_tmpb_str { space-floats-footnotes } }
+          { \str_set:Nn \l_tmpb_str { space-footnotes-floats } }
+        \socket_assign_plug:nV { build/column/outputbox } \l_tmpb_str
+        #1
+        \socket_assign_plug:nV { build/column/outputbox } \l_tmpa_str
+      }
+      {#1}
+  }
+\cs_generate_variant:Nn \socket_assign_plug:nn { nV }
+\ExplSyntaxOff
+\def\evenend@spanclear#1{%
+  \expandafter\global\expandafter\let\csname evenend@span@\number#1\endcsname\@undefined
+  \expandafter\global\expandafter\let\csname evenend@ph@\number#1\endcsname\@undefined}
 
 %% ---------------------------------------------------------------------
 %% 柱（マーク）：段組のモードでは，ページを出力するときに，ページの本文全体から

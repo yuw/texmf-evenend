@@ -15,6 +15,8 @@ END {
     if (pos=="h") { nn=1; while ((nn-1)*bs+ht+dp < H) nn++; A=(nn-1)*bs+ht+dp; v=(top+ht)-(y+H/2+A/2); what="area   vs glyph-top   " }
     r=v/bs
     if (pos=="h" && frac(r)>1e-4) { vt=(top+ht)-(y+H); if (frac(vt/bs)<=1e-4) { r=vt/bs; what="(moved to top) top vs glyph-top" } }
+    # 持ち越されて段の上に置かれた下のフロート（evenendが段組を揃えるとき）は上寄せ
+    if (pos=="b" && frac(r)>1e-4) { vt=(top+ht)-(y+H); if (frac(vt/bs)<=1e-4) { r=vt/bs; what="(deferred, at top) top vs glyph-top" } }
     printf "  %-12s p%d %s %8.4f lines %s\n", a[1], pg, what, r, (frac(r)>1e-4 ? "<-- NG" : "ok")
   }
 }

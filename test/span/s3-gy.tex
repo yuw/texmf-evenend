@@ -1,0 +1,21 @@
+%% 段をまたぐフロートとgyoudoriのfloatオプション（位置を省いたもの）
+\documentclass[twocolumn,paper=b5,fontsize=9pt]{jlreq}
+\usepackage[float]{gyoudori}\usepackage[columns=3,debug]{evenend}
+\setlength\columnseprule{0.4pt}
+\newcommand\para{吾輩は猫である．名前はまだ無い．どこで生れたかとんと見当がつかぬ．何でも薄暗いじめじめした所でニャーニャー泣いていた事だけは記憶している．吾輩はここで始めて人間というものを見た．\par}
+\newcommand\fig[2]{\centering\fbox{\parbox[c][#2][c]{.95\linewidth}{\centering #1}}\caption{#1}}
+\begin{document}
+\section{2段にまたがる図}
+\para\para
+\begin{spanfigure}[b]{2}
+\fig{2段にまたがる図（下）}{60pt}
+\end{spanfigure}
+\para\para\para\para\para\para\para\para\para\para\para\para\para\para\para\para
+\begin{spanfigure}{2}
+\fig{2段にまたがる図（上）}{50pt}
+\end{spanfigure}
+\begin{figure}[t]
+\fig{1段の図}{40pt}
+\end{figure}
+\para\para\para\para\para\para\para\para\para\para\para\para\para\para\para\para\para\para\para\para\para\para\para\para
+\end{document}
