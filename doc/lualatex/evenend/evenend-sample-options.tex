@@ -1,0 +1,159 @@
+%% evenend-sample-options.tex：evenendの見本（オプションごとの組み方の違い）
+%% マニュアル（evenend-ja.tex）が貼り込む．オプションを\evenendsetupで換えながら
+%% 同じ材料を組む．貼り込むページの番号を evenend-sample-options.pg に書き出す
+\documentclass[twocolumn,paper=a6,fontsize=8pt]{jlreq}
+\usepackage{evenend}
+\setlength\columnseprule{0.4pt}
+\pagestyle{empty}
+\newcommand\para{吾輩は猫である．名前はまだ無い．どこで生れたかとんと見当がつかぬ．何でも薄暗いじめじめした所でニャーニャー泣いていた事だけは記憶している．\par}
+\newcount\parascnt
+\newcommand\paras[1]{\parascnt=#1\relax\loop\ifnum\parascnt>0 \para\advance\parascnt-1 \repeat}
+\makeatletter
+%% 貼り込むページの番号：\samplepage{名前}を置いたページの番号を書き出す
+\newwrite\evs@out
+\immediate\openout\evs@out=\jobname.pg
+\newcommand\samplepage[1]{\write\evs@out{\noexpand\@namedef{evs@#1}{\thepage}}}
+%% floatgridの見本：本文の行の位置（行送りの格子）を薄い線で示す
+\newif\ifevs@grid
+\AddToHook{shipout/background}{\ifevs@grid
+  \begingroup
+    \unitlength=1sp
+    \@tempdima=\dimexpr1in+\topmargin+\headheight+\headsep+\topskip\relax
+    \@tempcnta\z@
+    \@whilenum\@tempcnta<\numexpr\textheight/\baselineskip\relax\do{%
+      \put(\number\dimexpr1in+\oddsidemargin\relax,
+           -\number\dimexpr\@tempdima+\@tempcnta\baselineskip\relax){%
+        \color[gray]{.7}\rule{\textwidth}{.2pt}}%
+      \advance\@tempcnta\@ne}%
+  \endgroup\fi}
+\makeatother
+\usepackage{xcolor}
+\begin{document}
+
+%% ---- footnote：page（全幅の脚注）とcolumn（段の下端の脚注）
+\newcommand\fnsample[1]{%
+  \samplepage{#1}%
+  \section{脚注}
+  \paras{2}
+  脚注を付ける\footnote{1つ目の脚注．footnote=pageでは版面の全幅で版面の下端に置く．}．
+  \paras{3}
+  ここにも脚注\footnote{2つ目の脚注．}．
+  \paras{3}
+  最後のページの脚注\footnote{3つ目の脚注．}．
+  \paras{1}
+  \samplepage{#12}%
+  \evenendclearpage}
+\fnsample{footnote-page}
+\evenendsetup{footnote=column}\setcounter{section}{0}\setcounter{footnote}{0}
+\fnsample{footnote-column}
+\evenendsetup{footnote=page}
+
+%% ---- onecolumn：\onecolumnの直前のページ
+\newcommand\onesample{%
+  \section{段組の終わり}
+  \paras{4}
+  \onecolumn
+  1段組の続き．
+  \twocolumn}
+\setcounter{section}{0}
+\samplepage{onecolumn-true}\onesample
+\evenendsetup{onecolumn=false}\setcounter{section}{0}
+\samplepage{onecolumn-false}\onesample
+\evenendsetup{onecolumn=true}
+
+%% ---- enable：文書末のページ（ここでは\evenendclearpageで同じ組み方を示す．
+%% enable=falseの見本はこの文書の最後のページ）
+\newcommand\docendsample{%
+  \section{文書の終わり}
+  \paras{4}}
+\setcounter{section}{0}
+\samplepage{enable-true}\docendsample
+\evenendclearpage
+
+%% ---- blockskip：段数を切り換えたときの段組の間
+\newcommand\skipsample{%
+  \evenendcolumns{2}%
+  \section{2段}
+  \paras{2}
+  \evenendcolumns{3}
+  \paras{3}
+  \evenendclearpage}
+\setcounter{section}{0}
+\samplepage{blockskip-2}\skipsample
+\evenendsetup{blockskip=4\baselineskip}\setcounter{section}{0}
+\samplepage{blockskip-4}\skipsample
+\evenendsetup{blockskip=2\baselineskip}
+
+%% ---- blockmin：切り換えた後に残った高さが小さいとき
+\newcommand\minsample{%
+  \evenendcolumns{2}%
+  \section{2段}
+  \paras{4}
+  \evenendcolumns{3}
+  \paras{2}
+  \evenendclearpage}
+\setcounter{section}{0}
+\samplepage{blockmin-5}\minsample
+\evenendsetup{blockmin=12\baselineskip}\setcounter{section}{0}
+\samplepage{blockmin-12}\minsample
+\evenendsetup{blockmin=5\baselineskip}
+
+%% ---- headingskip：切り換えた後の段組が見出しで始まるとき
+\newcommand\headsample{%
+  \evenendcolumns{2}%
+  \section{2段}
+  \paras{2}
+  \evenendcolumns{3}
+  \section{3段}
+  \paras{3}
+  \evenendclearpage}
+\setcounter{section}{0}
+\samplepage{headingskip-column}\headsample
+\evenendsetup{headingskip=block}\setcounter{section}{0}
+\samplepage{headingskip-block}\headsample
+\evenendsetup{headingskip=column}
+
+%% ---- spanfootnote：段をまたぐ下の図と脚注（footnote=columnのとき）
+\evenendsetup{footnote=column}
+\newcommand\spansample{%
+  \section{段をまたぐ図}
+  \paras{1}
+  脚注\footnote{1段目の脚注．}を付ける．
+  \begin{spanfigure}[b]{2}
+    \centering\fbox{\parbox[c][30pt][c]{.9\linewidth}{\centering 2段にまたがる図}}
+    \caption{段をまたぐ図}
+  \end{spanfigure}
+  \paras{2}
+  脚注\footnote{2段目の脚注．長めの脚注．長めの脚注．}を付ける．
+  \paras{1}
+  \evenendclearpage}
+\setcounter{section}{0}\setcounter{footnote}{0}
+\samplepage{spanfootnote-above}\spansample
+\evenendsetup{spanfootnote=bottom}\setcounter{section}{0}\setcounter{footnote}{0}
+\samplepage{spanfootnote-bottom}\spansample
+\evenendsetup{spanfootnote=above,footnote=page}
+
+%% ---- floatgrid：フロートの後の行の位置（薄い線は行送りの位置）
+\makeatletter
+\newcommand\gridsample{%
+  \global\evs@gridtrue
+  \section{フロートと行の位置}
+  \paras{1}
+  \begin{figure}[t]
+    \centering\fbox{\parbox[c][25pt][c]{.8\linewidth}{\centering 図}}
+    \caption{高さが行送りの倍数でない図}
+  \end{figure}
+  \paras{3}
+  \evenendclearpage
+  \global\evs@gridfalse}
+\makeatother
+\setcounter{section}{0}\setcounter{figure}{0}
+\samplepage{floatgrid-true}\gridsample
+\evenendsetup{floatgrid=false}\setcounter{section}{0}\setcounter{figure}{0}
+\samplepage{floatgrid-false}\gridsample
+\evenendsetup{floatgrid=true}
+
+%% ---- enable=false：文書末のページを揃えない
+\evenendsetup{enable=false}\setcounter{section}{0}
+\samplepage{enable-false}\docendsample
+\end{document}

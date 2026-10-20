@@ -55,7 +55,12 @@ for bm in re.finditer(r'evenend: balanced at ([\d.]+)pt(.*?)(?=evenend: balanced
         # 中身のある最後の段（後の段がすべて空）は短くてよい
         rest_empty = all(c is not None and c == 0 for c in cols[i + 1:])
         if v is not None and v > 0 and abs(v - h) > 0.5 and not (t == 'ragged' and rest_empty):
-            if t == 'no stretch' and meta['class'] != 'jlreq':
+            # フロートだけの段（図の下端は行送りの位置にない）が，行送りの位置で終わる本文の
+            # 段より高い：本文の行は伸ばせないのでそろわない
+            fo = [float(a) for a, tt in pl if tt == 'floats only']
+            if t == 'no stretch' and fo and max(fo) > v + 0.5 and abs(max(fo) - h) < 0.5:
+                limits.add('floats-only-taller')
+            elif t == 'no stretch' and meta['class'] != 'jlreq':
                 limits.add('nostretch')  # 行送りにそろわない組版で伸ばせるグルーがない
             elif t == 'no stretch' and not meta['floatgrid'] and not meta['gyoudori']:
                 limits.add('nofloatgrid')  # floatgrid=falseで，フロートの後の行が行送りからずれる
@@ -65,11 +70,15 @@ for bm in re.finditer(r'evenend: balanced at ([\d.]+)pt(.*?)(?=evenend: balanced
                 cover.add('column-break')  # \columnbreakで終わる段（下を空ける）
             elif t == 'overfull':
                 limits.add('column-overfull')  # 段の中身が段の高さを超える（段いっぱいの箱など）
+            elif t == 'footnotes':
+                limits.add('fullfn-capped')  # footnote=page：段の高さをページの脚注の上までに抑えた
             elif t == 'blocked':
                 limits.add('blocked')  # 次の段の先頭の材料（本文中の図，長い脚注の付いた行）が入らない
             else:
                 prob.append(f'bottom:{v:.1f}/{h:.1f}' + (f'({t})' if t else ''))
-    if cols and cols[-1] is not None and cols[-1] > h + 0.01 and pl[-1][1] != 'overfull':
+    if cols and cols[-1] is not None and cols[-1] > h + 0.01 and pl[-1][1] == 'footnotes':
+        limits.add('fullfn-capped')
+    elif cols and cols[-1] is not None and cols[-1] > h + 0.01 and pl[-1][1] != 'overfull':
         prob.append(f'last-taller:{cols[-1]:.1f}/{h:.1f}')
 
 # ---- PDF
@@ -152,12 +161,23 @@ for j, b in enumerate(meta['blocks']):
         (pn, t), = occ[('N', f, '')]
         if pr != pn:
             cover.add('fn-next-page'); continue
+        W = pages[pn - 1]
+        # footnote=page：脚注は版面の全幅で版面の下端に置く（すべてのページ）．
+        # ページの本文が脚注より下になく，脚注の最後の行が版面の下端にある
+        if meta['footnote'] == 'page':
+            for jj in range(len(meta['blocks'])):
+                if any(w[1] > t[3] + 0.5 for w in blockwords(pn, jj)):
+                    prob.append(f'fn{f}-text-below'); break
+            fl = [w for w in W if w[1] >= t[1] - 0.5 and w[3] < bottom + 5]
+            fb = max([w[3] for w in fl] or [t[3]])
+            if abs(fb - bottom) > 4:
+                prob.append(f'fn{f}-not-at-bottom:{fb:.1f}/{bottom:.1f}')
+            continue
         c = col(t[0], N, bsep(j))
         # evenendが揃えたページだけ（LaTeXが組んだページでは，入り切らない脚注を
         # TeXが次の段へ送ることがある）
         if col(r[0], N, bsep(j)) != c and block_balanced(pn, j):
             prob.append(f'fn{f}-column')
-        W = pages[pn - 1]
         # 同じブロックの本文・図が脚注より下にない（同じ段）
         for w in blockwords(pn, j):
             if col(w[0], N, bsep(j)) == c and w[1] > t[3] + 0.5:
@@ -263,6 +283,10 @@ if meta['class'] == 'jlreq' and (meta['floatgrid'] or meta['gyoudori']):
         if pno > len(pages): continue
         W = pages[pno - 1]
         if any(re.search(r'ZW\d+', w[4]) for w in W): continue
+        # 段抜きとして置いた段をまたぐ図（版面の全幅）も段抜きの図と同じく除く
+        SL = {m.group(1): w for w in W for m in [re.search(r'ZS(\d+)LZ', w[4])] if m}
+        SR = {m.group(1): w for w in W for m in [re.search(r'ZS(\d+)RZ', w[4])] if m}
+        if any(k in SR and SR[k][2] - SL[k][0] > 0.8 * width for k in SL): continue
         caps = set(round(w[3], 1) for w in W if re.search(r'Z[CFST]\d+', w[4]))
         ys = sorted(set(round(w[3], 2) for w in W if abs((w[3] - w[1]) - bodyh) < 0.2
                         and round(w[3], 1) not in caps and w[3] < bottom + 1))
@@ -274,6 +298,11 @@ if meta['class'] == 'jlreq' and (meta['floatgrid'] or meta['gyoudori']):
                 limits.add('floatgrid-dropped')  # floatgridのままでは入り切らなかった（満杯のページ）
             elif not meta['floatgrid']:
                 limits.add('nofloatgrid')  # gyoudoriはtcolorboxなどの箱を行ドリしない
+            elif all(any(b[4] == 'box' and b[1] < w[1] and abs(b[0] - w[0]) < 50 for b in W)
+                     for w in W if round(w[3], 2) in set(off)):
+                # 本文中の（フロートでない）tcolorboxは高さが行送りの倍数でなく，evenendも
+                # gyoudoriも行取りしないので，同じ段のその後の行はずれる（LaTeXが組んでも同じ）
+                limits.add('tcolorbox-offgrid')
             else:
                 prob.append(f'grid-p{pno}:{len(off)}')
         cover.add('grid-checked')

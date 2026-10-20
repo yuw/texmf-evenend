@@ -4,16 +4,31 @@
 \documentclass[paper=a4,fontsize=10pt]{jlreq}
 \usepackage{graphicx}
 \usepackage{hyperref}
-\hypersetup{hidelinks,pdftitle={evenendパッケージ},pdfauthor={Yuwsuke Kieda}}
+\hypersetup{hidelinks,pdftitle={evenendパッケージ},pdfauthor={木枝祐介}}
 
 \newcommand\cs[1]{\texttt{\textbackslash #1}}
+%% 制御綴の「\」と和文の間にも和欧文間のアキを入れる（LuaTeX-jaの既定では入らない）
+\ltjsetparameter{alxspmode={`\\,allow}}
 \newcommand\opt[1]{\texttt{#1}}
+%% オプションの見本（evenend-sample-options.pdf）のページ：見本を組むと書き出される
+%% evenend-sample-options.pg から読む
+\makeatletter\InputIfFileExists{evenend-sample-options.pg}{}{}\makeatother
+\newcommand\optpage[2][.4\linewidth]{%
+  \fbox{\includegraphics[page=\csname evs@#2\endcsname,width=#1]{evenend-sample-options.pdf}}}
+%% 2つの見本を並べ，それぞれの下に説明を付ける：\optpair{見本A}{説明A}{見本B}{説明B}
+\newcommand\optpair[5][.4\linewidth]{%
+  \begin{tabular}{@{}c@{\hspace{2\zw}}c@{}}
+    \optpage[#1]{#2} & \optpage[#1]{#4} \\[.3\baselineskip]
+    \small #3 & \small #5
+  \end{tabular}}
 \newcommand\pkg[1]{\textsf{#1}}
+%% gyoudoriを併用するときだけの記述に付ける印（\ref{sec:gyoudori}節）
+\newcommand\gydep{\textsf{\small［\pkg{gyoudori}併用時］}}
 
 \title{\pkg{evenend}パッケージ\\[.5\baselineskip]
   \large 多段組の最終ページで各段の下端を揃える}
-\author{Yuwsuke Kieda}
-\date{v20261018.0}
+\author{木枝祐介}
+\date{v20261020.0}
 
 \begin{document}
 \maketitle
@@ -27,8 +42,9 @@
   \item 3段以上の段組（\opt{columns=3}など）
   \item 段内フロート（最右段に載ったものを含む）と段抜きフロート（上端，
     \pkg{stfloats}による下端）
-  \item 最終ページの脚注．参照位置が別の段へ移れば脚注も移し，版面の下端または
-    段（カラム）の下端に置く．段をまたいで分割された脚注は1つにまとめ直す
+  \item 脚注．既定では，\pkg{multicol}と同じく脚注を版面の全幅で組んで版面の下端に置く．
+    段（カラム）の下端に置くこともできる．最終ページでは，参照位置が別の段へ移れば
+    脚注も移し，段をまたいで分割された脚注は1つにまとめ直す
   \item ページの途中での段数の切り換え（2段から3段へなど）．切り換えの前の段組も，
     それぞれ下端を揃える
 \end{itemize}
@@ -36,9 +52,9 @@
 行数によっては最右段だけが短くなる．たとえば2段で31行なら，16行と15行になる．
 それ以外の段の下端は揃う．
 
-図\ref{fig:sample}に，均した最終ページの例を示す．左は脚注を版面の下端に置いた場合
-（\opt{footnote=page}，既定），右は各段の下端に置いた場合（\opt{footnote=column}）である．
-どちらも，脚注は参照位置のある段に入っている．
+図\ref{fig:sample}に，均した最終ページの例を示す．左は脚注を版面の全幅で版面の下端に
+置いた場合（\opt{footnote=page}，既定），右は各段の下端に置いた場合
+（\opt{footnote=column}）である．右では，脚注は参照位置のある段に入っている．
 
 \begin{figure}[tb]
   \centering
@@ -88,7 +104,7 @@ export TEXMFHOME=/path/to/texmf-evenend
     キー & 値 & 既定 & 意味 \\
     \hline
     \opt{columns} & 整数 & \opt{2} & 段数（読み込み時のみ） \\
-    \opt{footnote} & \opt{page}／\opt{column} & \opt{page} & 最終ページの脚注の置き場所 \\
+    \opt{footnote} & \opt{page}／\opt{column} & \opt{page} & 脚注の置き方 \\
     \opt{onecolumn} & 真偽 & \opt{true} & \cs{onecolumn}の直前のページも揃える \\
     \opt{enable} & 真偽 & \opt{true} & 文書末のページを揃える \\
     \opt{blockskip} & 寸法 & \verb|2\baselineskip| & 段組の切り換えの前後の行の間隔 \\
@@ -105,34 +121,23 @@ export TEXMFHOME=/path/to/texmf-evenend
   \item[\opt{columns}] 段数．3以上にすると，段幅を
     $(\cs{textwidth}-(N-1)\cs{columnsep})/N$にする（$N$は段数）．
     読み込み時にしか指定できない．
-  \item[\opt{footnote}] \opt{page}では，本文を揃えた段の下を空け，脚注を版面の下端に置く．
-    \opt{column}では，脚注を含めた各段の下端が揃う．どちらの場合も，脚注は参照位置の
-    ある段に入る．
-  \item[\opt{onecolumn}] \cs{onecolumn}で段組を終えるときも，その直前のページを揃える．
-  \item[\opt{enable}] 偽にすると，文書末のページを揃えない（\cs{raggedend}と同じ）．
-  \item[\opt{blockskip}] \cs{evenendcolumns}で段数を切り換えたとき，前の段組の最終行から
-    次の段組の1行目までのベースライン間．
-  \item[\opt{blockmin}] \cs{evenendcolumns}で段数を切り換えた後，そのページに残った高さが
-    これより小さければ，そこで改ページして次のページから新しい段数で組む．
-  \item[\opt{spanfootnote}] 下に段をまたぐフロート（\ref{sec:span}節）がある段の脚注の
-    置き場所．\opt{above}では，脚注をそのフロートの上に置く（\opt{footnote=page}でも）．
-    \opt{bottom}では，脚注をフロートの下に置き，フロートは，またがる段のうちいちばん
-    高い脚注の上にそろえる．
-    \begin{itemize}
-      \item 最終ページとブロック（揃える段組）では，すべての段で，脚注の下端を揃えた段の
-        下端に置く（\opt{footnote=column}と同じ組み方）．
-      \item それ以外のページでは，脚注を版面の下端に置く．フロートの右の段の脚注は，
-        フロートの置かれた段の脚注の高さまでに収め，残りは次の段に送る（LaTeXが脚注を
-        段の終わりで分けるのと同じ）．
-    \end{itemize}
+  \item[\opt{footnote}] \opt{page}では，脚注を版面の全幅で組み，すべてのページで版面の
+    下端に置く（\pkg{multicol}と同じ）．\opt{column}では，脚注を参照位置のある段の下端に
+    置き，最終ページでは脚注を含めた各段の下端が揃う（\ref{sec:opt-footnote}節）．
+  \item[\opt{onecolumn}] \cs{onecolumn}で段組を終えるときも，その直前のページを揃える
+    （\ref{sec:opt-onecolumn}節）．
+  \item[\opt{enable}] 偽にすると，文書末のページを揃えない（\cs{raggedend}と同じ．
+    \ref{sec:opt-enable}節）．
+  \item[\opt{blockskip}] \cs{evenendcolumns}で段数を切り換えたときの，前の段組の最終行から
+    次の段組の1行目までのベースライン間（\ref{sec:opt-blockskip}節）．
+  \item[\opt{blockmin}] 段数を切り換えた後，そのページに残った高さがこれより小さければ，
+    そこで改ページする（\ref{sec:opt-blockmin}節）．
   \item[\opt{headingskip}] 切り換えた後の段組が見出しで始まるときの，見出しの上アキの
-    扱い．\opt{column}では，段組の間は常に\opt{blockskip}で，見出しの上アキは
-    見出しのある1段目の中にある（他の段の1行目は段組の上端から始まる）．
-    \opt{block}では，段組の中の組はそのままで，段組全体を見出しの上アキの分だけ下げ，
-    段組と段組の間のアキを節のアキにする（図\ref{fig:switch}右）．
-    詳しくは\ref{sec:headingskip}節．
+    扱い（\ref{sec:opt-headingskip}節）．
+  \item[\opt{spanfootnote}] \opt{footnote=column}で，下に段をまたぐフロートがある段の
+    脚注を，フロートの上と下のどちらに置くか（\ref{sec:opt-spanfootnote}節）．
   \item[\opt{floatgrid}] evenendが組む段で，行ドリしないフロートの前後の本文の行を
-    行送りの位置に合わせる（\ref{sec:floatgrid}節）．
+    行送りの位置に合わせる（\ref{sec:opt-floatgrid}節）．
   \item[\opt{debug}] 揃えた段の高さ，段ごとの本文・フロート・脚注の高さをログに書く．
 \end{description}
 
@@ -154,6 +159,141 @@ export TEXMFHOME=/path/to/texmf-evenend
   \item[\cs{evenendsetup}\texttt{\{}\textit{キー}\texttt{=}\textit{値}\texttt{\}}]
     オプションを変える．
 \end{description}
+
+\section{オプションの詳細}\label{sec:options}
+
+各オプションによる組み方の違いを，同じ材料を組んだ見本で示す（\texttt{evenend-sample-options.tex}．
+A6判の2段組で，オプションを\cs{evenendsetup}で換えながら組んでいる）．
+
+\subsection{\opt{footnote}：脚注の置き方}\label{sec:opt-footnote}
+
+\opt{footnote=page}（既定）では，\pkg{multicol}と同じく，脚注を段に分けずに版面の全幅で
+組み，すべてのページで版面の下端に置く（図\ref{fig:opt-footnote}上）．段の高さは，版面から
+そのページの脚注の領域（\cs{skip}\cs{footins}，脚注罫，脚注）を除いた高さになる．
+最終ページでは，本文を揃えた段組の下を空け，脚注は版面の下端に置く．
+
+\opt{footnote=column}では，LaTeXの2段組と同じく，脚注を参照位置のある段の下端に置く
+（図\ref{fig:opt-footnote}下）．最終ページでは，脚注を含めた各段の下端が揃う．
+
+\begin{figure}[tbp]
+  \centering
+  \optpair[.36\linewidth]{footnote-page}{1ページ目}{footnote-page2}{最終ページ}\\[.5\baselineskip]
+  \small\opt{footnote=page}（既定）\\[\baselineskip]
+  \optpair[.36\linewidth]{footnote-column}{1ページ目}{footnote-column2}{最終ページ}\\[.5\baselineskip]
+  \small\opt{footnote=column}
+  \caption{\opt{footnote}：上は脚注を版面の全幅で版面の下端に置く．下は脚注を段の下端に置く}
+  \label{fig:opt-footnote}
+\end{figure}
+
+\subsection{\opt{onecolumn}：\cs{onecolumn}の直前のページ}\label{sec:opt-onecolumn}
+
+\opt{onecolumn=true}（既定）では，\cs{onecolumn}で段組を終えるとき，その直前のページの
+各段の下端を揃える．\opt{onecolumn=false}では揃えず，LaTeXの組み方のまま（左の段から
+順に詰めた形）にする（図\ref{fig:opt-onecolumn}）．
+
+\begin{figure}[tbp]
+  \centering
+  \optpair{onecolumn-true}{\opt{onecolumn=true}（既定）}{onecolumn-false}{\opt{onecolumn=false}}
+  \caption{\opt{onecolumn}：\cs{onecolumn}の直前のページ}
+  \label{fig:opt-onecolumn}
+\end{figure}
+
+\subsection{\opt{enable}：文書末のページ}\label{sec:opt-enable}
+
+\opt{enable=true}（既定）では，文書末のページの各段の下端を揃える．\opt{enable=false}
+（\cs{raggedend}と同じ）では揃えない（図\ref{fig:opt-enable}）．\cs{evenend}で
+ふたたび揃えるようにできる．\cs{evenendclearpage}で揃えるページは，この設定によらず揃える
+（図の左は，文書末と同じ揃え方を\cs{evenendclearpage}で示したもの）．
+
+\begin{figure}[tbp]
+  \centering
+  \optpair{enable-true}{\opt{enable=true}（既定）}{enable-false}{\opt{enable=false}}
+  \caption{\opt{enable}：文書末のページ}
+  \label{fig:opt-enable}
+\end{figure}
+
+\subsection{\opt{blockskip}：段組の間のアキ}\label{sec:opt-blockskip}
+
+\cs{evenendcolumns}で段数を切り換えたとき，前の段組（ブロック）の最終行から次の段組の
+1行目までのベースライン間を\opt{blockskip}にする（既定は\verb|2\baselineskip|．
+図\ref{fig:opt-blockskip}）．ページの残りの高さが行送りの位置で終わるように，アキを
+1行未満だけ広げることがある（\ref{sec:switch}節）．
+
+\begin{figure}[tbp]
+  \centering
+  \optpair{blockskip-2}{\opt{blockskip=2\string\baselineskip}（既定）}%
+    {blockskip-4}{\opt{blockskip=4\string\baselineskip}}
+  \caption{\opt{blockskip}：段数を切り換えたときの段組の間}
+  \label{fig:opt-blockskip}
+\end{figure}
+
+\subsection{\opt{blockmin}：切り換えた後に組む最小の高さ}\label{sec:opt-blockmin}
+
+段数を切り換えた後，そのページに残った高さが\opt{blockmin}（既定は\verb|5\baselineskip|）
+より小さければ，そこで改ページし，次のページから新しい段数で組む．図\ref{fig:opt-blockmin}は，
+2段のブロックの後に，5行より多く12行より少ない高さが残るページで，左（既定）では残りに3段組を続け，右
+（\verb|12\baselineskip|）では改ページしている．
+
+\begin{figure}[tbp]
+  \centering
+  \optpair{blockmin-5}{\opt{blockmin=5\string\baselineskip}（既定）}%
+    {blockmin-12}{\opt{blockmin=12\string\baselineskip}}
+  \caption{\opt{blockmin}：段数を切り換えた後に残った高さが小さいとき}
+  \label{fig:opt-blockmin}
+\end{figure}
+
+\subsection{\opt{headingskip}：見出しの上アキ}\label{sec:opt-headingskip}
+
+切り換えた後の段組が見出しで始まるとき，\opt{headingskip=column}（既定）では，段組の
+間は常に\opt{blockskip}で，見出しの上アキは見出しのある1段目の中にある（他の段の1行目は
+段組の上端から始まる）．\opt{headingskip=block}では，段組の中の組はそのままで，段組全体を
+見出しの上アキの分だけ下げる（図\ref{fig:opt-headingskip}．詳しくは\ref{sec:headingskip}節）．
+
+\begin{figure}[tbp]
+  \centering
+  \optpair{headingskip-column}{\opt{headingskip=column}（既定）}%
+    {headingskip-block}{\opt{headingskip=block}}
+  \caption{\opt{headingskip}：切り換えた後の段組が見出しで始まるとき}
+  \label{fig:opt-headingskip}
+\end{figure}
+
+\subsection{\opt{spanfootnote}：段をまたぐ下の図と脚注}\label{sec:opt-spanfootnote}
+
+\opt{footnote=column}で，段をまたぐフロート（\ref{sec:span}節）を下に置いたとき，
+またがる段の脚注の置き場所を決める（図\ref{fig:opt-spanfootnote}）．\opt{footnote=page}では，
+脚注はすべての段の下（版面の下端）に全幅で置くので，この設定は効かない．
+\begin{itemize}
+  \item \opt{above}（既定）：脚注をフロートの上に置く．またがる段のあいだでフロートの
+    位置がそろう．
+  \item \opt{bottom}：脚注をフロートの下に置き，フロートは，またがる段のうちいちばん
+    高い脚注の上にそろえる．最終ページとブロック（揃える段組）では，すべての段で，脚注の
+    下端を揃えた段の下端に置く．それ以外のページでは，フロートの右の段の脚注は，
+    フロートの置かれた段の脚注の高さまでに収め，残りは次の段に送る（LaTeXが脚注を
+    段の終わりで分けるのと同じ）．
+\end{itemize}
+
+\begin{figure}[tbp]
+  \centering
+  \optpair{spanfootnote-above}{\opt{spanfootnote=above}（既定）}%
+    {spanfootnote-bottom}{\opt{spanfootnote=bottom}}
+  \caption{\opt{spanfootnote}：\opt{footnote=column}で段をまたぐ図を下に置いたとき}
+  \label{fig:opt-spanfootnote}
+\end{figure}
+
+\subsection{\opt{floatgrid}：フロートの前後の行の位置}\label{sec:opt-floatgrid}
+
+\opt{floatgrid=true}（既定）では，evenendが組む段で，高さが行送りの倍数でないフロートの
+前後の本文の行を行送りの位置に合わせる．\opt{floatgrid=false}では，フロートまわりのアキを
+伸縮させるだけなので，フロートの後の行は行送りの位置からずれる（図\ref{fig:opt-floatgrid}．
+薄い線は行送りの位置．詳しくは\ref{sec:floatgrid}節）．
+
+\begin{figure}[tbp]
+  \centering
+  \optpair[.45\linewidth]{floatgrid-true}{\opt{floatgrid=true}（既定）}%
+    {floatgrid-false}{\opt{floatgrid=false}}
+  \caption{\opt{floatgrid}：フロートの後の行の位置（薄い線は行送りの位置）}
+  \label{fig:opt-floatgrid}
+\end{figure}
 
 \section{段数の切り換え}\label{sec:switch}
 
@@ -186,7 +326,9 @@ export TEXMFHOME=/path/to/texmf-evenend
     次のページから新しい段数で組む．
   \item ブロックの材料がそのページに入り切らなければ，入り切らない分は次のページに送り，
     次のページで揃えてから段数を変える．
-  \item 途中のブロックの脚注は，\opt{footnote=page}でも，そのブロックの段の下端に置く．
+  \item ブロックの脚注は，\opt{footnote=page}ではページの脚注として版面の下端に全幅で
+    置き（その分だけ後の段組の高さが減る），\opt{footnote=column}ではそのブロックの段の
+    下端に置く．
   \item フロートはそのブロックの中で完結させる（\ref{sec:floats}節）．
   \item 段数を変えても，ページの行の位置は変わらない（行送りの位置に揃った組版なら，
     すべての行が版面の行の位置に乗る）．
@@ -195,7 +337,7 @@ export TEXMFHOME=/path/to/texmf-evenend
 \subsection{見出しの上アキ（\opt{headingskip}）}\label{sec:headingskip}
 
 \pkg{jlreq}の見出しのように，見出しを行取りした箱（見出しの上下のアキを含む）で
-段組が始まるとき，既定（\opt{headingskip=column}）では，見出しは1段目の中で上アキを
+段組が始まるとき（見出しの行取りはクラスの機能で，\pkg{gyoudori}は要らない），既定（\opt{headingskip=column}）では，見出しは1段目の中で上アキを
 とり，他の段は段組の上端から始まる．段組の間は常に\opt{blockskip}なので，2段以上の
 段組に切り換えると，段組と段組の間のアキ（前の段組の最終行から後の段組の他の段の
 1行目まで）は\opt{blockskip}だけになる．1段組に切り換えた場合は，見出しの上アキも
@@ -265,8 +407,9 @@ export TEXMFHOME=/path/to/texmf-evenend
 
 \subsection{段の高さ}
 
-最終ページの本文を，入り切る最小の段の高さで各段に分け直す．このとき，段内フロートと，
-段に入る脚注の高さを差し引く．残りを最右段に入れるので，行数が段数で割り切れなければ，
+最終ページの本文を，入り切る最小の段の高さで各段に分け直す．このとき，段内フロートの
+高さと，脚注の高さ（\opt{footnote=column}では段に入る脚注，\opt{footnote=page}では
+ページの脚注の領域）を差し引く．残りを最右段に入れるので，行数が段数で割り切れなければ，
 最右段だけが短くなる．
 
 各段では「見かけの下端」を揃える．
@@ -291,8 +434,7 @@ export TEXMFHOME=/path/to/texmf-evenend
 \end{itemize}
 それでも揃わないときは，次の段の先頭の材料（本文中のフロートや，長い脚注の付いた行など）が
 入らなかったものとして，その段は下を空ける．中身のある最後の段（その後ろの段が空）も，
-最右段と同じく短くてよい．版面下端の脚注に押された段も下を空ける．それ以外の段は，グルーを
-伸ばして下端を揃える．
+最右段と同じく短くてよい．それ以外の段は，グルーを伸ばして下端を揃える．
 
 材料がページに入り切らないときは，次の順に条件を緩めて揃え直す．
 \begin{enumerate}
@@ -345,7 +487,8 @@ export TEXMFHOME=/path/to/texmf-evenend
 持ち越された段内フロートを揃える段組（ブロックと最終ページ）に入れる前に，フック
 \texttt{evenend/deferredfloat}を呼ぶ．\cs{evenendfloatbox}がそのフロートの箱である．
 フロートの中身の位置を整えるパッケージは，ここで上のフロートとして組み直せる．
-\pkg{gyoudori}は，v20261018.0から，\opt{float}オプションのとき自分でこのフックに処理を
+フックが空なら，evenendは持ち越されたフロートを箱のまま上か下に置く．
+\gydep \pkg{gyoudori}は，v20261018.0から，\opt{float}オプションのとき自分でこのフックに処理を
 入れる（それより前の版では，次のように書く）．
 \begin{verbatim}
 \makeatletter
@@ -390,12 +533,13 @@ export TEXMFHOME=/path/to/texmf-evenend
     引く．罫の端は，段間の両側の段の，上のフロートの下の最初の行の字面の上端（高い方）と，
     下のフロートの上の最後の行（その段の脚注をフロートの上に置いたときは脚注の最後の行）の
     字面の下端（低い方）にそろえる．字面は字の輪郭から求める．段をまたがないフロートの
-    横では，これまでどおり版面の高さいっぱいに引く．
-  \item 下に置いたときは，またがる段の脚注をフロートの上に置く（またがる段のあいだで
-    フロートの位置がそろうように）．\opt{spanfootnote=bottom}にすると，脚注をフロートの
-    下（最終ページとブロックでは段の下端，それ以外のページでは版面の下端）に置き，
-    フロートを，またがる段のうちいちばん高い脚注の上にそろえる．フロートの下の脚注の横の
-    段間罫は，脚注の区切り線の上端から脚注の最後の行の字面の下端まで引く．
+    横では，これまでどおり段の高さいっぱいに引く．
+  \item \opt{footnote=page}（既定）では，脚注はすべての段の下に全幅で置くので，下に置いた
+    フロートの位置はまたがる段のあいだでそろう．\opt{footnote=column}で下に置いたときは，
+    またがる段の脚注をフロートの上に置く（またがる段のあいだでフロートの位置がそろうように）．
+    \opt{spanfootnote=bottom}にすると，脚注をフロートの下に置き，フロートを，またがる段の
+    うちいちばん高い脚注の上にそろえる（\ref{sec:opt-spanfootnote}節）．フロートの下の
+    脚注の横の段間罫は，脚注の区切り線の上端から脚注の最後の行の字面の下端まで引く．
   \item 同じ位置（上か下）では，1つの段に2つの段をまたぐフロートはかけない．
   \item 最終ページやブロックを揃えるときは，置かれた段に固定し，右の段の場所取りを
     作り直して揃える．
@@ -407,7 +551,8 @@ export TEXMFHOME=/path/to/texmf-evenend
 \subsection{フロートの前後の行の位置}\label{sec:floatgrid}
 
 フロートの高さが行送りの倍数でなければ，その後に続く本文の行は行送りの位置からずれる．
-\opt{floatgrid}（既定で有効）では，evenendが組む段（揃える最終ページとブロック）について
+\opt{floatgrid}（既定で有効）では，evenendが組む段（揃える最終ページとブロック．
+\opt{footnote=page}では，組み直すすべてのページ）について，\pkg{gyoudori}なしで
 次のように合わせる．
 \begin{itemize}
   \item 上下のフロートの並び（フロートとアキ）の高さを行送りの倍数に切り上げ，足した分を
@@ -420,22 +565,35 @@ export TEXMFHOME=/path/to/texmf-evenend
 \pkg{jlreq}で行ドリしない図を入れたテストでは，本文の行の外れが，最終ページで302行から
 0行に，ブロックで298行から0行になった．
 
-LaTeXが通常どおり組む満杯のページはこの対象外である．そこでも合わせるには，
-\pkg{gyoudori}でフロートを行ドリする．\opt{floatgrid=false}にすると，これまでどおり
-フロートまわりのアキを伸縮させて揃える．
+\opt{footnote=column}でLaTeXが通常どおり組む満杯のページはこの対象外である．
+\gydep そこでも合わせるには，\pkg{gyoudori}の\opt{float}オプションでフロートを行ドリする．
+行ドリしたフロートは，evenendが組む段でもそのまま使う．
+\opt{floatgrid=false}にすると，これまでどおりフロートまわりのアキを伸縮させて揃える．
 
 \subsection{脚注}
 
-最終ページの脚注は，本文中の参照位置が入った段へ移す．TeXが段をまたいで分割した脚注は，
-1つにまとめ直す．参照位置が最終ページにない脚注（前のページから送られてきたもの）は，
-もとの段に残す．
-
+\opt{footnote=page}（既定）では，脚注を\cs{columnwidth}でなく\cs{textwidth}の幅で組み，
+ページの脚注として版面の下端に置く（\pkg{multicol}と同じ）．
 \begin{itemize}
-  \item \opt{footnote=page}：脚注は版面の下端に置く．本文の段の下との間は空く．
-  \item \opt{footnote=column}：脚注は各段の本文の下に置き，脚注の最終行のベースラインを，
-    他の段の最終行のベースラインに揃える．脚注の塊（本文の最終行の深さを含む）を
-    行送りの倍数に切り上げて見込み，端数は脚注の上のアキで吸収する．
+  \item LaTeXが段を組むあいだ，脚注は全段の高さを減らすので，その高さを段数倍で見込む
+    （\cs{count}\cs{footins}を段数倍にする）．脚注の上のアキ（\cs{skip}\cs{footins}）は，
+    ページの最初の脚注のときだけ段数倍で見込む．
+  \item ページの最後の段を出力するとき，そのページの本文を，版面からページの脚注の領域を
+    除いた高さの段に組み直す（フロートは置かれた段のまま）．入り切らない本文は，その中で
+    参照する脚注とともに次のページへ送り返す．そのぶん脚注の領域が小さくなるので，段を
+    高くして組み直せる所まで組み直す．
+  \item LaTeXが段ごとに改段すると，段ごとに1行未満の余りが出る．組み直した段で本文が
+    足りなくならないよう，ページの最後の段は段数×行送りだけ多めに詰めさせる（多めに
+    詰めた分は次のページへ送り返す）．
+  \item 最終ページとブロックでは，本文を揃えた段組の下を空け，ページの脚注を版面の下端に
+    置く．ブロックの脚注は，ページの脚注に加えて，その分だけ後の段組の高さを減らす．
 \end{itemize}
+
+\opt{footnote=column}では，最終ページの脚注を，本文中の参照位置が入った段へ移す．
+TeXが段をまたいで分割した脚注は，1つにまとめ直す．参照位置が最終ページにない脚注
+（前のページから送られてきたもの）は，もとの段に残す．脚注は各段の本文の下に置き，
+脚注の最終行のベースラインを，他の段の最終行のベースラインに揃える．脚注の塊（本文の
+最終行の深さを含む）を行送りの倍数に切り上げて見込み，端数は脚注の上のアキで吸収する．
 
 \section{仕組み}
 
@@ -449,9 +607,13 @@ LaTeXが通常どおり組む満杯のページはこの対象外である．そ
     材料を1本の垂直リストにつなぎ直す．そのうえで，入り切る最小の段の高さを探して，
     \cs{vsplit}で分け直す．
   \item 段を組み直し，段抜きフロートを加えて出力する．
+  \item \opt{footnote=page}では，最終ページ以外のページも，最後の段を出力するときに同じく
+    材料をつなぎ直し，版面からページの脚注の領域を除いた高さで分け直す．入り切らない
+    本文は，その脚注を\cs{insert}に戻して付け，出力ルーチンから主垂直リストへ送り返す．
 \end{enumerate}
 
-最終ページ以外の組版は，このパッケージを読み込まない場合と変わらない．
+\opt{footnote=column}では，最終ページ以外の組版は，このパッケージを読み込まない場合と
+変わらない．
 
 LaTeXが組んだ段がはみ出す（Overfull）警告は，そのページを組み直さずに出力するときだけ出す．
 後でevenendが組み直す段の警告は出さない．
@@ -547,10 +709,7 @@ LaTeX 2025-06-01より前の版では，\cs{leftmark}，\cs{rightmark}がTeXの�
 \begin{itemize}
   \item \pkg{hyperref}：併用できる．
   \item \pkg{stfloats}：併用できる．段抜きのフロートを下に置いても揃う．
-  \item \pkg{gyoudori}：併用できる．行ドリしたフロートも，行送りの位置に揃う．
-    持ち越されたフロートも，\pkg{gyoudori}がフック\texttt{evenend/deferredfloat}で
-    行取りする（\ref{sec:floats}節．v20261018.0より前の\pkg{gyoudori}では，利用者がフックに
-    書く）．
+  \item \pkg{gyoudori}：併用できる（なくてもよい）．何が変わるかは\ref{sec:gyoudori}節．
   \item \pkg{tcolorbox}：併用できる．本文中の箱（1.5行を超える高さのもの）は，本文中の
     フロートと同じく分けられない塊として扱い，\opt{floatgrid}では後の行を行送りの
     位置に合わせる．分割できる箱（\texttt{breakable}）は，tcolorboxが分けた位置で
@@ -562,17 +721,58 @@ LaTeX 2025-06-01より前の版では，\cs{leftmark}，\cs{rightmark}がTeXの�
     併用できない．
 \end{itemize}
 
+\section{\pkg{gyoudori}との関係}\label{sec:gyoudori}
+
+evenendは\pkg{gyoudori}（行取りのパッケージ）に依存しない．\pkg{gyoudori}を読み込まなくても，
+このマニュアルの機能はすべて使える．\pkg{gyoudori}を併用したときだけの記述には，本文で
+\gydep の印を付けた．印のない記述は，\pkg{gyoudori}の有無によらない．
+
+\begin{center}
+  \small
+  \begin{tabular}{p{.3\linewidth}p{.3\linewidth}p{.3\linewidth}}
+    \hline
+    機能 & evenendだけ & \pkg{gyoudori}を併用すると \\
+    \hline
+    最終ページ・ブロックを揃える，段数の切り換え，段をまたぐフロート，脚注 &
+      evenendが行う & 変わらない（行取りした見出しやフロートの箱を，そのまま材料として扱う） \\
+    \opt{footnote=page}のページの組み直し & evenendが行う & 変わらない \\
+    見出しの行取り（\opt{headingskip}の前提） & クラス（\pkg{jlreq}など）の見出しの箱を使う &
+      変わらない \\
+    evenendが組む段でのフロートの前後の行の位置 & \opt{floatgrid}で合わせる &
+      行取りしたフロートは高さが行送りの倍数なので，\opt{floatgrid}は何も足さずにそのまま使う \\
+    \opt{footnote=column}でLaTeXが組む満杯のページでのフロートの前後の行の位置 &
+      合わせない（LaTeXのまま） & \opt{float}オプションで行取りして合う \\
+    持ち越されたフロートを揃える段組に入れるときの中身の位置 &
+      箱のまま上か下に置く & フック\texttt{evenend/deferredfloat}で，上のフロートとして
+      行取りし直す \\
+    \hline
+  \end{tabular}
+\end{center}
+
+\pkg{gyoudori}との組み合わせのテストは，\texttt{test/gy/}（\pkg{gyoudori}の
+\opt{float}オプションとの一括テスト）と，乱数による網羅テストの\pkg{gyoudori}ありの文書で
+行っている（\ref{sec:randtest}節）．
+
 \section{制限事項}
 
 \begin{itemize}
-  \item 脚注は段をまたいで分割しない．
+  \item 揃える段組では，脚注は段をまたいで分割しない．
   \item 段内フロートは，LaTeXが置いた段かそれより後の段に置く．参照位置との前後関係は
     保証しない．
   \item \cs{marginpar}の左右は計算し直さない．
   \item 縦組には対応していない．
-  \item \opt{floatgrid}はevenendが組む段だけに効く．LaTeXが通常どおり組む満杯の
-    ページでは，行送りの倍数でない高さのフロートの後の行はずれる．\pkg{gyoudori}で
-    フロートを行ドリすれば揃う．
+  \item \opt{floatgrid}はevenendが組む段だけに効く（\opt{footnote=page}ではすべての
+    ページ，\opt{footnote=column}では揃える段組）．\opt{footnote=column}でLaTeXが通常
+    どおり組む満杯のページでは，行送りの倍数でない高さのフロートの後の行はずれる．
+    \gydep \pkg{gyoudori}でフロートを行ドリすれば揃う．
+  \item \opt{footnote=page}でページの本文を組み直すとき，入り切らない本文は次のページへ
+    送り返すが，LaTeXがそのページに置いた段内フロートはそのページに残す．参照位置より
+    前のページにフロートが来ることがある．
+  \item \opt{footnote=page}でページの本文を組み直すとき，分けられない材料（箱など）が段の
+    高さより高ければ，そのページにほかに何もない（ブロックも段抜きのフロートもない）ときは
+    段からはみ出させて置き，そうでなければ次のページへ送る．
+  \item \opt{footnote=page}で揃える段組の高さは，ページの脚注の上（最終行のベースライン
+    まで）に抑える．最後の箱の中身が箱の下にはみ出す分などは，脚注の上のアキに出る．
   \item 持ち越されたフロートだけで組んだブロックでは，フロートは分けられないので，段の
     下端は揃わないことがある．
   \item \cs{evenendcolumns}は，リスト環境などの中では使えない（段落の間で使う）．
@@ -589,7 +789,8 @@ LaTeX 2025-06-01より前の版では，\cs{leftmark}，\cs{rightmark}がTeXの�
   \item[\texttt{doc/lualatex/evenend/}] このマニュアル（\texttt{evenend-ja.tex}）と
     見本（\texttt{evenend-sample.tex}，\texttt{evenend-sample-column.tex}，
     \texttt{evenend-sample-switch.tex}，\texttt{evenend-sample-colsep.tex}，
-    \texttt{evenend-sample-box.tex}）
+    \texttt{evenend-sample-box.tex}，\texttt{evenend-sample-span.tex}，
+    \texttt{evenend-sample-options.tex}）
   \item[\texttt{LICENSE}] ライセンス（MIT）
   \item[\texttt{test/}] テスト文書と補助スクリプト（\texttt{run.sh}，\texttt{suite.sh}，
     \texttt{colbottoms.py}，\texttt{fuzz.sh}，\texttt{fuzzswitch.sh}，
@@ -612,6 +813,7 @@ lualatex evenend-sample-switch.tex
 lualatex evenend-sample-colsep.tex
 lualatex evenend-sample-box.tex
 lualatex evenend-sample-span.tex
+lualatex evenend-sample-options.tex
 lualatex evenend-ja.tex
 lualatex evenend-ja.tex
 \end{verbatim}
@@ -636,7 +838,8 @@ lualatex evenend-ja.tex
   \item エラー，フロートの消失，Overfull
   \item 本文・脚注・フロートが，それぞれちょうど1回ずつ出ているか
   \item 揃えた段組ごとの下端（組み上げた段の箱を実際にたどって測る）
-  \item 脚注が参照位置と同じ段の一番下にあるか，\opt{footnote=page}では版面の下端にあるか
+  \item 脚注が参照位置と同じ段の一番下にあるか（\opt{footnote=column}），すべてのページで
+    版面の下端にあり，その下に本文がないか（\opt{footnote=page}）
   \item フロートが段の幅に収まり，自分のブロックの範囲にあるか
   \item \pkg{jlreq}で，evenendが組んだページの本文の行が行送りの位置にあるか
 \end{itemize}

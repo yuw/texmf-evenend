@@ -525,7 +525,7 @@ end
 -- 上のフロートとして取り込む
 function M.capturefcol(boxnum)
   local b = tex.getbox(boxnum)
-  local c = { top = {}, bot = {} }
+  local c = { top = {}, bot = {}, fcol = true }
   if b and b.list then
     local l = copy_list(b.list)
     -- 上下の伸びるグルー（\@fptop，\@fpbot）は自然長にする
@@ -702,10 +702,77 @@ end
 --   topfig, botfig, fnrule：\topfigrule, \botfigrule, \footnoteruleを組んだボックス
 --   block：段数を切り換える前の段組（ブロック）として揃える．脚注は段の下端に
 --     置き，段の箱の高さは揃えた高さにする
+-- 次のページへ送り返す本文restに，その中で参照する脚注を\insertにして付ける
+-- （参照位置の印の直後．印が箱の中にあればその箱の直後）．送り返すものがなければnil
+local INS = nodeid('ins')
+local function make_push(rest, segs, p)
+  local keep = false
+  for n in node.traverse(rest) do
+    local id = n.id
+    if id ~= GLUE and id ~= KERN and id ~= PENALTY then keep = true break end
+  end
+  if not keep then flush_list(rest) return nil end
+  local function mkins(id)
+    local s = segs[id]
+    if not (s and s.head) then return nil end
+    local ins = node.new(INS)
+    ins.subtype = p.footins
+    local h, d = natural(s.head)
+    ins.head = s.head
+    s.head = nil
+    ins.height = h + d
+    ins.depth = p.fnsmd or 0
+    ins.cost = p.fnfloatpen or 20000
+    ins.width = p.fnsep or 0  -- \splittopskip（\footnotesep）
+    return ins
+  end
+  local n = rest
+  while n do
+    local nx = n.next
+    local ids
+    if n.id == WHATSIT and n.subtype == USERDEF and n.user_id == USER_ID then
+      ids = { n.value }
+    elseif (n.id == HLIST or n.id == VLIST) and n.list then
+      ids = collect_ids(n.list, {})
+    end
+    if ids then
+      local at = n
+      for _, id in ipairs(ids) do
+        local ins = mkins(id)
+        if ins then
+          rest = node.insert_after(rest, at, ins)
+          at = ins
+        end
+      end
+    end
+    n = nx
+  end
+  return rest
+end
+function M.getfn(n)
+  tex.setbox(n, M.fnlist and vpack(M.fnlist) or nil)
+  M.fnlist = nil
+end
+-- 送り返した本文の後に続く材料の先頭：改ページ位置のペナルティはTeXが10000に
+-- 書き換えているので，元の値に戻す（送り返した本文の後でまた改ページできるように）
+function M.fixcontrib()
+  local n = tex.lists.contrib_head
+  local op = tex.outputpenalty
+  if n and n.id == PENALTY and n.penalty == 10000 and op ~= 10000 then n.penalty = op end
+end
+function M.getpush(n)
+  tex.setbox(n, M.push and vpack(M.push) or nil)
+  M.push = nil
+end
+
 function M.balance(p)
   local cols = M.cols
   local N, colht = p.N, p.colht
-  if p.block then p.colmode = true end
+  -- footnote=page：脚注は段に入れず，版面の全幅で版面の下端に置く（multicolと同じ）．
+  -- 段の高さは，ページの脚注の分を除いた高さになる
+  local fullfn = p.fullfn and not p.colmode
+  if fullfn then p.spanfnbottom = false end
+  if p.block and not fullfn then p.colmode = true end
   -- spanfootnote=bottom：揃える段組では，脚注の下端を段の下端に置く（段下端の脚注）
   if p.spanfnbottom then p.colmode = true end
   -- 行送りへの切り上げで入り切らなければ，切り上げずにやり直すので，持ち越された
@@ -866,6 +933,7 @@ function M.balance(p)
   end
 
   local function fnids(i, ids)
+    if fullfn then return {} end
     local r = {}
     for _, id in ipairs(orphans[i]) do r[#r + 1] = id end
     for _, id in ipairs(ids) do
@@ -873,6 +941,39 @@ function M.balance(p)
     end
     return r
   end
+
+  -- footnote=page：ページの脚注（全幅）に加える脚注idsの分，段の高さが減る．
+  -- このページの前のブロックの脚注があれば（p.fnold：その脚注の領域の高さ，
+  -- p.fnoldd：その最後の行の深さ），その下に続ける
+  local fnskip0 = p.fnskip or footskip
+  local function fullspace(ids)
+    local n, sum, lastd = 0, 0, 0
+    for _, id in ipairs(ids) do
+      local s = segs[id]
+      if s then n = n + 1; sum = sum + s.ht + s.dp; lastd = s.dp end
+    end
+    if n == 0 then return 0 end
+    if (p.fnold or 0) > 0 then return sum + (p.fnoldd or 0) - lastd end
+    return fnskip0 + rule_h + sum - lastd
+  end
+  -- ページの脚注：本文中に参照位置のないもの（前のページから続く脚注など）を先に，
+  -- 次に本文での参照の順
+  local orphan_all = {}
+  for _, id in ipairs(segorder) do
+    if not anchored[id] then orphan_all[#orphan_all + 1] = id end
+  end
+  local function pageids(lists)
+    local r, seen = {}, {}
+    for _, id in ipairs(orphan_all) do r[#r + 1] = id; seen[id] = true end
+    for _, ids in ipairs(lists) do
+      for _, id in ipairs(ids) do
+        if segs[id] and anchored[id] and not seen[id] then r[#r + 1] = id; seen[id] = true end
+      end
+    end
+    return r
+  end
+  local curFT = 0
+  if fullfn then curFT = fullspace(pageids({ collect_ids(text.head, {}) })) end
 
   -- headingskip=block：前のブロックに続く2段以上のブロックが見出しで始まるとき，
   -- ブロック全体を見出しの上アキ（見出しの字面の上端が通常の1行目の上端より
@@ -1073,6 +1174,25 @@ function M.balance(p)
   local topskip = tex.getglue('topskip')
   local SCR = p.scratch
 
+  -- footnote=page：段の最後の垂直の箱の中身が，箱の下端（深さ）より下にはみ出す分
+  -- （ページの脚注にかからないよう，段の高さに数える）
+  local function excess(list)
+    if not fullfn or not list then return 0 end
+    local t = node.tail(list)
+    while t and t.id == WHATSIT do t = t.prev end
+    if t and t.id == VLIST then return math.max(0, vbox_over(t) - t.depth) end
+    return 0
+  end
+  -- ページを組み直すとき（floatgrid）：下のフロートのある段は，フロートの下端を
+  -- 段の高さを超えない最後の行の位置（ベースラインに本文の行の深さを足した位置）に
+  -- そろえる（段の高さは版面から段抜きのフロートや脚注を除いた高さで，行送りの倍数とは
+  -- 限らないので）
+  local function gridbot(x)
+    if p.fixed and p.floatgrid and p.blskip > 0 and x > topskip + linedp then
+      return topskip + math.floor((x - topskip - linedp + 655) / p.blskip) * p.blskip + linedp
+    end
+    return x
+  end
   -- 段の高さhで詰めてみる．入り切れば段ごとの結果を返す
   local function fill_once(h, E)
     tex.setbox(SCR, (vpack(copy_list(text.head))))
@@ -1081,6 +1201,11 @@ function M.balance(p)
     for i = 1, N do
       local fl = fl_top[i] + fl_bot[i]
       local function cap(fids)
+        if fullfn then
+          local hh = math.min(h, colht - curFT)
+          if fl_bot[i] > 0 then hh = gridbot(hh) end
+          return hh - fl
+        end
         local f, fd = fnblock(fids)
         -- 段をまたぐ図のまとまりの段は，まとまりのいちばん高い脚注の分を見込む
         if E and E[i] and E[i] > f then f = E[i] end
@@ -1100,8 +1225,11 @@ function M.balance(p)
         end
       end
       local r = {}
-      if i < N then
+      if i < N or p.fixed then
         local t = cap(fnids(i, {}))
+        -- ページを組み直すとき（fixed）：フロートだけの段には本文を入れない．フロートだけで
+        -- 段の高さを超える段も，本文を入れずにそのまま組む
+        if p.fixed and (t < 0 or (cols[i] and cols[i].fcol)) then t = 0 end
         -- フロートと動かせない脚注だけで段の高さを超える
         if t < 0 then ok = false break end
         local saved = boxlist_copy(SCR)
@@ -1116,14 +1244,76 @@ function M.balance(p)
           local ids = list and collect_ids(list, {}) or {}
           local nh, nd = natural(list)
           local c2 = cap(fnids(i, ids))
-          if nh <= c2 or not list then
+          -- ページを組み直すとき：段の先頭の材料が段の高さより高いと，\vsplitはその前の
+          -- 印などの後で切り，段に箱が入らない．ページにほかに何もなく（ブロックも段抜きの
+          -- フロートもない），フロートのない段では，その材料までを（はみ出させて）この段に
+          -- 入れる．ほかに何かあれば，次のページ（段の高さをいっぱいに使える）へ送る
+          if p.fixed and p.pageempty and fl_top[i] + fl_bot[i] == 0 and iter == 1 then
+            local hasbox = false
+            for q in node.traverse(list) do
+              if q.id == HLIST or q.id == VLIST or q.id == RULE then hasbox = true break end
+            end
+            local rest = tex.getbox(SCR)
+            if not hasbox and rest and rest.list then
+              -- 切り出した分を戻し，最初の箱の下端までで切り直す
+              local head = list
+              if head then
+                node.tail(head).next = rest.list
+                rest.list.prev = node.tail(head)
+              else
+                head = rest.list
+              end
+              rest.list = nil
+              local need, fb = 0, nil
+              for q in node.traverse(head) do
+                if q.id == GLUE then need = need + q.width
+                elseif q.id == KERN then need = need + q.kern
+                elseif q.id == HLIST or q.id == VLIST or q.id == RULE then
+                  need = need + q.height + q.depth; fb = q; break
+                end
+              end
+              tex.setbox(SCR, (vpack(head)))
+              if fb then
+                local chunk = tex.splitbox(SCR, need, 'exactly')
+                list = chunk and chunk.list
+                if chunk then chunk.list = nil; node.free(chunk) end
+                ids = list and collect_ids(list, {}) or {}
+                nh, nd = natural(list)
+                r.list, r.ids, r.ht, r.dp = list, ids, nh, nd
+                break
+              end
+            end
+          end
+          local vis = nh + excess(list)
+          if vis <= c2 or not list then
             r.list, r.ids, r.ht, r.dp = list, ids, nh, nd
             break
           end
+          -- ページを組み直すとき（fixed）：フロートのない段で，分けられない材料1つ
+          -- だけで段の高さを超えるときは，どの段にも入らないので，はみ出させて置く
+          -- ページにほかに何もないとき（ブロックも段抜きフロートもない）は，1段目に
+          -- 最初の分けられない塊をはみ出させて置く（何も置けないページを作ると，
+          -- 送り返しが止まらなくなる）
+          if p.fixed and p.pageempty and fl_top[i] + fl_bot[i] == 0 then
+            local nbox = 0
+            for q in node.traverse(list) do
+              if q.id == HLIST or q.id == VLIST or q.id == RULE then nbox = nbox + 1 end
+            end
+            if nbox <= 1 or (p.pageempty and i == 1 and iter == 1) then
+              r.list, r.ids, r.ht, r.dp = list, ids, nh, nd
+              break
+            end
+          end
           flush_list(list)
           -- 脚注や行ドリの調整で入り切らない：本文を減らしてやり直す
-          local t2 = math.min(c2, t - (nh - c2))
+          local t2 = math.min(c2, t - (vis - c2))
           if iter == 10 or t2 >= t then
+            if p.fixed then
+              -- ページを組み直すとき：この段は本文を入れず，材料を次の段へ回す
+              tex.setbox(SCR, saved and vpack(copy_list(saved)) or nil)
+              r.list, r.ids, r.ht, r.dp = nil, {}, 0, 0
+              break
+            end
             ok = false
             break
           end
@@ -1141,7 +1331,7 @@ function M.balance(p)
         local ids = list and collect_ids(list, {}) or {}
         local nh, nd = natural(list)
         r.list, r.ids, r.ht, r.dp = list, ids, nh, nd
-        if nh > cap(fnids(i, ids)) then ok = false end
+        if nh + excess(list) > cap(fnids(i, ids)) then ok = false end
         -- 最右段に強制改段（\columnbreakなど）が残る：この高さでは段が足りない
         for q in node.traverse_id(PENALTY, list) do
           if q.penalty <= -10000 then ok = false break end
@@ -1158,11 +1348,19 @@ function M.balance(p)
       tex.setbox(SCR, nil)
       return nil
     end
+    if p.fixed then
+      -- 入り切らなかった本文（次のページへ送り返す）
+      local rest = tex.getbox(SCR)
+      res.rest = rest and rest.list
+      if rest then rest.list = nil end
+      tex.setbox(SCR, nil)
+    end
     return res
   end
 
   local function free_res(res)
     for _, r in ipairs(res) do if r.list then flush_list(r.list) end end
+    if res.rest then flush_list(res.rest); res.rest = nil end
   end
   local step = 65536
 
@@ -1267,7 +1465,7 @@ function M.balance(p)
       enum(j + 1, c, cur, fixed)
     end
   end
-  enum(1, 1, {}, false)
+  if not p.fixed then enum(1, 1, {}, false) end
   if #assigns > 64 then
     assigns = {}
     enum(1, 1, {}, true)
@@ -1316,6 +1514,67 @@ function M.balance(p)
   if best then
     set_assign(best)
     res = fill(h)
+  end
+  -- ページを組み直すとき（fixed）：フロートは置かれた段のまま，段の高さを版面から
+  -- ページの脚注を除いた高さにして詰める．入り切らない本文は次のページへ送り返すので，
+  -- その脚注の分だけ段を高くできる（高くしても送り返す本文の脚注が戻らない所まで）
+  if p.fixed then
+    local a = {}
+    for j, f in ipairs(F) do a[j] = math.min(f.orig, N) end
+    set_assign(a)
+    local function need(r)
+      local lists = {}
+      for i = 1, N do lists[#lists + 1] = r[i].ids or {} end
+      return fullspace(pageids(lists))
+    end
+    res = fill_once(colht - curFT)
+    for _ = 1, 6 do
+      if not res then break end
+      local nd = need(res)
+      if nd >= curFT - 655 then break end
+      local save = curFT
+      curFT = nd
+      local r2 = fill_once(colht - curFT)
+      if r2 and need(r2) <= curFT + 655 then
+        free_res(res)
+        res = r2
+      else
+        if r2 then free_res(r2) end
+        curFT = save
+        break
+      end
+    end
+    -- 本文の箱が1つも段に入らなかったとき（版面より高い分けられない箱など）は，
+    -- LaTeXが組んだ段割りをそのまま使う（送り返しが止まらなくならないように）
+    if res and #F == 0 and p.pageempty then
+      local any = false
+      for i = 1, N do
+        for q in node.traverse(res[i].list) do
+          if q.id == HLIST or q.id == VLIST or q.id == RULE then any = true break end
+        end
+      end
+      if not any then
+        free_res(res)
+        res = {}
+        local lists = {}
+        for i = 1, N do
+          local c = cols[i]
+          local t = c and c.text and copy_list(c.text)
+          if t then
+            t = strip_tail(t, true)
+            if i > 1 then t = strip_topskip(t) end
+          end
+          local r = { list = t, ids = t and collect_ids(t, {}) or {}, fn = 0, fd = 0 }
+          r.ht, r.dp = natural(t)
+          r.used = r.ht
+          res[i] = r
+          lists[i] = r.ids
+        end
+        curFT = fullspace(pageids(lists))
+        info('nothing fits; using the columns built by LaTeX')
+      end
+    end
+    h = colht - curFT
   end
   if not res then
     flush_list(text.head)
@@ -1415,6 +1674,15 @@ function M.balance(p)
           local pos = nat[i] + over[i]
           local k = math.ceil((pos - topskip - linedp - 655) / p.blskip)
           over[i] = over[i] + math.max(0, topskip + k * p.blskip + linedp - pos)
+        elseif ends_intext(r.list) then
+          -- floatgridでないとき：フロートの後のアキ（\intextsep）は見かけに数えない
+          local t, trail = node.tail(r.list), 0
+          while t and (is_discardable(t) or t.id == WHATSIT) do
+            if t.id == GLUE then trail = trail + t.width
+            elseif t.id == KERN then trail = trail + t.kern end
+            t = t.prev
+          end
+          nat[i] = nat[i] - trail
         end
       end
     end
@@ -1457,8 +1725,10 @@ function M.balance(p)
   -- 下端がそろわない配分なら（脚注やフロートで最右段やフロートのある段だけが
   -- 高くなったとき），段の高さを上げてそろう配分を探す（最右段は短くてよいが，
   -- 他の段より高くはしない）．段の高さいっぱいまで探す
-  if misaligned(res, nat, over) then
-    local hh, hmax = h + step, colht
+  if not p.fixed and misaligned(res, nat, over) then
+    -- footnote=page：ページの脚注の分は上げられない（最終行のベースラインまで．
+    -- 行の深さは脚注の上のアキに出てよい）
+    local hh, hmax = h + step, fullfn and (colht - curFT + linedp) or colht
     while hh <= hmax do
       local r2 = fill(hh)
       if r2 then
@@ -1492,7 +1762,11 @@ function M.balance(p)
     end
     if ok then bottom = textvis end
   end
-  h = bottom
+  if not p.fixed then h = bottom end
+  -- footnote=page：揃えた段組の見かけの下端は，最終行のベースラインが版面からページの
+  -- 脚注の領域を除いた高さに来る所まで（最後の箱の中身が下にはみ出す分などで超えない
+  -- ように）
+  if fullfn and h > colht - curFT + linedp then h = colht - curFT + linedp end
   -- 揃えた段組の最終行のベースライン：本文で終わって下端に達した段があれば
   -- その最終行，なければ本文の行の深さだけ下端から上
   local base
@@ -1510,7 +1784,12 @@ function M.balance(p)
     end
     base = h - d
   end
-  info('balanced at %s (colht %s, text %s)', pt(h), pt(colht), pt(total_h))
+  if p.fixed then
+    info('rebuilt page with full-width footnotes at %s (colht %s, footnotes %s)',
+      pt(h), pt(colht), pt(curFT))
+  else
+    info('balanced at %s (colht %s, text %s)', pt(h), pt(colht), pt(total_h))
+  end
   for i = 1, N do
     local r = res[i]
     info('  column %d: text %s+%s, floats %s (top %d, bottom %d), footnotes %s, bottom %s+%s',
@@ -1581,6 +1860,10 @@ function M.balance(p)
     -- 段の高さ：見かけの下端がそろう位置．版面下端の脚注があれば，組み上げた
     -- 脚注の並びの実際の高さの分だけ上で止める
     local target = h - over[i]
+    if p.fixed then
+      target = h
+      if #bots[i] > 0 then target = gridbot(h) end
+    end
     local pushed = false
     if not (p.colmode or sbot(i)) and fl.head then
       local fnh = natural(fl.head)
@@ -1602,10 +1885,23 @@ function M.balance(p)
       colbreak = t and t.id == GLUE and t.stretch_order > 0 or false
     end
     local ragged = (i >= lastfull or pushed or blocked) and target - nat[i] > p.blskip / 2
+    -- ページを組み直すとき：入り切らない本文がなければ（本文が足りない），中身のある
+    -- 最後の段は下を空ける．それ以外の段はグルーを伸ばして段の高さいっぱいに組む
+    if p.fixed then
+      ragged = ((i >= lastfull and not res.rest) or blocked) and target - nat[i] > p.blskip / 2
+    end
     -- 本文の下のアキ：下フロートと（段下端モードの）脚注は段の下端に付ける
     local gallow = res.G and res.G[i] or 0
     if ragged or ((p.colmode or sbot(i)) and (#ids > 0 or gallow > 0)) then
       append(l, filglue())
+    elseif p.fixed and #bots[i] == 0 then
+      -- LaTeXの段と同じく，最後の行のベースラインを段の下端に置く（深さは下に出す）．
+      -- 段の下の\@textbottomも足す
+      local t = l.tail
+      if t and (t.id == HLIST or t.id == VLIST) and t.depth ~= 0 then
+        append(l, node.new(KERN)); l.tail.kern = -t.depth
+      end
+      if p.textbottom then append(l, boxlist_copy(p.textbottom)) end
     end
     -- 下に段をまたぐフロート（場所取り）がある段では，段下端の脚注をフロートの上に
     -- 置く（またがる段のあいだでフロートの位置がそろうように）
@@ -1657,7 +1953,7 @@ function M.balance(p)
         body = vpack(o.head, colht, 'exactly')
       end
     end
-    if M.debug then
+    if M.debug and not p.fixed then
       -- 実際に置かれた見かけの下端（グルーが伸びて届いたか）
       local b = body
       if fl.head and not p.colmode then b = body.list end
@@ -1724,8 +2020,11 @@ function M.balance(p)
       local nostretch = not ragged and not filfn and b.glue_sign ~= 1 and placed < target - 655
       -- 段の中身が段の高さを超える（段いっぱいの分割できない箱など）
       local overfull = nat[i] + over[i] > colht + 655
+      -- footnote=page：段の高さをページの脚注の上までに抑えたので，見かけの下端
+      -- （本文中の箱の後の行送りの位置など）がそれより下になる
+      local capped = fullfn and placed + over[i] > h + 655
       info('  column %d placed %s%s', i, pt(placed + over[i]),
-        overfull and ' (overfull)' or
+        overfull and ' (overfull)' or capped and ' (footnotes)' or
         pushed and ' (pushed)' or floatsonly and ' (floats only)'
         or colbreak and ' (column break)'
         or (blocked and (ragged or nostretch)) and ' (blocked)'
@@ -1778,7 +2077,7 @@ function M.balance(p)
     local o = newlist()
     append(o, body)
     append(o, vssglue())
-    M.out[i] = vpack(o.head, p.block and h or colht, 'exactly')
+    M.out[i] = vpack(o.head, (p.block or fullfn) and h or colht, 'exactly')
   end
   -- フロートの箱は段に入れたので，M.resetで片付けない
   M.pool = nil
@@ -1793,13 +2092,28 @@ function M.balance(p)
     M.dblbox = vpack(l.head)
     dblfloats = {}
   end
+  -- footnote=page：ページの脚注（全幅）．組み直したページで入り切らなかった本文は，
+  -- その脚注を\insertに戻して付け，次のページへ送り返す
+  if fullfn then
+    local lists = {}
+    for i = 1, N do lists[i] = res[i].ids or {} end
+    local fl = newlist()
+    for _, id in ipairs(pageids(lists)) do
+      if segs[id].head then append(fl, segs[id].head); segs[id].head = nil end
+    end
+    M.fnlist = fl.head
+    if p.fixed and res.rest then
+      M.push = make_push(res.rest, segs, p)
+      res.rest = nil
+    end
+  end
   -- 使われなかった脚注断片（本来は無いはず）を片付ける
   for _, id in ipairs(segorder) do
     if segs[id].head then flush_list(segs[id].head) end
   end
   flush_list(text.head)
   tex.setdimen('global', 'evenend@ruleht', usefnpage and colht or h)
-  local colboxht = p.block and h or colht
+  local colboxht = (p.block or fullfn) and h or colht
   tex.setdimen('global', 'evenend@colboxht', colboxht)
   tex.setdimen('global', 'evenend@rowht', colboxht + dblh)
   -- 段抜きフロートで終わるときは，その下端から本文の行の深さだけ上を最終行とみなす

@@ -5,7 +5,8 @@
 ・脚注（FNTEXT）が参照位置（FNREF）と同じ段にあり，その段の中で一番下にあるか
   （本文や図（FIGMARK，図の見出し）より下．段数の切り換えの後の段組（ONECOL以降）は除く）
 ・フロートと脚注が同じ段にあるか（網羅の確認）
-を調べる．・footnote=pageで，脚注が最後の段組にあれば，版面の下端（ログのTEXTBOTTOM）にあるか
+を調べる．footnote=pageでは，脚注は版面の全幅で版面の下端に置くので，段は問わず，
+脚注より下に本文や図がなく，脚注の最終行が版面の下端（ログのTEXTBOTTOM）にあるかを調べる
 使い方: fnfloatcheck.py file.pdf 段数 [page|column file.log]"""
 import re, subprocess, sys
 pdf, N = sys.argv[1], int(sys.argv[2])
@@ -40,7 +41,11 @@ for pg in range(1, pages + 1):
     cut = min([w[1] for w in W if 'ONECOL' in w[4]] or [1e9])
     top = min([w[1] for w in W if 'TWOCOL' in w[4]] or [-1])
     lastblock = not any(q >= pg for q in onecol_pages)  # 最後の段組か
-    W = [w for w in W if w[3] <= cut + 0.1 and w[1] >= top - 0.1 and not w[4].isdigit()]
+    if fnmode == 'page':
+        # 脚注はページの下端に全幅で置くので，段組の範囲で切らない（ページ番号は除く）
+        W = [w for w in W if not w[4].isdigit()]
+    else:
+        W = [w for w in W if w[3] <= cut + 0.1 and w[1] >= top - 0.1 and not w[4].isdigit()]
     if not W: continue
     # 段の境目は版面から決める（版面は紙面の中央にあるとし，左右の端は全ページの
     # 本文の字から求める）
@@ -56,6 +61,18 @@ for pg in range(1, pages + 1):
     ref = [w for w in W if 'FNREF' in w[4]]
     figs = [w for w in W if 'FIGMARK' in w[4]]
     for f in fn:
+        if fnmode == 'page':
+            # 脚注より下に，脚注以外の（字の大きい）語がない
+            below = [w for w in W if w[1] >= f[1] - 0.5 and (w[3] - w[1]) > (f[3] - f[1]) + 0.5]
+            if below:
+                problems.append(f'p{pg}: text below footnote: "{below[0][4][:12]}"')
+            if tb is not None:
+                bottom = max(w[3] for w in W if w[1] >= f[1] - 0.5)
+                if abs(bottom - tb) > 4:
+                    problems.append(f'p{pg}: footnote bottom {bottom:.1f} not at text bottom {tb:.1f}')
+            if figs:
+                together += 1
+            continue
         c = col(f)
         if ref and all(col(r) != c for r in ref):
             problems.append(f'p{pg}: footnote in column {c+1} but reference elsewhere')

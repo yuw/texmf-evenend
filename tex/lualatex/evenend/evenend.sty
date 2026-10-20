@@ -1,5 +1,5 @@
 \NeedsTeXFormat{LaTeX2e}[2024-11-01]
-\ProvidesPackage{evenend}[2026/10/18 v20261018.0 Balance the last page of multi-column text (LuaLaTeX) by Yuwsuke Kieda]
+\ProvidesPackage{evenend}[2026/10/20 v20261020.0 Balance the last page of multi-column text (LuaLaTeX) by Yuwsuke Kieda]
 
 \ifdefined\directlua\else
   \PackageError{evenend}{LuaLaTeX is required}{}
@@ -32,6 +32,17 @@
 \newbox\evenend@fnrulebox
 \newbox\evenend@colbox
 \newattribute\evenend@fnattr
+%% footnote=page：脚注を版面の全幅で版面の下端に置く（multicolと同じ）
+\newskip\evenend@topskip    % 文書の始めの\topskip
+\newdimen\evenend@maxdepth  % 同じく\maxdepth
+\newskip\evenend@fnskip     % クラスの\skip\footins（段を組むあいだは見込みのために変える）
+\newcount\evenend@fncount   % クラスの\count\footins
+\newbox\evenend@pagefn      % このページの脚注（全幅）
+\newdimen\evenend@pagefnspace % その領域の高さ（\@colhtから除いた分）
+\newbox\evenend@pushbox     % 組み直したページに入り切らず，次のページへ送り返す本文
+\newdimen\evenend@fnsmd     % 脚注の\splitmaxdepth
+\newbox\evenend@textbottombox
+\newdimen\evenend@rowdp     % 組んだ段組の行（\@outputbox）の最終行のベースラインより下の分
 
 \newif\ifevenend@enabled   \evenend@enabledtrue
 \newif\ifevenend@final     % 次に出力される本文段が最終ページのもの
@@ -44,7 +55,10 @@
 \newif\ifevenend@switch    % 段数の切り換えを待っている
 \newif\ifevenend@floatgrid \evenend@floatgridtrue % フロートの並びを行送りの倍数にする
 \newif\ifevenend@headblock % 見出しの上アキを段組の間のアキに含める
-\newif\ifevenend@spanfnbottom % footnote=pageの最終ページで，下に段をまたぐ図がある段の脚注を版面の下端に置く
+\newif\ifevenend@spanfnbottom % spanfootnote=bottom
+\newif\ifevenend@sfb        % spanfootnote=bottomが効く（footnote=columnのときだけ）
+\newif\ifevenend@pagehasfn  % このページにもう脚注がある
+\newif\ifevenend@fixed      % ページを組み直す（footnote=page）
 
 %% ---------------------------------------------------------------------
 %% オプション
@@ -106,7 +120,11 @@
 \ProcessKeyOptions[evenend]
 \evenend@initN=\evenend@N
 
-\newcommand\evenendsetup[1]{\SetKeys[evenend]{#1}}
+\newcommand\evenendsetup[1]{\SetKeys[evenend]{#1}\evenend@setsfb\evenend@fnreserve}
+\def\evenend@setsfb{%
+  \global\evenend@sfbfalse
+  \ifevenend@colmode \ifevenend@spanfnbottom \global\evenend@sfbtrue \fi \fi}
+\evenend@setsfb
 
 \directlua{
   require('evenend')
@@ -190,7 +208,9 @@
   \global\@firstcolumntrue
   \global\evenend@colno\z@
   \global\col@number\evenend@N
+  \evenend@fnreserve
   \@ifnextchar[\@topnewpage\@floatplacement}
+\AddToHook{cmd/onecolumn/after}{\evenend@fnreserve}
 \AtBeginDocument{%
   \evenend@takesep
   \if@twocolumn
@@ -266,7 +286,8 @@
   \global\evenend@colsep\evenend@nextsep
   \global\evenend@colrule\evenend@nextrule
   \evenend@setwidth
-  \global\col@number\evenend@N}
+  \global\col@number\evenend@N
+  \evenend@fnreserve}
 
 %% ---------------------------------------------------------------------
 %% 段の取り込み：\@makecolの直前
@@ -283,6 +304,7 @@
       \def\@elt##1{\evenend@spanclear##1}\@toplist\@botlist
     \endgroup
     \global\evenend@capturedtrue
+    \ifvoid\footins\else \global\evenend@pagehasfntrue \evenend@fnreserve \fi
     \ifevenend@debug
       \typeout{evenend: column has footnotes=\ifvoid\footins no\else yes\fi,
         bottom floats=\ifx\@botlist\@empty no\else yes\fi}%
@@ -315,8 +337,18 @@
       \else
         \ifvmode \directlua{evenend.anchor()}\fi
       \fi
+      %% footnote=page：脚注を版面の全幅で組む
+      \ifevenend@colmode\else \if@twocolumn \columnwidth\textwidth \fi\fi
       \evenend@orig@footnotetext{#1}%
     \endgroup}%
+  %% クラスの脚注の設定を覚え，段を組むときの見込みを決める
+  \global\evenend@topskip\topskip
+  \global\evenend@maxdepth\maxdepth
+  \global\evenend@fnskip\skip\footins
+  \global\evenend@fncount\count\footins
+  \begingroup \footnotesize \global\evenend@fnsmd\dp\strutbox \endgroup
+  \global\evenend@docstartedtrue
+  \evenend@fnreserve
   \directlua{evenend.debug = \ifevenend@debug true\else false\fi}%
 }
 
@@ -362,6 +394,19 @@
   \global\evenend@capturedfalse
   \let\evenend@next\evenend@normalcol
   \ifnum\evenend@status>\z@ \let\evenend@next\evenend@shipbalanced \fi
+  %% footnote=page：ページの最後の段（揃えないとき，揃えられなかったとき）は，
+  %% ページの本文を全幅の脚注の上に組み直して出力する
+  \ifevenend@colmode\else
+    \ifx\evenend@next\evenend@normalcol
+      \ifevenend@lastcol
+        \ifevenend@switch\else \let\evenend@next\evenend@fullship \fi
+      \else
+        \ifnum\numexpr\evenend@colno+\@ne\relax<\evenend@N\else
+          \let\evenend@next\evenend@fullship
+        \fi
+      \fi
+    \fi
+  \fi
   \ifevenend@lastcol \ifevenend@switch
     \global\evenend@switchfalse
     \ifnum\evenend@status>\z@
@@ -381,13 +426,16 @@
     \PackageInfo{evenend}{Page \thepage\space is full; not balanced}%
   \fi}
 
-\def\evenend@shipbalanced{\evenend@makerow\evenend@shippage}
+\def\evenend@shipbalanced{\evenend@makerow\evenend@takefn\evenend@shippage}
 
 %% 揃えた段組をブロックとしてページの上部に積み，残りの高さで段組を続ける
 \def\evenend@pushblock{%
   \evenend@makerow
+  %% 脚注を先にページの脚注に移す（ブロックの下のアキは，その後の残りの高さで決める）
+  \evenend@takefn
   \evenend@pushrow
   \evenend@switchnow
+  \evenend@fnreserve
   %% 残りが少なければ，ここで改ページする
   \ifdim\@colht<\dimexpr\evenend@blockmin\relax
     \ifdim\@colht<\z@ \global\@colht\z@ \fi
@@ -405,8 +453,12 @@
   %% 残りの高さが，このページの段組の始まり（表題や段抜きのフロートの下）から
   %% 行送りの位置で終わるように，アキを1行未満だけ広げる（行の位置がそろって
   %% いれば広げない）
-  \ifvoid\evenend@pagetop \global\evenend@pagecolht\@colht \fi
-  \@tempcnta\dimexpr\evenend@pagecolht-\@colht+\evenend@rowht+\@tempdima\relax
+  %% （ページの脚注の領域の分は\@colhtから除いてあるので，足して数える）
+  \ifvoid\evenend@pagetop
+    \global\evenend@pagecolht\dimexpr\@colht+\evenend@pagefnspace\relax
+  \fi
+  \@tempcnta\dimexpr\evenend@pagecolht-\@colht-\evenend@pagefnspace
+    +\evenend@rowht+\@tempdima\relax
   \@tempcntb\baselineskip
   \ifnum\@tempcntb>\z@
     \count@\@tempcnta
@@ -440,6 +492,7 @@
   \global\setbox\@leftcolumn\box\voidb@x
   \global\let\evenend@resv\@empty
   \global\let\evenend@resvfn\@empty
+  \global\evenend@rowdp\z@
   \evenend@fnrestore
   \directlua{evenend.reset()}}
 
@@ -460,21 +513,27 @@
   \fi
   \ifnum\evenend@status>\z@
     \evenend@makerow
+    \evenend@takefn
     \evenend@pushrow
     \ifdim\@colht<\z@ \global\@colht\z@ \fi
     \setbox\@outputbox\vbox to\@colht{}%
     \evenend@shippage
   \else
     \ifevenend@nobalance\else \evenend@warnfail \fi
-    \evenend@normalcol
-    \@whilenum\evenend@colno>\z@\do{%
-      \setbox\@outputbox\vbox to\@colht{}%
-      \evenend@normalcol}%
+    \ifevenend@colmode
+      \evenend@normalcol
+      \@whilenum\evenend@colno>\z@\do{%
+        \setbox\@outputbox\vbox to\@colht{}%
+        \evenend@normalcol}%
+    \else
+      \evenend@fullship
+    \fi
   \fi
   \global\let\@deferlist\evenend@held
   \global\evenend@nobalancefalse
   \ifx\@deferlist\@empty
     \evenend@switchnow
+    \evenend@fnreserve
   \else
     \evenend@floatblock
   \fi}
@@ -584,6 +643,29 @@
   \fi}
 
 \def\evenend@shippage{%
+  %% footnote=page：ページの最後の段組を段の高さまで延ばし（下に置く段抜きフロートが
+  %% 版面の下端に来るように），ページの脚注があれば，その下端に全幅で置く
+  \ifevenend@colmode\else
+    \evenend@mkfnrule
+    %% 段抜きフロートを重ねるとき（\@combinedblfloats）に箱が開かれても高さが保たれる
+    %% ように，高さを決めた箱をもう一段包む
+    \setbox\@outputbox\vbox{\vbox to\dimexpr\@colht+\evenend@pagefnspace\relax{%
+      \box\@outputbox
+      %% 揃えた段組は最終行のベースラインから数える（行の深さは脚注の上のアキに出る）
+      \kern-\evenend@rowdp
+      \vfill
+      \ifvoid\evenend@pagefn\else
+        \vskip\evenend@fnskip
+        \color@begingroup\normalcolor
+        \unvbox\evenend@fnrulebox
+        \unvbox\evenend@pagefn
+        \color@endgroup
+      \fi}}%
+  \fi
+  \global\setbox\evenend@pagefn\box\voidb@x
+  \global\evenend@pagefnspace\z@
+  \global\evenend@rowdp\z@
+  \global\evenend@pagehasfnfalse
   \global\let\evenend@resv\@empty
   \global\let\evenend@resvfn\@empty
   \evenend@fnrestore
@@ -606,7 +688,86 @@
     \@dblfloatplacement
     \@startdblcolumn
     \@whilesw\if@fcolmade \fi{\@outputpage\@startdblcolumn}%
-  \endgroup}
+  \endgroup
+  \evenend@fnreserve}
+
+%% ---------------------------------------------------------------------
+%% footnote=page：脚注を版面の全幅で版面の下端に置く（multicolと同じ）
+%% LaTeXが段を組むあいだ，脚注は全段の高さを減らすので，その高さを段数倍で見込む
+%% （\count\footins）．脚注の上のアキ（\skip\footins）は，ページの最初の脚注の
+%% ときだけ段数倍で見込む．ページの最後の段で，ページの本文を，版面からページの脚注を
+%% 除いた高さの段に組み直す（入り切らない本文はその脚注とともに次のページへ送り返す）
+\newif\ifevenend@docstarted
+\def\evenend@fnreserve{%
+  \ifevenend@docstarted
+    \ifevenend@colmode
+      \global\count\footins\evenend@fncount
+      \global\skip\footins\evenend@fnskip
+    \else\if@twocolumn
+      \global\count\footins\numexpr\evenend@N*\evenend@fncount\relax
+      \ifevenend@pagehasfn
+        \global\skip\footins\z@
+      \else
+        \global\skip\footins\evenend@fnskip
+        \global\multiply\skip\footins\evenend@N
+      \fi
+    \else
+      \global\count\footins\evenend@fncount
+      \global\skip\footins\evenend@fnskip
+    \fi\fi
+  \fi}
+%% ページの最後の段は，段数×行送りだけ多めに詰めさせる（LaTeXが段ごとに改段すると
+%% 段ごとに1行未満の余りが出て，組み直した段の本文が足りなくなるので．入り切らない
+%% 分は次のページへ送り返す）
+\def\evenend@extraroom{%
+  \ifevenend@colmode\else \if@twocolumn \ifnum\evenend@N>\@ne
+    \ifnum\numexpr\evenend@colno+\@ne\relax=\evenend@N
+      \global\advance\@colroom\evenend@N\baselineskip
+    \fi
+  \fi\fi\fi}
+%% 全幅の脚注罫
+\def\evenend@mkfnrule{%
+  \setbox\evenend@fnrulebox\vbox{%
+    \ifevenend@colmode\else \columnwidth\textwidth \fi
+    \footnoterule}}
+%% Lua側が組んだ脚注をページの脚注に加え，その分だけ段の高さ（\@colht）を減らす
+\def\evenend@takefn{%
+  \directlua{evenend.getfn(\number\evenend@scratch)}%
+  \ifvoid\evenend@scratch\else
+    \global\setbox\evenend@pagefn\vbox{%
+      \ifvoid\evenend@pagefn\else \unvbox\evenend@pagefn \fi
+      \unvbox\evenend@scratch}%
+    \evenend@mkfnrule
+    \dimen@\dimexpr\evenend@fnskip+\ht\evenend@fnrulebox+\dp\evenend@fnrulebox
+      +\ht\evenend@pagefn\relax
+    \global\advance\@colht-\dimexpr\dimen@-\evenend@pagefnspace\relax
+    \global\evenend@pagefnspace\dimen@
+    \global\evenend@pagehasfntrue
+  \fi}
+%% ページの本文を組み直して出力する．入り切らない本文は次のページへ送り返す
+\def\evenend@fullship{%
+  \global\evenend@fixedtrue
+  \evenend@balance
+  \global\evenend@fixedfalse
+  \ifnum\evenend@status>\z@
+    \evenend@makerow
+    \evenend@takefn
+    \directlua{evenend.getpush(\number\evenend@pushbox)}%
+    \evenend@shippage
+    \ifvoid\evenend@pushbox\else
+      %% 揃えるページの本文が入り切らなかったときは，次のページで揃える
+      \ifevenend@lastcol \global\evenend@finaltrue \fi
+      \directlua{evenend.fixcontrib()}%
+      \unvbox\evenend@pushbox
+    \fi
+  \else
+    \PackageWarningNoLine{evenend}{Could not rebuild page \thepage\space
+      with full-width footnotes}%
+    \evenend@normalcol
+    \@whilenum\evenend@colno>\z@\do{%
+      \setbox\@outputbox\vbox to\@colht{}%
+      \evenend@normalcol}%
+  \fi}
 
 %% まだ出ていない（持ち越された）フロートをLua側に渡す（段抜きは深さ1sp）．
 %% 段数を切り換えるとき：そのブロックのフロートはそのブロックの中に置く．
@@ -667,8 +828,12 @@
   \begingroup
     \setbox\evenend@topfigbox\vbox{\topfigrule}%
     \setbox\evenend@botfigbox\vbox{\botfigrule}%
-    \setbox\evenend@fnrulebox\vbox{%
-      \color@begingroup\normalcolor\footnoterule\color@endgroup}%
+    \evenend@mkfnrule
+    \setbox\evenend@textbottombox\vbox{\@textbottom}%
+    %% 出力ルーチンは箱の中の段組（\topskipを0にする）の途中で呼ばれることがあるので，
+    %% 文書の始めの\topskipと\maxdepthを使う
+    \topskip\evenend@topskip
+    \maxdepth\evenend@maxdepth
     \splittopskip\topskip
     \splitmaxdepth\maxdepth
     \vbadness\@M
@@ -682,7 +847,17 @@
       %% フックevenend/deferredfloatに処理があれば（gyoudoriなど），持ち越されたフロートは
       %% 上に置く前提で組み直されるので，上だけに置く
       deferbot = \IfHookEmptyTF{evenend/deferredfloat}{true}{false},
-      spanfnbottom = \ifevenend@spanfnbottom true\else false\fi,
+      spanfnbottom = \ifevenend@sfb true\else false\fi,
+      fullfn  = \ifevenend@colmode false\else true\fi,
+      fixed   = \ifevenend@fixed true\else false\fi,
+      pageempty = \ifvoid\evenend@pagetop\ifx\@dbltoplist\@empty true\else false\fi\else false\fi,
+      fnskip  = \number\evenend@fnskip,
+      fnold   = \number\evenend@pagefnspace,
+      fnoldd  = \number\dp\evenend@pagefn,
+      fnsmd   = \number\evenend@fnsmd,
+      fnsep   = \number\footnotesep,
+      fnfloatpen = \number\@MM,
+      textbottom = \number\evenend@textbottombox,
       headblock = \ifevenend@headblock\ifvoid\evenend@pagetop false\else true\fi\else false\fi,
       footins = \number\footins,
       blskip  = \number\baselineskip,
@@ -741,7 +916,9 @@
     \offinterlineskip
     \ifdim\evenend@headshift=\z@\else \kern\evenend@headshift \fi
     \hb@xt@\textwidth{\unhbox\@tempboxa}%
-    \ifvoid\evenend@colbox\else \box\evenend@colbox \fi}}
+    \ifvoid\evenend@colbox\else \box\evenend@colbox \fi}%
+  \global\evenend@rowdp\dimexpr\ht\@outputbox-\evenend@baseline\relax
+  \ifdim\evenend@rowdp<\z@ \global\evenend@rowdp\z@ \fi}
 
 %% ---------------------------------------------------------------------
 %% 段をまたぐフロート：\begin{spanfigure}[位置]{段数}，spantable
@@ -883,7 +1060,7 @@
     \evenend@orig@tryfcolumn#1%
     \global\evenend@infcolfalse}%
   \let\evenend@orig@startcolumn\@startcolumn
-  \let\@startcolumn\evenend@startcolumn
+  \def\@startcolumn{\evenend@startcolumn\evenend@extraroom}%
   %% 位置の指定を一時的に外したときは，置き終えたら戻す
   \let\evenend@orig@addtocurcol\@addtocurcol
   \def\@addtocurcol{\evenend@orig@addtocurcol
@@ -1017,7 +1194,7 @@
     %% spanfootnote=bottom：下に置いた図の右の段の場所取りは，この段の脚注の分も含める
     %% （右の段の脚注は，その中の下に収める）
     \dimen@\z@
-    \ifevenend@spanfnbottom \if#2b\ifvoid\footins\else
+    \ifevenend@sfb \if#2b\ifvoid\footins\else
       \dimen@\dimexpr\skip\footins+\ht\footins+\dp\footins\relax
     \fi\fi\fi
     \@tempcnta\@ne
@@ -1025,7 +1202,7 @@
       \xdef\evenend@resv{\unexpanded\expandafter{\evenend@resv}%
         \noexpand\evenend@rv{\the\numexpr\evenend@colno+\@ne+\@tempcnta\relax}{#2}%
           {\the\dimexpr\ht#1+\dp#1+\dimen@\relax}}%
-      \ifevenend@spanfnbottom \if#2b%
+      \ifevenend@sfb \if#2b%
         \xdef\evenend@resvfn{\unexpanded\expandafter{\evenend@resvfn}%
           \noexpand\evenend@rf{\the\numexpr\evenend@colno+\@ne+\@tempcnta\relax}{\the\dimen@}}%
       \fi\fi
@@ -1042,7 +1219,7 @@
       { \socket_if_exist_p:n { build/column/outputbox } }
       {
         \str_set_eq:Nc \l_tmpa_str { l__socket_build/column/outputbox_plug_str }
-        \legacy_if:nTF { evenend@spanfnbottom }
+        \legacy_if:nTF { evenend@sfb }
           { \str_set:Nn \l_tmpb_str { space-floats-footnotes } }
           { \str_set:Nn \l_tmpb_str { space-footnotes-floats } }
         \socket_assign_plug:nV { build/column/outputbox } \l_tmpb_str
