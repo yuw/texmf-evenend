@@ -2474,9 +2474,11 @@ function M.balance(p)
       append(l, fl.head)
       fl.head = nil
     end
+    local botsep  -- 下のフロートの前の\textfloatsep
     if #bots[i] > 0 then
       if ext_bot[i] > 0 then append(l, mkglue(ext_bot[i])) end
       append(l, regglue('textfloatsep'))
+      botsep = l.tail
       do
         local fr = figrule(p.botfig)
         for q in node.traverse(fr) do
@@ -2490,6 +2492,19 @@ function M.balance(p)
         append(l, f)
         local d = node.direct.todirect(f)
         skip[d] = true; botset[d] = true
+      end
+    end
+    -- 下のフロートは段の下端に付ける：グルーを伸ばしても段の高さに届かなければ
+    -- （行取りした組版などで本文の行間が伸びない），\textfloatsepの前に\vfilを入れ，
+    -- 届かない分をフロートの上に空ける（本文の行は行送りの位置のまま）
+    if botsep and not ragged and not ((p.colmode or sbot(i)) and (#ids > 0 or gallow > 0)) then
+      local nh = natural(l.head)
+      local st = 0
+      for q in node.traverse_id(GLUE, l.head) do
+        if q.stretch_order == 0 then st = st + q.stretch end
+      end
+      if nh + st < target - 655 then
+        node.insert_before(l.head, botsep, filglue())
       end
     end
     local body
