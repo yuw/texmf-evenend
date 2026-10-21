@@ -54,7 +54,8 @@ export TEXMFHOME=/path/to/texmf-evenend
 | `blockmin` | 寸法 | `5\baselineskip` | 切り換えの後に残った高さがこれより小さければ改ページする |
 | `spanfootnote` | `above`／`bottom` | `above` | `footnote=column`で，下に段をまたぐ図がある段の脚注を，図の上に置くか，図の下に置くか |
 | `headingskip` | `column`／`block` | `column` | 切り換えた後の段組が見出しで始まるときの見出しの上アキの扱い |
-| `floatgrid` | 真偽 | `true` | 揃える段で，フロートの前後の本文の行を行送りの位置に合わせる |
+| `floatgrid` | 真偽 | `true` | フロートの前後の本文の行を行送りの位置に合わせる．evenendが組む段だけに効く（揃える最終ページとブロック，`footnote=page`ではすべてのページ．gyoudoriは要らない） |
+| `gridreport` | `summary`／`page`／`none` | `summary` | `floatgrid`が効かないページ（evenendが組まないページ．`footnote=column`でLaTeXが組む満杯のページなど）で，フロートの後の行が行送りの位置からずれたとき，文書の最後に一覧を警告する（`summary`），ページごとに情報をログに書く（`page`），何もしない（`none`）．`debug`とは別 |
 | `debug` | 真偽 | `false` | 段ごとの高さなどをログに書く |
 
 `footnote=page`（既定）では，脚注を段に分けずに版面の全幅で組み，すべてのページで版面の

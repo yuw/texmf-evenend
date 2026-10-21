@@ -479,6 +479,50 @@ function M.colrule(boxnum, colno, nt, nb, phtop, phbot)
   tex.setdimen('global', 'evenend@rtwoend', r2end)
 end
 
+-- floatgridが効かない段（LaTeXが組んだ段）で，フロートの後の行が行送りの位置から
+-- ずれていないかを調べる（gridreport）．上のnt個のフロートの後の最初の行のベースラインが
+-- \topskip＋行送りの倍数にあるか，本文中の垂直の箱（フロートなど）の前後の行の間隔が
+-- 行送りの倍数かを見る．ずれていれば，このページに印を付ける（M.gridbad）
+M.gridbad = false
+function M.gridcheck(boxnum, nt, nb, topskip, bs)
+  local b = tex.getbox(boxnum)
+  if not (b and b.list) or bs <= 0 then return end
+  local tol = 13107  -- 0.2pt
+  local function off(d)
+    local r = d % bs
+    return r > tol and bs - r > tol
+  end
+  local y, nv, lastbase, afterbox, aftertop = 0, 0, nil, false, nt > 0
+  local nall = 0
+  for q in node.traverse(b.list) do if q.id == VLIST then nall = nall + 1 end end
+  for q in node.traverse(b.list) do
+    local id = q.id
+    if id == GLUE then y = y + node.effective_glue(q, b)
+    elseif id == KERN then y = y + q.kern
+    elseif id == VLIST then
+      nv = nv + 1
+      -- 上のフロート（最初のnt個）と下のフロート（最後のnb個）は，本文中の箱から除く
+      if nv > nt and nv <= nall - nb and q.height + q.depth > 0 then afterbox = true end
+      y = y + q.height + q.depth
+    elseif id == HLIST then
+      if q.list and q.height + q.depth > 0 then
+        local base = y + q.height
+        if aftertop then
+          if off(base - topskip) then M.gridbad = true end
+          aftertop = false
+        elseif afterbox and lastbase then
+          if off(base - lastbase) then M.gridbad = true end
+        end
+        afterbox = false
+        lastbase = base
+      end
+      y = y + q.height + q.depth
+    elseif id == RULE then
+      y = y + q.height + q.depth
+    end
+  end
+end
+
 -- 段をまたぐフロートの箱（段数k）と場所取りの箱に印を付ける
 function M.markspan(boxnum, k)
   local b = tex.getbox(boxnum)
@@ -549,6 +593,7 @@ local function free_col(c)
 end
 
 function M.reset()
+  M.gridbad = false
   for _, c in ipairs(M.cols) do free_col(c) end
   M.cols = {}
   for _, k in ipairs({ 'col', 'dbl' }) do

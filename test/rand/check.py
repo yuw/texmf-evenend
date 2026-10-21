@@ -34,6 +34,10 @@ for w in warn:
     if w.startswith('Could not balance'):
         # 材料（分割しない脚注など）がページの残りに入り切らず，LaTeXの組み方に戻した
         limits.add('could-not-balance')
+    elif w.startswith('floatgrid does not apply'):
+        # gridreport：footnote=columnでLaTeXが組んだページでは，floatgridが効かず
+        # フロートの後の行が行送りの位置からずれる
+        limits.add('floatgrid-latex-page')
     else:
         prob.append('warn:' + w[:30])
 

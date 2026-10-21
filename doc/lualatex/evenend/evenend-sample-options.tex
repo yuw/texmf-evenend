@@ -64,6 +64,7 @@
 %% ---- enable：文書末のページ（ここでは\evenendclearpageで同じ組み方を示す．
 %% enable=falseの見本はこの文書の最後のページ）
 \newcommand\docendsample{%
+  \evenendcolumns{2}%
   \section{文書の終わり}
   \paras{4}}
 \setcounter{section}{0}
@@ -116,6 +117,7 @@
 %% ---- spanfootnote：段をまたぐ下の図と脚注（footnote=columnのとき）
 \evenendsetup{footnote=column}
 \newcommand\spansample{%
+  \evenendcolumns{3}%  3段のうち2段にまたがる図
   \section{段をまたぐ図}
   \paras{1}
   脚注\footnote{1段目の脚注．}を付ける．
@@ -136,6 +138,7 @@
 %% ---- floatgrid：フロートの後の行の位置（薄い線は行送りの位置）
 \makeatletter
 \newcommand\gridsample{%
+  \evenendcolumns{2}%
   \global\evs@gridtrue
   \section{フロートと行の位置}
   \paras{1}

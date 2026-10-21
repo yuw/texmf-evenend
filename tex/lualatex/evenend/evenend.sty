@@ -67,6 +67,14 @@
 \def\evenend@s@block{block}
 \def\evenend@s@above{above}
 \def\evenend@s@bottom{bottom}
+\def\evenend@s@summary{summary}
+\def\evenend@s@none{none}
+%% gridreport：floatgridが効かないページ（LaTeXが組んだページ）でフロートの後の行が
+%% 行送りの位置からずれたとき，0：何も出さない，1：文書末に一覧を警告（既定），
+%% 2：ページごとに情報をログに書く
+\def\evenend@gridreport{1}
+\def\evenend@gridpages{}
+\newcount\evenend@gridflag
 \DeclareKeys[evenend]{
   columns.code     = {\evenend@N=\numexpr#1\relax
                       \ifnum\evenend@N<\@ne
@@ -88,6 +96,18 @@
   enable.if        = evenend@enabled,
   onecolumn.if     = evenend@onecolumn,
   floatgrid.if     = evenend@floatgrid,
+  gridreport.code  = {\edef\evenend@tmp{#1}%
+                      \ifx\evenend@tmp\evenend@s@summary
+                        \def\evenend@gridreport{1}%
+                      \else\ifx\evenend@tmp\evenend@s@page
+                        \def\evenend@gridreport{2}%
+                      \else\ifx\evenend@tmp\evenend@s@none
+                        \def\evenend@gridreport{0}%
+                      \else
+                        \PackageError{evenend}{Unknown value `#1' for
+                          gridreport}{Use `summary', `page' or `none'.}%
+                      \fi\fi\fi},
+  gridreport.usage = general,
   blockskip.code   = {\def\evenend@blockskip{#1}},
   blockskip.usage  = general,
   blockmin.code    = {\def\evenend@blockmin{#1}},
@@ -180,6 +200,20 @@
 
 \AddToHook{enddocument}{%
   \ifevenend@enabled \if@twocolumn \par \global\evenend@finaltrue \fi \fi}
+%% LaTeXが組んだ段のままページを出すとき，floatgridが効かずフロートの後の行が
+%% 行送りの位置からずれていれば記録する（gridreport）
+\def\evenend@gridbadpage{%
+  \ifnum\evenend@gridreport=\tw@
+    \PackageInfo{evenend}{Page \thepage: lines after floats are off the\MessageBreak
+      line grid (floatgrid does not apply to this page)}%
+  \fi
+  \protected@xdef\evenend@gridpages{\ifx\evenend@gridpages\@empty\else\evenend@gridpages, \fi\thepage}}
+\AddToHook{enddocument/afterlastpage}{%
+  \ifnum\evenend@gridreport=\@ne \ifx\evenend@gridpages\@empty\else
+    \PackageWarningNoLine{evenend}{floatgrid does not apply to page(s)
+      \evenend@gridpages;\MessageBreak lines after floats are off the line grid.\MessageBreak
+      Use footnote=page, or gyoudori with the float option}%
+  \fi\fi}
 
 %% ---------------------------------------------------------------------
 %% N段組
@@ -628,6 +662,10 @@
     \number\evenend@nt, \number\evenend@nb,
     \ifdim\evenend@phtop>\z@ true\else false\fi,
     \ifdim\evenend@phbot>\z@ true\else false\fi)}%
+  \ifevenend@floatgrid \ifnum\evenend@gridreport>\z@
+    \directlua{evenend.gridcheck(\number\@outputbox, \number\evenend@nt, \number\evenend@nb,
+      \number\evenend@topskip, \number\baselineskip)}%
+  \fi\fi
   \global\setbox\@leftcolumn\hbox{%
     \unhbox\@leftcolumn
     \ifnum\evenend@colno>\@ne
@@ -639,6 +677,8 @@
   \else
     \setbox\@outputbox\vbox{\hb@xt@\textwidth{\unhbox\@leftcolumn}}%
     \directlua{evenend.reportoverfull()}%
+    \directlua{tex.setcount('global', 'evenend@gridflag', evenend.gridbad and 1 or 0)}%
+    \ifnum\evenend@gridflag>\z@ \evenend@gridbadpage \fi
     \evenend@shippage
   \fi}
 
