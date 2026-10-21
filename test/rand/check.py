@@ -53,7 +53,7 @@ if 'lowered by the heading space' in flat:
 for bm in re.finditer(r'evenend: balanced at ([\d.]+)pt(.*?)(?=evenend: balanced at|$)', flat):
     h = float(bm.group(1))
     pl = re.findall(r'column \d+ placed ([\d.]+)pt(?: \(([^)]*)\))?', bm.group(2))
-    cols = [None if t in ('pushed', 'floats only') else float(a) for a, t in pl]
+    cols = [None if t in ('pushed', 'floats only', 'loose') else float(a) for a, t in pl]
     for i, v in enumerate(cols[:-1]):
         t = pl[i][1]
         # 中身のある最後の段（後の段がすべて空）は短くてよい

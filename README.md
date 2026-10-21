@@ -51,6 +51,7 @@ export TEXMFHOME=/path/to/texmf-evenend
 | `onecolumn` | 真偽 | `true` | `\onecolumn`の直前のページも揃える |
 | `enable` | 真偽 | `true` | 文書末のページを揃える |
 | `blockskip` | 寸法 | `2\baselineskip` | 段数の切り換えの前後の行のベースライン間 |
+| `blockgap` | 寸法 | 空 | 前の段組の下端から次の段組の上端までのアキ（multicolの`\multicolsep`と同じ測り方）．空でなければ`blockskip`の代わりに使う |
 | `blockmin` | 寸法 | `5\baselineskip` | 切り換えの後に残った高さがこれより小さければ改ページする |
 | `spanfootnote` | `above`／`bottom` | `above` | `footnote=column`で，下に段をまたぐ図がある段の脚注を，図の上に置くか，図の下に置くか |
 | `headingskip` | `column`／`block` | `column` | 切り換えた後の段組が見出しで始まるときの見出しの上アキの扱い |
@@ -79,7 +80,10 @@ LaTeXが段を組むあいだは脚注の高さを段数倍で見込み，ペー
 - `\evenendcolumns[columnsep=寸法,columnseprule=寸法]{段数}`：その段組だけの段間と段間罫を
   指定して段数を変える
 - `\evenendcolumns*{段数}`：段数を変えるが，その前のブロックは揃えない
-- `\columnbreak`：そこで段を改める（揃えるページやブロックの中でも守る）
+- `\columnbreak`：そこで段を改める（揃えるページやブロックの中でも守る．段落の途中では
+  その行の後で改める）
+- `\evenendifpageempty{真}{偽}`：ページが空か（`\pagetotal`が0で，積んだ段組もない）で分ける
+- `\evenendnewpage`：改ページする（積んだ段組だけのページでも改める）
 - `spanfigure`，`spantable`環境：段をまたぐ段内フロート（`\begin{spanfigure}[b]{2}`など）
 
 ### 段をまたぐフロート
@@ -111,6 +115,10 @@ multicolを読み込んでいなければ，`multicols`環境（終わりで揃�
 （揃えない），`\columnbreak`を用意する．`\begin{multicols}{3}[前置き]`の前置きは1段で組む．
 multicolを読み込んでいても使える`evenendmulticols`環境
 （`\begin{evenendmulticols}[columnsep=…,columnseprule=…]{段数}[前置き]`）もある．
+組み方はmulticolと同じにする（段組の中の行分けの設定，前後の`\multicolsep`，
+始めるときの`\premulticols`による改ページ，段の揃え方）．1段に戻るときの最後の1段の
+段組は揃えずに中身のまま積む（脚注や段内フロートがあるとき，`floatgrid`で本文中のフロートや
+高い箱があるときを除く）．
 入れ子やリストの中では使えない．ページの本文では段組のモードで使うので，1段組の文書では
 `\documentclass[twocolumn]{…}`と`\usepackage[columns=1]{evenend}`で読み込む．
 
@@ -120,10 +128,10 @@ tcolorboxの箱，`minipage`，`\parbox`，フロートの中など（内部垂�
 `evenendmulticols`環境は，出力ルーチンを使わずにその場で段組を組んで1つの箱にする（段組の
 モードでない文書でも使える）．
 
-- 中身を段幅で組み，入り切る最小の高さで各段に分ける．各段の1行目のベースラインをそろえ，
-  最終行のベースラインで下端をそろえる．最右段と`\columnbreak`で終わる段は下を空ける．
-  伸ばせるグルーがなくてそろわない分け方になったときは，高さを上げてそろう分け方を探す．
-- 前後の段落とのベースライン間は`\baselineskip`．箱の先頭では1行目の上端を箱の上端に合わせる．
+- 中身を段幅で組み，multicolと同じ方法で各段に分けて揃える（段の高さと分け方はmulticolと
+  同じ）．最右段と`\columnbreak`で終わる段は下を空ける．
+- 前後にはmulticolと同じく`\multicolsep`を空け，前が行なら段組の1行目を前の行から行送りの
+  倍数の位置に置く．箱の先頭では1行目の上端を箱の上端に合わせる．
 - 箱の中の脚注は，その箱の脚注として箱の下に置く（`minipage`と同じ）．
 - 段組は1つの箱になるので，分割できるtcolorbox（`breakable`）でも段組の途中では分けない．
 - 入れ子はできない．`\evenendcolumns`は箱の中では使えない．
@@ -264,7 +272,9 @@ evenendはgyoudori（行取りのパッケージ）に依存しない．gyoudori
   なければ段からはみ出させて置き，そうでなければ次のページへ送る．
 - `\evenendcolumns`はリスト環境などの中では使えない（段落の間で使う）．
 - `\@outputdblcol`を再定義する他のパッケージ（flushend，balanceなど）とは併用できない．
-  stfloats，tcolorbox（分割できる箱も），hyperrefは併用できる．
+  stfloats，tcolorbox（分割できる箱も），hyperrefは併用できる．tcolorboxの分割できる箱に
+  キー`evenend breakable`を付けると，揃えるページで段の下端がそろう分け方を`.aux`に書き，
+  次の組版で`break at`に渡す（`evenend min first=寸法`で最初の部分の最小の高さ）．
 
 ## マニュアル
 

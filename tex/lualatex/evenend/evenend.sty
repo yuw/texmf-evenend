@@ -1,5 +1,5 @@
 \NeedsTeXFormat{LaTeX2e}[2024-11-01]
-\ProvidesPackage{evenend}[2026/10/20 v20261020.0 Balance the last page of multi-column text (LuaLaTeX) by Yuwsuke Kieda]
+\ProvidesPackage{evenend}[2026/10/21 v20261021.0 Balance the last page of multi-column text (LuaLaTeX) by Yuwsuke Kieda]
 
 \ifdefined\directlua\else
   \PackageError{evenend}{LuaLaTeX is required}{}
@@ -31,6 +31,10 @@
 \newbox\evenend@botfigbox
 \newbox\evenend@fnrulebox
 \newbox\evenend@colbox
+\newbox\evenend@loosebox  % 1段の段組の中身（箱に詰めずに積む．Lua側で組む）
+\newcount\evenend@loosestatus % 1ならloosebox がある
+\newif\ifevenend@loosepage % このページに中身のまま積んだ段組がある
+\newif\ifevenend@loosemerged % \@outputboxに積んだブロックをまとめて詰めた
 \newattribute\evenend@fnattr
 %% footnote=page：脚注を版面の全幅で版面の下端に置く（multicolと同じ）
 \newskip\evenend@topskip    % 文書の始めの\topskip
@@ -109,6 +113,8 @@
                       \fi\fi\fi},
   gridreport.usage = general,
   blockskip.code   = {\def\evenend@blockskip{#1}},
+  blockgap.code    = {\def\evenend@blockgap{#1}},
+  blockgap.usage   = general,
   blockskip.usage  = general,
   blockmin.code    = {\def\evenend@blockmin{#1}},
   blockmin.usage   = general,
@@ -135,8 +141,14 @@
 }
 %% 段組を切り換えたときの，前の段組の最終行から次の段組の1行目までのベースライン間
 \def\evenend@blockskip{2\baselineskip}
+%% 段組を切り換えたときの，前の段組の下端から次の段組の上端（1行目の\topskipの上）までの
+%% アキ．空でなければblockskipの代わりに使う（multicolの\multicolsepと同じ測り方）
+\def\evenend@blockgap{}
 %% 段数を切り換えた後の残りの高さがこれより小さければ，そこで改ページする
 \def\evenend@blockmin{5\baselineskip}
+%% multicols環境を始めるときの残りの高さの下限（\premulticols．空なら\evenend@blockmin）
+\let\evenend@mcpremin\@empty
+\newdimen\evenend@lastgap
 \ProcessKeyOptions[evenend]
 \evenend@initN=\evenend@N
 
@@ -146,9 +158,18 @@
   \ifevenend@colmode \ifevenend@spanfnbottom \global\evenend@sfbtrue \fi \fi}
 \evenend@setsfb
 
+%% 分割できる箱（tcolorboxのbreakable）の印：箱の番号と，部分の番号（Lua側で付ける）
+\newattribute\evenend@boxattr
+\newattribute\evenend@partattr
+%% 段組の環境の後に置く目印（空の箱）の印
+\newattribute\evenend@markattr
+
 \directlua{
   require('evenend')
   evenend.setattr(luatexbase.attributes['evenend@fnattr'])
+  evenend.setboxattr(luatexbase.attributes['evenend@boxattr'],
+                     luatexbase.attributes['evenend@partattr'])
+  evenend.setmarkattr(luatexbase.attributes['evenend@markattr'])
 }
 
 %% ---------------------------------------------------------------------
@@ -177,6 +198,10 @@
     \ifdim\pagegoal=\maxdimen \ifnum\evenend@colno=\z@
       \nointerlineskip\vbox{}%
     \fi \fi
+    %% \clearpageは\@dbltopnum=-1で\pagetotal<\topskipなら\hbox{}を置くが，積んだ
+    %% 段組は\pagetotalに入らないので，ページの材料があっても置かれてしまう（最後の
+    %% 1段の末尾に空の行が加わる）．積んだ段組があるときは置かせない
+    \ifnum\@dbltopnum=\m@ne \global\@dbltopnum\z@ \fi
   \fi \fi \fi}
 
 %% LaTeXの\@doclearpageは，ページの中身を高さ0に\vsplitしてマークなどを取り出し，
@@ -327,6 +352,15 @@
 %% 段の取り込み：\@makecolの直前
 \def\evenend@capture{%
   \if@twocolumn
+    %% multicols環境の段組：\columnbreakの直前でわずかにはみ出す残りは，multicolと
+    %% 同じくこの段に入れる（最後の段は除く）
+    \ifevenend@inmc \ifnum\outputpenalty>-\@M
+      \ifnum\numexpr\evenend@colno+\@ne<\evenend@N
+        \ifnum\directlua{tex.sprint(evenend.mcoverflow(\number\baselineskip) and 1 or 0)}=\@ne
+          \outputpenalty-\@M
+        \fi
+      \fi
+    \fi \fi
     \evenend@spanprep
     \directlua{evenend.capture(\number\footins)}%
     \begingroup
@@ -460,7 +494,62 @@
     \PackageInfo{evenend}{Page \thepage\space is full; not balanced}%
   \fi}
 
-\def\evenend@shipbalanced{\evenend@makerow\evenend@takefn\evenend@shippage}
+\def\evenend@shipbalanced{%
+  \global\evenend@onlymarker\z@
+  \ifnum\evenend@N=\@ne \ifvoid\evenend@pagetop
+    \directlua{evenend.onlymarkercols()}%
+  \fi\fi
+  \ifnum\evenend@onlymarker=\@ne
+    %% 段組の環境の後の目印だけのページ（文書末など）：出力しない
+    \global\evenend@loosestatus\z@
+    \global\evenend@colno\z@
+    \global\@firstcolumntrue
+    \directlua{evenend.reset()}%
+  \else
+    \expandafter\evenend@shipbalanced@
+  \fi}
+%% 1段の最後の段組は揃えない（揃えても意味がなく，\vfillなどが伸びなくなる）：
+%% 中身のまま，積んだ段組があれば一緒に，版面の高さ（なければ\@colht）の箱に詰める
+\def\evenend@shipbalanced@{%
+  \ifnum\evenend@N=\@ne \ifnum\evenend@loosestatus>\z@
+    \setbox\@outputbox\vbox{\unvbox\evenend@loosebox\@textbottom}%
+    \global\evenend@loosestatus\z@
+    \ifvoid\evenend@pagetop
+      \setbox\@outputbox\vbox to\@colht{\unvbox\@outputbox}%
+    \else
+      \global\evenend@loosepagetrue
+      \evenend@loosemerge{\@outputbox}%
+    \fi
+    \expandafter\evenend@shippage
+  \else
+    \expandafter\evenend@shipbalanced@@
+  \fi \else
+    \expandafter\evenend@shipbalanced@@
+  \fi}
+\def\evenend@shipbalanced@@{%
+  \global\evenend@loosestatus\z@
+  \evenend@makerow
+  \evenend@takefn
+  \evenend@shippage}
+%% 中身のまま積んだ段組があるページで，最後の段組も1段なら，積んだものとその段の
+%% 中身を版面の高さ（段組を積み始めたときの\@colht）の箱に詰める．\vfillなどが伸びる
+\let\evenend@loosemerge@after\relax
+\def\evenend@loosemerge#1{%
+  \ifnum\evenend@N=\@ne \ifevenend@loosepage \ifvoid\evenend@pagetop\else
+    %% （ページの脚注の領域は除く．shippageが版面の高さに包んで脚注を下端に置く）
+    %% （積んだ段組が段の高さを超えていれば（組版の限界），詰めずにそのまま置く）
+    \setbox#1\vbox{%
+      \offinterlineskip
+      \unvbox\evenend@pagetop
+      \evenend@loosemerge@after
+      \unvbox#1}%
+    \ifdim\ht#1>\dimexpr\evenend@pagecolht-\evenend@pagefnspace\relax\else
+      \setbox#1\vbox to\dimexpr\evenend@pagecolht-\evenend@pagefnspace\relax{\unvbox#1}%
+    \fi
+    \global\setbox\evenend@pagetop\box\voidb@x
+    \global\evenend@loosepagefalse
+    \global\evenend@loosemergedtrue
+  \fi\fi\fi}
 
 %% 揃えた段組をブロックとしてページの上部に積み，残りの高さで段組を続ける
 \def\evenend@pushblock{%
@@ -470,20 +559,65 @@
   \evenend@pushrow
   \evenend@switchnow
   \evenend@fnreserve
-  %% 残りが少なければ，ここで改ページする
-  \ifdim\@colht<\dimexpr\evenend@blockmin\relax
+  %% 残りが少なければ，ここで改ページする．multicols環境を始めるときは，multicolと
+  %% 同じく段組の前のアキを入れる前の残りが\premulticols未満なら改ページする
+  \ifx\evenend@mcpremin\@empty
+    \@tempdima\@colht
+    \@tempdimb\dimexpr\evenend@blockmin\relax
+  \else
+    \@tempdima\dimexpr\@colht+\evenend@lastgap\relax
+    \@tempdimb\evenend@mcpremin\relax
+    \global\let\evenend@mcpremin\@empty
+  \fi
+  \ifdim\@tempdima<\@tempdimb
     \ifdim\@colht<\z@ \global\@colht\z@ \fi
     \setbox\@outputbox\vbox to\@colht{}%
+    %% 次の段組は来ないので，積んだ段組の後のアキ（次の段組の頭の\topskipを見込んだ
+    %% もの）は取り除く
+    \let\evenend@loosemerge@after\unskip
+    \evenend@loosemerge{\@outputbox}%
+    \let\evenend@loosemerge@after\relax
     \evenend@shippage
   \fi}
 
 %% 組んだ段組の行（\@outputbox）をページの上部に積み，\@colhtを減らす
+%% ページの頭で，見える中身のない1段の段組（段組の環境の後の目印とグルーだけ）：
+%% 積まず，段組の間のアキも入れない（ページの頭のアキはTeXが捨てるのと同じ）
 \def\evenend@pushrow{%
+  \let\evenend@next\evenend@pushrow@main
+  \ifnum\evenend@loosestatus=\tw@
+    \ifvoid\evenend@pagetop
+      \let\evenend@next\evenend@pushrow@empty
+    \else
+      \global\evenend@loosestatus\@ne
+    \fi
+  \fi
+  \evenend@next}
+\def\evenend@pushrow@empty{%
+  \global\evenend@loosestatus\z@
+  \global\setbox\evenend@loosebox\box\voidb@x
+  \global\evenend@colno\z@
+  \global\@firstcolumntrue
+  \global\evenend@pagebadfalse
+  \global\setbox\@leftcolumn\box\voidb@x
+  \global\evenend@mcbalfalse
+  \directlua{evenend.reset()}}
+\def\evenend@pushrow@main{%
+  %% 1段の段組は，箱に詰めずに中身のまま積む（\vfillなどをページのグルーとして残す）
+  \ifnum\evenend@loosestatus=\@ne
+    \global\evenend@rowht\dimexpr\ht\evenend@loosebox+\dp\evenend@loosebox\relax
+    \global\evenend@baseline\ht\evenend@loosebox
+  \fi
   %% ブロックの間のアキ：前のブロックの最終行から次のブロックの1行目
   %% （\topskipの位置）までのベースライン間を\evenend@blockskipにする
-  \@tempdima\dimexpr\evenend@blockskip-\topskip
-    -\evenend@rowht+\evenend@baseline\relax
-  \ifdim\@tempdima<\z@ \@tempdima\z@ \fi
+  \ifx\evenend@blockgap\@empty
+    \@tempdima\dimexpr\evenend@blockskip-\topskip
+      -\evenend@rowht+\evenend@baseline\relax
+    \ifdim\@tempdima<\z@ \@tempdima\z@ \fi
+  \else
+    %% blockgapは負でもよい（次の段組の先頭に目印を置くときは\topskipの分を差し引く）
+    \@tempdima\dimexpr\evenend@blockgap\relax
+  \fi
   %% 残りの高さが，このページの段組の始まり（表題や段抜きのフロートの下）から
   %% 行送りの位置で終わるように，アキを1行未満だけ広げる（行の位置がそろって
   %% いれば広げない）
@@ -494,6 +628,8 @@
   \@tempcnta\dimexpr\evenend@pagecolht-\@colht-\evenend@pagefnspace
     +\evenend@rowht+\@tempdima\relax
   \@tempcntb\baselineskip
+  %% blockgapで指定したアキは広げない（multicolと同じ位置にする）
+  \ifx\evenend@blockgap\@empty\else \@tempcntb\z@ \fi
   \ifnum\@tempcntb>\z@
     \count@\@tempcnta
     \divide\count@\@tempcntb
@@ -512,9 +648,16 @@
   \global\setbox\evenend@pagetop\vbox{%
     \offinterlineskip
     \ifvoid\evenend@pagetop\else \unvbox\evenend@pagetop \fi
-    \box\@outputbox
+    \ifnum\evenend@loosestatus=\@ne
+      \unvbox\evenend@loosebox
+    \else
+      \box\@outputbox
+    \fi
     \vskip\@tempdima}%
+  \ifnum\evenend@loosestatus=\@ne \global\evenend@loosepagetrue \fi
+  \global\evenend@loosestatus\z@
   \global\advance\@colht-\dimexpr\evenend@rowht+\@tempdima\relax
+  \global\evenend@lastgap\@tempdima
   %% ブロックを積んだページには，もう段抜きフロートを置かない（上端に置けば前の
   %% ブロックより上に，下端に置けば後のブロックより下に来るので）．持ち越して，
   %% 次の切り換えでそのブロックの下に置く
@@ -528,6 +671,7 @@
   \global\let\evenend@resvfn\@empty
   \global\evenend@rowdp\z@
   \evenend@fnrestore
+  \global\evenend@mcbalfalse
   \directlua{evenend.reset()}}
 
 %% 揃えられなかったとき：持ち越したフロートを除いて本文だけで揃えられれば，
@@ -654,7 +798,23 @@
     \vss}%
   \hfil}
 
+\newcount\evenend@onlymarker
 \def\evenend@normalcol{%
+  \global\evenend@onlymarker\z@
+  \ifnum\evenend@N=\@ne \ifvoid\evenend@pagetop
+    \directlua{evenend.onlymarker(\number\@outputbox)}%
+  \fi\fi
+  \ifnum\evenend@onlymarker=\@ne
+    %% 段組の環境の後の目印だけのページ（目印の直後に改ページした）：出力しない
+    \global\setbox\@outputbox\box\voidb@x
+    \global\evenend@colno\z@
+    \global\@firstcolumntrue
+    \directlua{evenend.reset()}%
+  \else
+    \expandafter\evenend@normalcol@
+  \fi}
+\def\evenend@normalcol@{%
+  \evenend@loosemerge{\@outputbox}%
   \global\advance\evenend@colno\@ne
   %% 段をまたぐフロートの場所取りがこの段にあれば，罫はその所を避け，段間の両側の
   %% 本文（と脚注）の行の字のある範囲に引く．組み上げた段の箱をLua側でたどって測る
@@ -683,16 +843,25 @@
   \fi}
 
 \def\evenend@shippage{%
+  \global\evenend@loosepagefalse
   %% footnote=page：ページの最後の段組を段の高さまで延ばし（下に置く段抜きフロートが
   %% 版面の下端に来るように），ページの脚注があれば，その下端に全幅で置く
   \ifevenend@colmode\else
     \evenend@mkfnrule
     %% 段抜きフロートを重ねるとき（\@combinedblfloats）に箱が開かれても高さが保たれる
     %% ように，高さを決めた箱をもう一段包む
-    \setbox\@outputbox\vbox{\vbox to\dimexpr\@colht+\evenend@pagefnspace\relax{%
-      \box\@outputbox
+    %% （積んだブロックと一緒に詰めた段組（\evenend@loosemerge）は版面の高さに包む）
+    \ifevenend@loosemerged
+      \@tempdima\evenend@pagecolht
+    \else
+      \@tempdima\dimexpr\@colht+\evenend@pagefnspace\relax
+    \fi
+    \setbox\@outputbox\vbox{\vbox to\@tempdima{%
       %% 揃えた段組は最終行のベースラインから数える（行の深さは脚注の上のアキに出る）
-      \kern-\evenend@rowdp
+      %% （中身のまま詰めた1段の段組は，箱の深さが最終行の深さ）
+      \@tempdimb\dp\@outputbox
+      \box\@outputbox
+      \kern-\dimexpr\evenend@rowdp+\@tempdimb\relax
       \vfill
       \ifvoid\evenend@pagefn\else
         \vskip\evenend@fnskip
@@ -705,6 +874,7 @@
   \global\setbox\evenend@pagefn\box\voidb@x
   \global\evenend@pagefnspace\z@
   \global\evenend@rowdp\z@
+  \global\evenend@loosemergedfalse
   \global\evenend@pagehasfnfalse
   \global\let\evenend@resv\@empty
   \global\let\evenend@resvfn\@empty
@@ -905,6 +1075,9 @@
       topfig  = \number\evenend@topfigbox,
       botfig  = \number\evenend@botfigbox,
       fnrule  = \number\evenend@fnrulebox,
+      mcbal   = \ifevenend@mcbal true\else false\fi,
+      loose   = \number\evenend@loosebox,
+      havetop = \ifvoid\evenend@pagetop false\else true\fi,
     }}%
     \ifnum\evenend@status>\z@
       \PackageInfo{evenend}{Page \thepage: columns balanced at
@@ -1333,6 +1506,7 @@
 %% ・箱の中（tcolorbox，minipage，フロートなど．内部垂直モード）では，中身を段幅で
 %%   組んでからLua側でN段に分けて揃え，1つの箱にする
 \newif\ifevenend@inmc
+\newif\ifevenend@mcbal % 段組（multicols環境）をmulticolと同じ方法で揃える
 \newbox\evenend@boxcontent
 \newbox\evenend@boxout
 \newdimen\evenend@boxtop    % 箱の段組の上端から1行目のベースラインまで
@@ -1349,14 +1523,55 @@
       {\evenend@mc@begin{}{#1}{#2}}{\evenend@mc@end{}}%
     \NewDocumentEnvironment{multicols*}{m o o}
       {\evenend@mc@begin{}{#1}{#2}}{\evenend@mc@end{*}}%
-    \providecommand\columnbreak{\par\vfil\penalty-\@M}%
+    %% \columnbreak：そこで段を改め，段の残りは空ける．段落の途中では，その行の
+    %% 後で改める（multicolと同じく段落を終えない）
+    \providecommand\columnbreak{%
+      \ifvmode
+        \penalty-\@M
+      \else
+        \@bsphack\vadjust{\penalty-\@M}\@esphack
+      \fi}%
+    %% multicolと同じく，段組の中の行分けは\multicoltolerance，\multicolpretolerance
+    %% （既定は9999と-1）で行う
+    \ifdefined\multicolsep\else
+      \newskip\multicolsep \multicolsep=12pt plus 4pt minus 3pt
+    \fi
+    \ifdefined\premulticols\else
+      \newdimen\premulticols \premulticols=50pt
+    \fi
+    \newcount\multicoltolerance \multicoltolerance=9999
+    \newcount\multicolpretolerance \multicolpretolerance=-1
+    %% \emergencystretchも，multicolと同じく段数×4pt（\setemergencystretch{段数}{段幅}）
+    \providecommand\setemergencystretch[2]{%
+      \emergencystretch 4pt \multiply\emergencystretch#1\relax}%
     %% tcolorboxなどは\columnbreakがあるとmulticolがあるとみなし，multicolの
     %% \doublecol@numberを見るので，0（multicolの段組の中ではない）で用意する
     \ifdefined\doublecol@number\else \newcount\doublecol@number \fi
   }}
+%% multicols環境の前のアキ（multicolと同じ）：\addvspace\multicolsep（前のアキが大きければ
+%% それ）．前が行なら，さらに1行目のベースラインが前の行から行送りの倍数の位置に
+%% 来るようにカーンを入れる．段組の上端（1行目の\topskipの上）までのアキとして渡す
+\def\evenend@mc@gap{%
+  \@tempskipa\multicolsep
+  \ifdim\lastskip>\@tempskipa \@tempskipa\lastskip \fi
+  \ifdim\prevdepth=-\@m\p@
+    \@tempdima\@tempskipa
+  \else
+    \@tempcnta\prevdepth \@tempcntb\baselineskip
+    \divide\@tempcnta\@tempcntb \advance\@tempcnta\@ne
+    \@tempdima\dimexpr\@tempskipa+\@tempcnta\baselineskip-\prevdepth-\topskip\relax
+  \fi
+  \ifevenend@debug\typeout{evenend: mc gap \the\@tempdima}\fi
+  \evenendsetup{blockgap=\the\@tempdima}}
 %% #1：キー（columnsep，columnseprule），#2：段数，#3：前置き
 \def\evenend@mc@begin#1#2#3{%
   \par
+  \tolerance\multicoltolerance
+  \pretolerance\multicolpretolerance
+  \setemergencystretch{\numexpr#2\relax}\hsize
+  \ifinner\else \ifdefined\multicolsep
+    \evenend@mc@gap
+  \fi \fi
   \ifinner
     \let\evenend@mc@end\evenend@box@end
     \evenend@box@begin{#1}{#2}{#3}%
@@ -1367,20 +1582,45 @@
     \fi
     \global\evenend@inmctrue
     %% 環境の後は，環境の前の段組の段数・段間・段間罫に戻す
+    \xdef\evenend@mc@savedN{\the\evenend@N}%
     \xdef\evenend@mc@saved{[columnsep=\the\evenend@colsep,
       columnseprule=\the\evenend@colrule]{\the\evenend@N}}%
     \IfValueT{#3}{\evenendcolumns{1}#3\par}%
+    \ifdefined\premulticols \xdef\evenend@mcpremin{\the\premulticols}\fi
     \evenendcolumns[#1]{#2}%
+    \global\let\evenend@mcpremin\@empty
   \fi}
 \def\evenend@page@end#1{%
   \par
+  %% multicolと同じく，段組の後は\multicolsepを空け，次の行のベースラインを段組の
+  %% 下端から\multicolsep＋\baselineskipの位置に置く．段組はmulticolと同じ方法で揃える
+  \ifdefined\multicolsep
+    \ifnum\evenend@mc@savedN=\@ne
+      %% 1段に戻る：段組の直後に目印（空の箱）を置く．後のグルー（\vfillなど）を
+      %% 捨てさせず，目印の後の行は\baselineskipで置かれる（multicolの\prevdepth=0と同じ）．
+      %% 段組の後のアキ\multicolsepは目印の後に本当のグルーとして置く（後の\addvspaceと
+      %% 大きいほうにまとまるように）．段組の間のアキは目印の\topskipを打ち消すだけ
+      \evenendsetup{blockgap=\the\dimexpr-\topskip\relax}%
+    \else
+      \evenendsetup{blockgap=\the\dimexpr\multicolsep+\baselineskip-\topskip\relax}%
+    \fi
+    \global\evenend@mcbaltrue
+  \fi
   \edef\evenend@tmp{\noexpand\evenendcolumns#1\evenend@mc@saved}%
   \evenend@tmp
+  %% 目印は，終えた段組がこのページに積まれているときだけ置く（段組の終わりで改ページ
+  %% したなら，後のアキは次のページの頭でTeXが捨てるのと同じく，何も置かない）
+  \ifdefined\multicolsep \ifnum\evenend@mc@savedN=\@ne \ifvoid\evenend@pagetop\else
+    {\evenend@markattr\@ne \nointerlineskip\vbox{}}%
+    \vskip\multicolsep
+  \fi\fi\fi
   \global\evenend@inmcfalse}
 
 %% 箱の中の段組
 \def\evenend@box@begin#1#2#3{%
   \IfValueT{#3}{#3\par}%
+  %% multicolと同じく，前後に\multicolsepを空ける
+  \ifdefined\multicolsep \addvspace\multicolsep \fi
   \global\evenend@nextN=\numexpr#2\relax
   \ifnum\evenend@nextN<\@ne \global\evenend@nextN\@ne \fi
   \global\evenend@nextsep\columnsep
@@ -1411,6 +1651,7 @@
 \def\evenend@nested#1#2#3{%
   \PackageError{evenend}{Nested multicols is not supported}{}%
   \let\evenend@mc@end\@gobble}
+\newcount\evenend@boxmc
 \def\evenend@box@end#1{%
     \par
   \egroup
@@ -1428,8 +1669,33 @@
       rule    = \number\dimexpr\evenend@box@rule\relax,
       topskip = \number\topskip,
       blskip  = \number\baselineskip,
+      mcbal   = \ifdefined\multicolsep true\else false\fi,
     }}%
   \endgroup
+  \ifnum\evenend@boxmc=\@ne
+    \expandafter\evenend@box@placemc
+  \else
+    \expandafter\evenend@box@place
+  \fi}
+%% multicolと同じ置き方：前が行なら1行目のベースラインが前の行から行送りの倍数の
+%% 位置に来るカーン，段組の箱（深さは「p」の深さ以上），\prevdepth=0，箱の深さだけ戻す
+\def\evenend@box@placemc{%
+  \global\evenend@boxmc\z@
+  \ifdim\prevdepth=-\@m\p@\else
+    \@tempcnta\prevdepth \@tempcntb\baselineskip
+    \divide\@tempcnta\@tempcntb \advance\@tempcnta\@ne
+    \kern\dimexpr\@tempcnta\baselineskip-\prevdepth-\topskip\relax
+  \fi
+  \setbox\z@\hbox{p}%
+  \ifdim\dp\evenend@boxout<\dp\z@ \dp\evenend@boxout\dp\z@ \fi
+  %% multicolと同じく，「p」と段の深さの大きいほうだけ戻す
+  \@tempdima\dp\evenend@boxout
+  \nointerlineskip
+  \box\evenend@boxout
+  \prevdepth\z@
+  \kern-\@tempdima
+  \addvspace\multicolsep \prevdepth\z@}
+\def\evenend@box@place{%
   \ifvoid\evenend@boxout\else
     %% 前の行からのベースライン間を\baselineskipにする（箱の先頭では詰めて置く）
     \ifdim\prevdepth>-1000\p@
@@ -1440,7 +1706,62 @@
       \nointerlineskip
       \kern-\dimexpr\evenend@boxtop-\evenend@boxfirst\relax
     \fi
+    %% multicolと同じく，段組の箱の深さ（最終行の深さ）は数えない
+    \ifdefined\multicolsep \dp\evenend@boxout\z@ \fi
     \box\evenend@boxout
+  \fi
+  \ifdefined\multicolsep \addvspace\multicolsep \prevdepth\z@ \fi}
+
+%% ---------------------------------------------------------------------
+%% ページが空か：ページの材料（\pagetotal）がなく，積んだ段組（ブロック）もない．
+%% evenendでは，段数を切り換えるとそれまでの段組をページの上部に積むので，
+%% \pagetotalだけではページが空かどうかはわからない
+\newcommand\evenendifpageempty[2]{%
+  \ifdim\pagetotal>\z@ #2\else\ifvoid\evenend@pagetop #1\else #2\fi\fi}
+%% 改段（\newpage）．積んだ段組だけのページでも改める（空の箱を置いて出力させる．
+%% 空の箱はLua側で捨てる）
+\newcommand\evenendnewpage{%
+  \par
+  \ifdim\pagetotal>\z@
+    \newpage
+  \else\ifvoid\evenend@pagetop\else
+    \nointerlineskip\vbox{}\newpage
+  \fi\fi}
+
+%% ---------------------------------------------------------------------
+%% 分割できる箱の分割位置の受け渡し
+%% tcolorboxの箱にキーevenend breakableを付けると，揃えるページでその箱の段の
+%% 下端が揃う分割位置（部分ごとの高さ）をLua側で求めて.auxに書き，次の組版で
+%% tcolorboxのbreak atに渡す．分割位置が前の組版と変わったときは，再実行を促す．
+%% （LaTeXが最初に組んだときの分割の位置は，段を割り振り直しても動かせないため）
+\newcount\evenend@boxcnt
+\def\evenend@boxbreak#1#2{\global\@namedef{evenend@boxbreak@#1}{#2}}
+%% 箱を分けないとき，tcolorboxは箱を局所的な設定の外で組むので，属性は大域的に
+%% 付け，箱を置いた後に外す（tcolorboxの箱の後に入れる\kvtcb@afterboxの末尾に
+%% 足す．afterのキーはほかの設定を置き換えるので使わない）
+\def\evenend@tcbbreakable{%
+  \global\advance\evenend@boxcnt\@ne
+  \global\evenend@boxattr=\evenend@boxcnt
+  \ifdefined\kvtcb@afterbox\else\let\kvtcb@afterbox\@empty\fi
+  \expandafter\def\expandafter\kvtcb@afterbox\expandafter{%
+    \kvtcb@afterbox\global\evenend@boxattr=-"7FFFFFFF\relax}%
+  \ifcsname evenend@boxbreak@\the\evenend@boxcnt\endcsname
+    \edef\evenend@tmp{\noexpand\pgfkeysalso{/tcb/break at=%
+      \csname evenend@boxbreak@\the\evenend@boxcnt\endcsname}}%
+    \evenend@tmp
+  \fi}
+%% evenend min first=<寸法>：箱の最初の部分の最小の高さ．段の境目で最初の部分が
+%% これより低くなるなら，箱を分けずに次の段へ送る（evenend breakableの後に書く）
+\AtBeginDocument{%
+  \@ifpackageloaded{tcolorbox}%
+    {\tcbset{evenend breakable/.code={\evenend@tcbbreakable},
+      evenend min first/.code={%
+        \expandafter\xdef\csname evenend@boxmin@\the\evenend@boxcnt\endcsname
+          {\the\dimexpr#1\relax}}}}{}}
+%% Lua側から呼ぶ：分割位置を.auxに書く
+\def\evenend@writeboxbreak#1#2{%
+  \if@filesw
+    \immediate\write\@auxout{\string\evenend@boxbreak{#1}{#2}}%
   \fi}
 
 \endinput

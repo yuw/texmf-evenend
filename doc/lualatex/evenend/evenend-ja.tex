@@ -39,7 +39,7 @@
 \title{\pkg{evenend}パッケージ\\[.5\baselineskip]
   \large 多段組の最終ページで各段の下端を揃える}
 \author{木枝祐介}
-\date{v20261020.0}
+\date{v20261021.0}
 
 \begin{document}
 \maketitle
@@ -119,6 +119,7 @@ export TEXMFHOME=/path/to/texmf-evenend
     \opt{onecolumn} & 真偽 & \opt{true} & \cs{onecolumn}の直前のページも揃える \\
     \opt{enable} & 真偽 & \opt{true} & 文書末のページを揃える \\
     \opt{blockskip} & 寸法 & \verb|2\baselineskip| & 段組の切り換えの前後の行の間隔 \\
+    \opt{blockgap} & 寸法 & 空 & 段組の切り換えの前後のアキ \\
     \opt{blockmin} & 寸法 & \verb|5\baselineskip| & 切り換えの後に続けて組む最小の高さ \\
     \opt{headingskip} & \opt{column}／\opt{block} & \opt{column} & 見出しの上アキの扱い（切り換え） \\
     \opt{spanfootnote} & \opt{above}／\opt{bottom} & \opt{above} & 段をまたぐ下の図と脚注の順 \\
@@ -143,6 +144,10 @@ export TEXMFHOME=/path/to/texmf-evenend
     \ref{sec:opt-enable}節）．
   \item[\opt{blockskip}] \cs{evenendcolumns}で段数を切り換えたときの，前の段組の最終行から
     次の段組の1行目までのベースライン間（\ref{sec:opt-blockskip}節）．
+  \item[\opt{blockgap}] 前の段組の下端から次の段組の上端（1行目の\cs{topskip}の上）までの
+    アキ（\pkg{multicol}の\cs{multicolsep}と同じ測り方）．空でなければ\opt{blockskip}の
+    代わりに使い，行送りの位置に合わせて広げることもしない．\texttt{multicols}環境は，
+    この値を\cs{multicolsep}から決める（\ref{sec:multicol}節）．
   \item[\opt{blockmin}] 段数を切り換えた後，そのページに残った高さがこれより小さければ，
     そこで改ページする（\ref{sec:opt-blockmin}節）．
   \item[\opt{headingskip}] 切り換えた後の段組が見出しで始まるときの，見出しの上アキの
@@ -169,6 +174,12 @@ export TEXMFHOME=/path/to/texmf-evenend
   \item[\cs{evenendcolumns*}\texttt{\{}\textit{段数}\texttt{\}}] 段数を変えるが，その前の
     ブロックは揃えない（LaTeXの組み方のまま，段を上から詰める）．
   \item[\cs{columnbreak}] そこで段を改める（\ref{sec:multicol}節）．
+  \item[\cs{evenendifpageempty}\texttt{\{}\textit{真}\texttt{\}\{}\textit{偽}\texttt{\}}]
+    ページが空なら\textit{真}を，そうでなければ\textit{偽}を実行する．evenendは段数を
+    切り換えるとそれまでの段組をページの上部に積むので，\cs{pagetotal}が0でも，積んだ
+    段組があればページは空でない．
+  \item[\cs{evenendnewpage}] 改ページする．積んだ段組だけのページでも改める
+    （\cs{newpage}は，ページの材料がないと何もしない）．
   \item[\texttt{spanfigure}，\texttt{spantable}環境] 段をまたぐ段内フロート
     （\ref{sec:span}節）．
   \item[\cs{evenendsetup}\texttt{\{}\textit{キー}\texttt{=}\textit{値}\texttt{\}}]
@@ -365,6 +376,9 @@ LaTeXが組んだ段の箱をたどり，上のフロートの後の最初の行
     （\pkg{jlreq}など）では広げない．
   \item ページの残りが\opt{blockmin}（既定は5行分）より小さくなれば，そこで改ページし，
     次のページから新しい段数で組む．
+  \item 1段のブロックは揃えずに中身のまま積む（\cs{vfill}などがページのグルーとして伸びる．
+    脚注や段内フロートがあるとき，\opt{floatgrid}で本文中のフロートや高い箱があるときを
+    除く）．
   \item ブロックの材料がそのページに入り切らなければ，入り切らない分は次のページに送り，
     次のページで揃えてから段数を変える．
   \item ブロックの脚注は，\opt{footnote=page}ではページの脚注として版面の下端に全幅で
@@ -683,8 +697,19 @@ LaTeXが組んだ段がはみ出す（Overfull）警告は，そのページを�
   \item \texttt{multicols}環境は，始まりで段数を切り換え（前置きがあれば1段で組む），
     終わりで元の段数に戻す．中身はブロックとして揃える．
   \item \texttt{multicols*}環境は，終わりで揃えない（\cs{evenendcolumns*}）．
-  \item \cs{columnbreak}は\verb|\par\vfil\penalty-10000|で，段を改める．揃える
-    ページやブロックの中でも守る（改めた段は下を空ける）．
+  \item \cs{columnbreak}は，そこで段を改める．段落の途中では，その行の後で改める
+    （\pkg{multicol}と同じく段落を終えない）．揃えるページやブロックの中でも守る
+    （改めた段は下を空ける）．\cs{columnbreak}の前の材料が段に\cs{baselineskip}以内だけ
+    入り切らないときは，\pkg{multicol}と同じくその段に入れる（最右段は除く）．
+  \item \pkg{multicol}と同じに組む：段組の中の行分けは\cs{multicoltolerance}，
+    \cs{multicolpretolerance}（既定は9999と$-1$），\cs{emergencystretch}は段数×4pt．
+    段組の前後には\cs{multicolsep}（既定は\verb|12pt plus 4pt minus 3pt|）を空け，
+    前が行なら段組の1行目を前の行から行送りの倍数の位置に置く．環境を始めるときに
+    ページの残りが\cs{premulticols}（既定は50pt）未満なら改ページする．段は
+    \pkg{multicol}と同じ方法で揃える（脚注やフロートのない段組）．
+  \item 1段に戻るとき，最後の1段の段組は揃えずに中身のまま積む（\cs{vfill}などが
+    ページのグルーとして伸びる）．ただし，脚注や段内フロートがあるとき，\opt{floatgrid}で
+    本文中のフロートや高い箱があるときは，ほかの段組と同じく組む．
   \item 入れ子やリストの中での使用はできない．前置きの前のアキ（第3引数）は使わない．
 \end{itemize}
 ページの本文で使うときは段組のモードで使うので，1段組の文書では，クラスオプション
@@ -716,12 +741,11 @@ LaTeXが組んだ段がはみ出す（Overfull）警告は，そのページを�
 \end{tcolorbox}
 \end{verbatim}
 \begin{itemize}
-  \item 中身を段幅（箱の中の行長から段数と段間で決める）で組み，入り切る最小の高さで
-    各段に分ける．各段の1行目のベースラインをそろえ，最終行のベースラインで下端を
-    そろえる（段の中のグルーを伸ばす）．最右段と\cs{columnbreak}で終わる段は下を空ける．
-    伸ばせるグルーがなくてそろわない分け方になったときは，高さを上げてそろう分け方を
-    探す（行間が不ぞろいな中身では，わずかにそろわないことがある）．
-  \item 前後の段落とのベースライン間は\cs{baselineskip}になる．箱の先頭に置いたときは，
+  \item 中身を段幅（箱の中の行長から段数と段間で決める）で組み，\pkg{multicol}と同じ
+    方法で各段に分けて揃える（段の高さと分け方は\pkg{multicol}と同じになる）．
+    各段の1行目のベースラインはそろう．最右段と\cs{columnbreak}で終わる段は下を空ける．
+  \item 前後には，\pkg{multicol}と同じく\cs{multicolsep}を空ける．前が行なら，段組の
+    1行目のベースラインを前の行から行送りの倍数の位置に置く．箱の先頭に置いたときは，
     1行目の上端を箱の上端に合わせる（通常の1行目と同じ）．
   \item 段間と段間罫は，環境の始まりのときの\cs{columnsep}，\cs{columnseprule}か，
     \texttt{evenendmulticols}のキー\opt{columnsep}，\opt{columnseprule}の値．
@@ -754,7 +778,11 @@ LaTeX 2025-06-01より前の版では，\cs{leftmark}，\cs{rightmark}がTeXの�
   \item \pkg{tcolorbox}：併用できる．本文中の箱（1.5行を超える高さのもの）は，本文中の
     フロートと同じく分けられない塊として扱い，\opt{floatgrid}では後の行を行送りの
     位置に合わせる．分割できる箱（\texttt{breakable}）は，tcolorboxが分けた位置で
-    段を改めたまま揃える．フロートにした箱も使える．箱の中で段組を組むには，
+    段を改めたまま揃える．箱にキー\texttt{evenend breakable}を付けると，揃えるページで
+    段の下端がそろう分け方を求めて\texttt{.aux}に書き，次の組版でtcolorboxの
+    \texttt{break at}に渡す（分け方が変わったときは再実行を促す警告を出す）．
+    \texttt{evenend min first=}\textit{寸法}（\texttt{evenend breakable}の後に書く）は
+    箱の最初の部分の最小の高さで，それより低くなるなら箱を分けずに次の段へ送る．フロートにした箱も使える．箱の中で段組を組むには，
     \texttt{multicols}環境か\texttt{evenendmulticols}環境を使う（\ref{sec:boxcols}節）．
   \item \pkg{multicol}：読み込めば，\texttt{multicols}環境と\cs{columnbreak}は\pkg{multicol}の
     ものになる（evenendの段組とは別のもの）．
