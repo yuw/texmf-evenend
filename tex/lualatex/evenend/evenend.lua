@@ -163,6 +163,47 @@ local function is_emptybox(n)
   return true
 end
 
+-- 見えない行：行（hlist）で，高さも深さもなく，中身がwhatsitやペナルティ，グルー，
+-- カーンなどの見えない要素だけのもの（段落の最後の行にwhatsitだけが送られたときなど）
+local INVISIBLE = {}
+for _, name in ipairs({ 'whatsit', 'penalty', 'glue', 'kern', 'dir', 'local_par', 'boundary' }) do
+  local id = node.id(name)
+  if id then INVISIBLE[id] = true end
+end
+local function is_blank_line(n)
+  if not (n.id == HLIST and n.height == 0 and n.depth == 0) then return false end
+  for m in node.traverse(n.list) do
+    if not INVISIBLE[m.id] then return false end
+  end
+  return true
+end
+
+-- 段の末尾の見えない行を取り除く．行の中のwhatsit（マークやリンクの印など）は
+-- 捨てずに垂直リストへ移し，行の前の行間のグルーも取り除く．見えない行が段の
+-- 下端にあると，段がその行の分だけ高いとみなされ，ほかの段（脚注の下端など）が
+-- 1行下にそろう
+local function strip_blank_tail(head)
+  while head do
+    local t = node.tail(head)
+    while t and (t.id == WHATSIT or t.id == PENALTY or t.id == GLUE or t.id == KERN) do
+      t = t.prev
+    end
+    if not (t and is_blank_line(t)) then break end
+    for m in node.traverse_id(WHATSIT, t.list) do
+      head = node.insert_before(head, t, node.copy(m))
+    end
+    local g = t.prev
+    while g and g.id == WHATSIT do g = g.prev end
+    head = node.remove(head, t)
+    node.free(t)
+    if g and g.id == GLUE and (g.subtype == 1 or g.subtype == 2) then  -- lineskip, baselineskip
+      head = node.remove(head, g)
+      node.free(g)
+    end
+  end
+  return head
+end
+
 -- 末尾の除去可能な項目（グルー・カーン・ペナルティ）を取り除く．allなら
 -- 空の箱も取り除く
 local function strip_tail(head, all)
@@ -217,6 +258,62 @@ end
 
 function M.setattr(a) M.fnattr = a end
 
+-- 分割できる箱（tcolorboxのbreakable）の印：boxattrは箱の番号（TeX側で付ける），
+-- partattrは部分の番号（段を取り込むときに，箱ごとに現れた順に付ける）
+M.boxparts = {}
+function M.setboxattr(b, pa) M.boxattr, M.partattr = b, pa end
+function M.setmarkattr(a) M.markattr = a end
+-- 取り込んだ段の材料が，段組の環境の後に置いた目印とグルーなどだけか
+function M.onlymarkercols()
+  local only, seen = true, false
+  for _, c in ipairs(M.cols or {}) do
+    if c.fn or #c.top > 0 or #c.bot > 0 then only = false end
+    for n in node.traverse(c.text) do
+      local id = n.id
+      if id == HLIST or id == VLIST then
+        if M.markattr and has_attr(n, M.markattr) == 1 then seen = true
+        elseif not is_emptybox(n) then only = false end
+      elseif id == RULE then only = false end
+    end
+  end
+  tex.setcount('global', 'evenend@onlymarker', (only and seen) and 1 or 0)
+end
+-- 箱の中身が，段組の環境の後に置いた目印とグルーなどの見えない要素だけか
+function M.onlymarker(boxnum)
+  local b = tex.getbox(boxnum)
+  local only, seen = true, false
+  local function walk(head)
+    for n in node.traverse(head) do
+      local id = n.id
+      if id == HLIST or id == VLIST then
+        if M.markattr and has_attr(n, M.markattr) == 1 then
+          seen = true
+        elseif n.list then
+          walk(n.list)
+        elseif n.width ~= 0 or n.height ~= 0 or n.depth ~= 0 then
+          only = false
+        end
+      elseif id == RULE or id == GLYPH or id == nodeid('ins') then
+        only = false
+      end
+    end
+  end
+  if b and b.list then walk(b.list) end
+  tex.setcount('global', 'evenend@onlymarker', (only and seen) and 1 or 0)
+end
+local function number_parts(head)
+  if not M.boxattr then return end
+  for n in node.traverse(head) do
+    if n.id == HLIST or n.id == VLIST then
+      local id = has_attr(n, M.boxattr)
+      if id and id > 0 then
+        M.boxparts[id] = (M.boxparts[id] or 0) + 1
+        node.set_attribute(n, M.partattr, M.boxparts[id])
+      end
+    end
+  end
+end
+
 function M.newfn()
   M.fncount = M.fncount + 1
   M.curfn = M.fncount
@@ -247,9 +344,55 @@ end
 -- 段の取り込み
 ------------------------------------------------------------------------
 
+-- multicolの段組（multicols環境）で，段が自然に終わり，次の強制改段（\columnbreak）
+-- までの残りが段の下を\baselineskip以内だけはみ出すなら，multicolと同じく残りを
+-- この段に入れ（はみ出したまま），強制改段で終わったことにする．返り値：入れたか
+function M.mcoverflow(allow)
+  local b = tex.getbox(255)
+  if not (b and b.list) then return false end
+  local head = tex.lists.contrib_head
+  if not head then return false end
+  local n, last = head, nil
+  while n do
+    if n.id == PENALTY and n.penalty <= -10000 then break end
+    local id = n.id
+    if id == node.id('ins') or id == node.id('mark') or id == node.id('adjust') then return false end
+    last = n
+    n = n.next
+  end
+  if not n or not last then return false end
+  local pen = n
+  -- 残りを段の後に付けた高さ
+  local chunk = head
+  last.next = nil; chunk.prev = nil
+  local t = node.tail(b.list)
+  t.next = chunk; chunk.prev = t
+  local h, d = natural(b.list)
+  local over = h + math.max(0, d - tex.getdimen('maxdepth')) - b.height
+  if over <= 0 or over > allow then
+    t.next = nil; chunk.prev = nil
+    last.next = pen; pen.prev = last
+    return false
+  end
+  -- 箱はそのままで中身と伸縮だけ組み直す（\box255を差し替えない）
+  local list = b.list; b.list = nil
+  local nb = node.vpack(list, b.height, 'exactly')
+  b.list = nb.list; nb.list = nil
+  b.glue_set, b.glue_sign, b.glue_order = nb.glue_set, nb.glue_sign, nb.glue_order
+  b.depth = nb.depth
+  node.free(nb)
+  -- 強制改段のペナルティは残す（取り込みで段の区切りとして写し，次の段の先頭では
+  -- TeXが捨てる）
+  pen.prev = nil
+  tex.lists.contrib_head = pen
+  info('multicol overflow: %s kept in the column before \\columnbreak', pt(over))
+  return true
+end
+
 function M.capture(footins)
   local c = { top = {}, bot = {} }
   c.text = boxlist_copy(255)
+  number_parts(c.text)
   -- 改段位置から後ろの除去可能項目は，次の段の先頭で捨てられてしまうので
   -- ここで写しをとっておく．改段位置のペナルティはTeXが10000に書き換えている
   -- ので，元の値（\outputpenalty）に戻す（強制改段は強制改段のまま残し，
@@ -496,6 +639,248 @@ end
 --   topfig, botfig, fnrule：\topfigrule, \botfigrule, \footnoteruleを組んだボックス
 --   block：段数を切り換える前の段組（ブロック）として揃える．脚注は段の下端に
 --     置き，段の箱の高さは揃えた高さにする
+-- 揃えるページの材料（1本の垂直リスト）にある分割できる箱について，段の下端が
+-- 揃う分割位置を求め，break atの値（部分ごとの高さ．0ptはページの残りまで）を返す．
+-- 材料を段の高さtずつ順に段に詰めるとみなし，段の境目が箱の中に来れば，そこで
+-- 分ける．境目が箱にかからなければ，箱を分けない（最初の部分を十分高くする）
+local function box_breaks(head, N, bs)
+  local items, y = {}, 0
+  for n in node.traverse(head) do
+    local id = n.id
+    if id == GLUE then y = y + n.width
+    elseif id == KERN then y = y + n.kern
+    elseif id == HLIST or id == VLIST or id == RULE then
+      local top = y
+      y = y + n.height + n.depth
+      local bid = (id ~= RULE) and has_attr(n, M.boxattr)
+      local part = bid and has_attr(n, M.partattr)
+      if bid and bid > 0 and part then
+        local last = items[#items]
+        if last and last.id == bid and part == last.lastpart + 1 then
+          last.bot, last.lastpart = y, part
+        else
+          items[#items + 1] = { id = bid, first = part, lastpart = part, top = top, bot = y }
+        end
+      end
+    end
+  end
+  local result = {}
+  if #items == 0 or N < 2 or bs <= 0 then return result end
+  local total = y
+  -- 段の高さ：材料を段数で割り，行送りの倍数に切り上げる（最右段は短くてよい）
+  local t = math.ceil(total / N / bs - 0.001) * bs
+  for _, b in ipairs(items) do
+    local heights = {}
+    local from = b.top
+    -- 箱の最初の部分の最小の高さ（evenend min first．ほかの部分は1行）
+    local minfirst = bs
+    do
+      local m = token.get_macro('evenend@boxmin@' .. b.id)
+      local v = m and tonumber(m:match('[-%d.]+'))
+      if v then minfirst = math.max(bs, v * 65536) end
+    end
+    local nosplit = false
+    for k = 1, N - 1 do
+      local Y = k * t
+      local need = (b.first == 1 and from == b.top) and minfirst or bs
+      if Y > from and Y < b.bot - bs then
+        if Y - from >= need then
+          heights[#heights + 1] = Y - from
+          from = Y
+        elseif from == b.top then
+          -- 最初の部分が最小の高さに満たない：箱を分けずに次の段へ送る
+          nosplit = true
+          break
+        end
+      end
+    end
+    if nosplit then heights = {} end
+    -- 分けられた高さは保つ（分けた後で求め直すと，部分の余白の分だけ低い値になり，
+    -- 行き来することがある）．差が2行以上なら求め直した値を使う
+    local old = token.get_macro('evenend@boxbreak@' .. b.id)
+    if old and #heights > 0 and (b.lastpart - b.first) >= #heights then
+      local ov = {}
+      for v in old:gmatch('[^/]+') do ov[#ov + 1] = (tonumber(v:match('[-%d.]+')) or 0) * 65536 end
+      for k = 1, #heights do
+        local o = ov[b.first - 1 + k]
+        if o and o > 0 and o < 1000 * 65536 and heights[k] < o and o - heights[k] < 2 * bs then
+          heights[k] = o
+        end
+      end
+    end
+    local list = {}
+    for _ = 1, b.first - 1 do list[#list + 1] = '0pt' end
+    if #heights == 0 then
+      -- 分けない：最初の部分に箱全体が入る高さ（十分に大きい一定の値）を与える
+      list[#list + 1] = '8000pt'
+    else
+      for _, h in ipairs(heights) do list[#list + 1] = string.format('%.2fpt', h / 65536) end
+    end
+    list[#list + 1] = '0pt'
+    result[b.id] = { list = table.concat(list, '/'), heights = heights, first = b.first }
+  end
+  return result
+end
+
+-- 求めた分割位置を.auxに書き，前の組版の値と（行送りの半分以上）違えば再実行を促す
+local function write_box_breaks(br, bs)
+  for id, r in pairs(br) do
+    local old = token.get_macro('evenend@boxbreak@' .. id)
+    local list = r.list
+    if old and old ~= list then
+      -- 差が行送りの半分未満なら前の値を保つ（部分の余白の分だけ揺れるのを止める）
+      local a, b = {}, {}
+      for v in old:gmatch('[^/]+') do a[#a + 1] = tonumber(v:match('[-%d.]+')) or 0 end
+      for v in list:gmatch('[^/]+') do b[#b + 1] = tonumber(v:match('[-%d.]+')) or 0 end
+      local same = #a == #b
+      if same then
+        for i = 1, #a do
+          if math.abs(a[i] - b[i]) * 65536 >= bs / 2 then same = false end
+        end
+      end
+      if same then list = old end
+    end
+    info('box %d: break at %s', id, list)
+    -- 文書の中では@が文字ではないので，@を文字とするカテゴリーコード表で送る
+    local cct = luatexbase.registernumber('catcodetable@atletter')
+    tex.sprint(cct, string.format('\\evenend@writeboxbreak{%d}{%s}', id, list))
+    if old ~= list then
+      tex.sprint(cct, string.format('\\PackageWarningNoLine{evenend}{Box %d breaks changed; rerun}', id))
+    end
+  end
+end
+
+-- multicolと同じ方法で段組（multicols環境）を揃える：段の高さの初期値を，材料の高さを
+-- 段数で割った値から行送りの格子で決め，最後の段が入るまで1ptずつ上げる．各段は
+-- その高さの箱にする（multicolの既定値：minrows 1，columnbadness 10000，
+-- finalcolumnbadness 9999，\multicolundershoot 2pt，\multicolovershoot 0pt）．
+-- 揃えた段の箱（M.out）と高さを返す．揃えられなければnil
+local function mc_balance(p, head, N, colht)
+  local bs = p.blskip
+  local topskip = tex.getglue('topskip')
+  local under, over = 2 * 65536, 0
+  local SCR = p.scratch
+  -- multicolは\boxmaxdepth=\@maxdepthで段を組む：最後の箱の深さが\maxdepthを超える分は
+  -- 箱の高さに入る
+  local maxdepth = tex.getdimen('maxdepth')
+  local function mcht(l)
+    local h, dp = natural(l)
+    if dp > maxdepth then h = h + dp - maxdepth end
+    return h
+  end
+  local function mcvpack(l, h)
+    local b, bad = vpack(l, h, 'exactly')
+    if b.depth > maxdepth then
+      local ex = b.depth - maxdepth
+      local l2 = b.list; b.list = nil; node.free(b)
+      b, bad = vpack(l2, h - ex, 'exactly')
+      b.height, b.depth = h, maxdepth
+    end
+    return b, bad
+  end
+  if bs <= 0 then return nil end
+  -- \splittopskipは\topskip plus undershoot minus overshoot
+  tex.setglue('splittopskip', topskip, under, over, 0, 0)
+  -- 材料：先頭に強制改段を置き，高さ0で分けて先頭のグルーを捨てる
+  local pen = node.new(PENALTY); pen.penalty = -10000
+  pen.next = copy_list(head); if pen.next then pen.next.prev = pen end
+  tex.setbox(SCR, (vpack(pen)))
+  local junk = tex.splitbox(SCR, 0, 'additional')
+  if junk then node.free(junk) end
+  local mat = tex.getbox(SCR)
+  if not mat then return nil end
+  local master = copy_list(mat.list)
+  tex.setbox(SCR, nil)
+  local total = mat.height + mat.depth
+  -- 初期値
+  local q = math.floor(total / N)
+  local d = math.floor(q / bs) * bs + topskip
+  if d > q then d = d - bs end
+  if d < topskip then d = topskip end
+  local last_try = -65536
+  local cols, rest
+  local function free_all()
+    if cols then for _, c in ipairs(cols) do if c then flush_list(c) end end end
+    if rest then flush_list(rest) end
+    cols, rest = nil, nil
+  end
+  local iter = 0
+  while true do
+    iter = iter + 1
+    if iter > 2000 then free_all(); flush_list(master); return nil end
+    free_all()
+    tex.setbox(SCR, (vpack(copy_list(master))))
+    local too_bad = false
+    cols = {}
+    local firstnat
+    for k = 1, N - 1 do
+      local b = tex.getbox(SCR) and tex.splitbox(SCR, d, 'additional')
+      local l = b and b.list
+      if b then b.list = nil; node.free(b) end
+      cols[k] = l or false
+      if l then
+        local box, bad = mcvpack(copy_list(l), d)
+        if box then node.free(box) end
+        if bad and bad > 10000 then too_bad = true end
+        if k == 1 then firstnat = mcht(l) end
+      elseif k == 1 then
+        firstnat = 0
+      end
+    end
+    local r = tex.getbox(SCR)
+    rest = r and r.list
+    if r then r.list = nil end
+    tex.setbox(SCR, nil)
+    local resth = rest and mcht(rest) or 0
+    if resth > d then
+      too_bad = true
+    else
+      -- 最後の段に強制改段が残る
+      local forced = false
+      for qn in node.traverse_id(PENALTY, rest) do
+        if qn.penalty <= -10000 then forced = true break end
+      end
+      if forced then
+        if d < colht + 12 * 65536 then too_bad = true
+        else free_all(); flush_list(master); return nil end
+      end
+    end
+    if firstnat and firstnat < d and firstnat > last_try then
+      too_bad = true
+      d = firstnat
+      last_try = d
+      d = d - 65536
+    end
+    if not too_bad then break end
+    d = d + 65536
+  end
+  flush_list(master)
+  if d > colht then d = colht end
+  -- 各段をその高さの箱にする（先頭にundershoot，overshootを打ち消すグルー）
+  local out = {}
+  local all = {}
+  for k = 1, N - 1 do all[k] = cols[k] end
+  all[N] = rest or false
+  cols, rest = nil, nil
+  for k = 1, N do
+    local l = newlist()
+    append(l, mkglue(0, -under, -over))
+    if all[k] then append(l, all[k]) end
+    local b, bad = mcvpack(l.head, d)
+    if k == N and bad and bad > 9999 then
+      -- 最後の段：自然な高さで組む（下を空ける）
+      local l2 = b.list; b.list = nil; node.free(b)
+      local t = node.tail(l2)
+      local f = filglue()
+      t.next = f; f.prev = t
+      b = mcvpack(l2, d)
+    end
+    out[k] = b
+  end
+  info('multicol balance: %s (%d columns, material %s)', pt(d), N, pt(total))
+  return out, d
+end
+
 function M.balance(p)
   local cols = M.cols
   local N, colht = p.N, p.colht
@@ -562,6 +947,115 @@ function M.balance(p)
   if not text.head then text.head = mkglue(0) end  -- 本文がない
   -- 本文中のフロートに印を付ける
   mark_intext(text.head, p.blskip)
+  -- 1段の段組（段数を切り換える前のブロックや，ブロックを積んだページの最後の1段）：
+  -- 脚注やフロートがなければ，箱に詰めずに中身のまま渡す（\vfillなどがページの
+  -- グルーとして働くように）．末尾の除去可能な項目のうち，幅のあるグルーやカーン，
+  -- ペナルティ，空の箱は除き，幅のない伸びるグルー（\vfillなど）は残す
+  tex.setcount('global', 'evenend@loosestatus', 0)
+  if N == 1 and p.loose and #cols == 1
+     and #dblfloats == 0 and #M.deferred.col == 0 then
+    local c = cols[1]
+    if not c.fn and #c.top == 0 and #c.bot == 0 and c.text then
+      local l = copy_list(c.text)
+      local t = node.tail(l)
+      while t do
+        local pv = t.prev
+        -- 段組の環境の後の目印（とその前の\topskip）は残す
+        if M.markattr and (t.id == HLIST or t.id == VLIST) and has_attr(t, M.markattr) == 1 then
+          break
+        end
+        if t.id == PENALTY or t.id == KERN or is_emptybox(t)
+           or (t.id == GLUE and t.width ~= 0 and t.stretch_order == 0) then
+          l = node.remove(l, t)
+          node.free(t)
+        elseif t.id ~= WHATSIT then
+          break
+        end
+        t = pv
+      end
+      if M.debug then
+        local out = {}
+        for n in node.traverse(l) do
+          local id = n.id
+          if id == GLUE then out[#out + 1] = string.format('g%.2f%s', n.width / 65536, n.stretch_order > 0 and 'fil' or '')
+          elseif id == KERN then out[#out + 1] = string.format('k%.2f', n.kern / 65536)
+          elseif id == HLIST or id == VLIST then out[#out + 1] = string.format('%s(%.2f+%.2f)%s', id == HLIST and 'H' or 'V', n.height / 65536, n.depth / 65536, (M.markattr and has_attr(n, M.markattr) == 1) and 'M' or '')
+          elseif id == PENALTY then out[#out + 1] = 'p' .. n.penalty end
+        end
+        info('  loose: %s', table.concat(out, ' '):sub(1, 300))
+      end
+      -- 目印とグルーなどだけ（見える箱がない）なら2：ページの頭なら，ページの頭の
+      -- アキがTeXに捨てられるのと同じく，段組の間のアキも入れない
+      local visible = false
+      for n in node.traverse(l) do
+        if (n.id == HLIST or n.id == VLIST) and not is_emptybox(n)
+           and not (M.markattr and has_attr(n, M.markattr) == 1) then visible = true end
+        if n.id == RULE then visible = true end
+      end
+      tex.setbox('global', p.loose, (vpack(l or node.new(GLUE))))
+      tex.setcount('global', 'evenend@loosestatus', visible and 1 or 2)
+    end
+  end
+  -- multicols環境の段組：脚注やフロートがなければ，multicolと同じ方法で揃える
+  if p.mcbal and #dblfloats == 0 and #M.deferred.col == 0 then
+    local plain = true
+    for _, c in ipairs(cols) do
+      if c.fn or #c.top > 0 or #c.bot > 0 then plain = false end
+    end
+    if plain then
+      -- multicolは段組の末尾のアキ（\vspace*など）も含めて揃えるので，末尾の
+      -- グルーは残す（段数の切り換えで入れた空の箱とペナルティだけ除く）
+      local mat = newlist()
+      for k, c in ipairs(cols) do
+        local t = c.text and copy_list(c.text)
+        if k == #cols then
+          local tt = t and node.tail(t)
+          while tt do
+            local pv = tt.prev
+            if tt.id == PENALTY or is_emptybox(tt) then
+              t = node.remove(t, tt); node.free(tt)
+            elseif tt.id ~= WHATSIT then
+              break
+            end
+            tt = pv
+          end
+        elseif not c.forced then
+          t = strip_tail(t, false)
+        end
+        if k > 1 then
+          t = strip_topskip(t)
+          append(mat, cols[k - 1].disc and copy_list(cols[k - 1].disc))
+        end
+        append(mat, t)
+      end
+      local out, d = mc_balance(p, mat.head or mkglue(0), N, colht)
+      if mat.head then flush_list(mat.head) end
+      if out then
+        flush_list(text.head)
+        drop_saved()
+        M.out = {}
+        for i = 1, N do
+          local o = newlist()
+          append(o, out[i])
+          append(o, vssglue())
+          M.out[i] = vpack(o.head, d, 'exactly')
+        end
+        tex.setdimen('global', 'evenend@ruleht', d)
+        tex.setdimen('global', 'evenend@colboxht', d)
+        tex.setdimen('global', 'evenend@baseline', d)
+        tex.setdimen('global', 'evenend@rowht', d)
+        tex.setdimen('global', 'evenend@headshift', 0)
+        tex.setdimen('global', 'evenend@height', d)
+        tex.setcount('global', 'evenend@status', 1)
+        return
+      end
+    end
+  end
+  -- 分割できる箱の分割位置（やり直しのときは求め直さない）
+  if M.boxattr and not p.boxdone then
+    p.boxdone = true
+    write_box_breaks(box_breaks(text.head, N, p.blskip), p.blskip)
+  end
   if os.getenv('EVENEND_TRACE') then  -- 調査用：本文の要素
     local out = {}
     for n in node.traverse(text.head) do
@@ -844,6 +1338,7 @@ function M.balance(p)
           end
           local list = chunk and chunk.list
           if chunk then chunk.list = nil; node.free(chunk) end
+          list = strip_blank_tail(list)
           if p.floatgrid then snap_chunk(list, topskip, p.blskip) end
           local ids = list and collect_ids(list, {}) or {}
           local nh, nd = natural(list)
@@ -869,6 +1364,7 @@ function M.balance(p)
         local list = rest and rest.list
         if rest then rest.list = nil end
         tex.setbox(SCR, nil)
+        list = strip_blank_tail(list)
         if p.floatgrid then snap_chunk(list, topskip, p.blskip) end
         local ids = list and collect_ids(list, {}) or {}
         local nh, nd = natural(list)
@@ -957,8 +1453,12 @@ function M.balance(p)
       for j, f in ipairs(F) do
         if not f.deferred then moves = moves + a[j] - math.min(f.orig, N) end
       end
-      if not besth or hh < besth - step / 2
-         or (math.abs(hh - besth) <= step / 2 and moves < bestmoves) then
+      -- フロートを元の段から動かすのは，段の高さが1行以上低くなるときだけにする
+      -- （差が1行未満なら，動かすフロートの少ない割り振りを選ぶ）
+      local gain = math.max(p.blskip, step)
+      if not besth
+         or (moves <= bestmoves and hh < besth + gain - step / 2 and (hh < besth - step / 2 or moves < bestmoves))
+         or (moves > bestmoves and hh < besth - gain + step / 2) then
         best, besth, bestmoves = a, hh, moves
       end
     end
@@ -1000,6 +1500,8 @@ function M.balance(p)
   -- ・段下端の脚注で終わる段：脚注の最終行の基準線までをnatとする
   local function measure(res)
     local nat, over = {}, {}
+    -- rawover：本文中の箱で終わる段を次の格子まで切り上げる前の見かけ（最右段に使う）
+    local rawover = {}
     for i = 1, N do
       local r = res[i]
       local hasbot = #bots[i] > 0
@@ -1049,12 +1551,16 @@ function M.balance(p)
           over[i] = linedp
         end
         -- 本文中のフロートで終わる段は，次の格子の字面の下端までを見かけとする
+        rawover[i] = over[i]
         if p.floatgrid and p.blskip > 0 and ends_intext(r.list) then
           local pos = nat[i] + over[i]
           local k = math.ceil((pos - topskip - linedp - 655) / p.blskip)
           over[i] = over[i] + math.max(0, topskip + k * p.blskip + linedp - pos)
         end
       end
+      -- 最右段は短くてよく，後に続く本文もないので，本文中の箱で終わっても
+      -- 格子への切り上げをせず，箱の見かけの下端で見る
+      if i == N and rawover[i] then over[i] = rawover[i] end
     end
     return nat, over
   end
@@ -1404,6 +1910,47 @@ function M.boxbalance(p)
   local list = src and src.list
   if src then src.list = nil end
   tex.setbox(p.content, nil)
+  -- multicolと同じ方法で揃えて組む（multicolの\multicolsepがあるとき）．置き方も
+  -- multicolと同じにする（TeX側：\evenend@boxmc=1）
+  tex.setcount('global', 'evenend@boxmc', 0)
+  if p.mcbal and list and N > 1 then
+    local hasvis = false
+    for n in node.traverse(list) do
+      if n.id == HLIST or n.id == VLIST or n.id == RULE then hasvis = true break end
+    end
+    local cols, d
+    if hasvis then cols, d = mc_balance(p, copy_list(list), N, 1073741823) end
+    if cols then
+      flush_list(list)
+      local row = newlist()
+      local cw, sep, rule = p.cw, p.sep, p.rule
+      local maxdp = 0
+      for i = 1, N do
+        if i > 1 then
+          local k1 = node.new(KERN); k1.kern = math.floor((sep - rule) / 2)
+          append(row, k1)
+          if rule > 0 then
+            local r = node.new(RULE)
+            r.width, r.height, r.depth = rule, d, 0
+            append(row, r)
+          end
+          local k2 = node.new(KERN); k2.kern = sep - rule - k1.kern
+          append(row, k2)
+        end
+        local col = cols[i]
+        col.width = cw
+        if col.depth > maxdp then maxdp = col.depth end
+        append(row, col)
+      end
+      local out = node.hpack(row.head)
+      out.height, out.depth = d, maxdp
+      tex.setbox('global', p.out, out)
+      tex.setcount('global', 'evenend@boxmc', 1)
+      info('box balanced at %s (multicol, %d columns, depth %s)', pt(d), N, pt(maxdp))
+      return
+    end
+  end
+  local mcd
   list = strip_tail(list, true)
   tex.setdimen('global', 'evenend@boxtop', 0)
   tex.setdimen('global', 'evenend@boxfirst', 0)
@@ -1544,6 +2091,7 @@ function M.boxbalance(p)
   if list then flush_list(list) end
   list = nil
 
+  if mcd and mcd > H then H = mcd end
   local row = newlist()
   local cw, sep, rule = p.cw, p.sep, p.rule
   local maxdp = 0
