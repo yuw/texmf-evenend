@@ -914,12 +914,18 @@ lualatex evenend-ja.tex
   \item \pkg{jlreq}で，evenendが組んだページの本文の行が行送りの位置にあるか
 \end{itemize}
 上の制限事項にあたるものは，問題ではなく限界として別に数える．
+標準の組は，基本の1000件（番号1〜1000）と，追加の要素を入れた各600件（番号100001〜，
+200001〜，300001〜，400001〜）の3400件で，\texttt{std.sh}で流す（前に落ちた番号
+（\texttt{failed.txt}）を先に流す）．番号で入る要素が違うので，1〜3400のように続けて流すと
+追加の要素が試されない．
 \begin{verbatim}
 cd test/rand
-./many.sh 1 1000 > result.txt
+./std.sh result.txt
 ./summary.py result.txt
 \end{verbatim}
-基本の1000件と，追加の要素を入れた600件で，制限事項にあたるもの以外の問題はなかった．
+標準の3400件で，制限事項にあたるもの以外の問題はなかった．回帰試験の全部（この試験，
+\texttt{suite.sh}，\texttt{fixed.sh}）は\texttt{test/all.sh}で流せる．速く確実に流すための
+覚え書きは\texttt{test/NOTES.md}にある．
 
 \section{ライセンス}
 

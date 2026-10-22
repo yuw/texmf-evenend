@@ -306,7 +306,14 @@ lualatex evenend-ja.tex
 test/run.sh test/t1-basic.tex
 ```
 
+回帰試験の全部は`test/all.sh`で流す（乱数試験の標準の組，`suite.sh`，`fixed.sh`）．直している
+途中は`QUICK=1 test/all.sh`（乱数試験を1割に減らす）．並列の数は`JOBS`（既定6）．速く確実に
+流すための覚え書きは`test/NOTES.md`．
+
 - `run.sh`：リポジトリをTEXMFHOMEにしてLuaLaTeXを走らせる
+- `all.sh`：回帰試験の全部（`rand/std.sh`，`suite.sh`，`fixed.sh`）を順に流し，結果を`test/results/`に書く
+- `fixed.sh`：固定のテスト文書（`t*.tex`，`fb*.tex`，`tcb/`，`span/`，`split/`，`mc/`，`box/`）を並列に組み，
+  Overfull，エラー，`blockcheck.py`の結果と，`mc/mkcheck.py`による柱を調べる
 - `suite.sh`：固定のテスト一式（`fuzz.sh`，`fuzzswitch.sh`，`fnfloat.sh`，`gy/sweep.sh`）をまとめて走らせる
 - `colbottoms.py`：最終ページの各段の最下行の位置を表示する
 - `fuzz.sh`：本文の長さを1文ずつ変えて組み，エラーと段の下端を調べる
@@ -323,8 +330,11 @@ test/run.sh test/t1-basic.tex
   最後の段組の脚注が版面の下端にあるかを調べる
 - `gridoffset.py`：本文の行の行送りの格子からのずれ（外れた数，最大，平均）を測る
 - `rand/`：乱数で作った文書による網羅テスト．`gen.py`（文書を作る），`check.py`（調べる），
-  `one.sh`（1件），`many.sh`（並列で多数），`summary.py`（まとめる）．例：
-  `test/rand/many.sh 1 1000 > result.txt; test/rand/summary.py result.txt`
+  `one.sh`（1件），`std.sh`（標準の組：1〜1000と100001〜，200001〜，300001〜，400001〜の
+  各600件．前に落ちたseed（`failed.txt`）を先に流す），`progress.sh`（済み・残り・不合格の件数），
+  `many.sh`（範囲を指定して並列で多数），`summary.py`（まとめる）．例：
+  `test/rand/std.sh result.txt; test/rand/summary.py result.txt`．seedの範囲で入る要素が
+  違うので，`many.sh 1 3400`のように続けて流すと追加の要素が試されない
 - `tcb/`：tcolorboxの箱（分割しない箱，分割できる箱，フロートにした箱）との組み合わせ
 - `mc/`：multicols互換の環境と柱（マーク）のテスト（`mkcheck.py`で柱を調べる）
 - `span/`：段をまたぐフロート（上・下，最終ページ，3段にまたがるもの，脚注，gyoudori）

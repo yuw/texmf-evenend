@@ -1,11 +1,10 @@
 #!/bin/sh
 # 本文の長さを1文ずつ変えて組み，エラーの有無と最終ページの段の下端を調べる
-# 使い方: fuzz.sh 開始 終了 [パッケージオプション] [段数]
+# 使い方: [JOBS=並列数] fuzz.sh 開始 終了 [パッケージオプション] [段数]
 cd "$(dirname "$0")"
-mkdir -p fuzz
-opt=${3:-}
-N=${4:-2}
-for n in $(seq "$1" "${STEP:-1}" "$2"); do
+if [ "$1" = --one ]; then
+  # 1件：fuzz.sh --one 文の数 パッケージオプション 段数
+  n=$2; opt=$3; N=$4
   f=fuzz/f$n.tex
   cat > $f <<EOT
 \documentclass[twocolumn]{article}
@@ -23,4 +22,10 @@ EOT
   warn=$(grep -a "evenend Warning" fuzz/f$n.log | head -1)
   pages=$(pdfinfo fuzz/f$n.pdf 2>/dev/null | awk '/Pages/{print $2}')
   echo "n=$n err=$err pages=$pages $warn | $(./colbottoms.py fuzz/f$n.pdf $N | awk '{printf "%s %s %s; ", $1$2, $3, $4}')"
-done
+  exit
+fi
+mkdir -p fuzz
+opt=${3:-}
+N=${4:-2}
+# 文の数ごとの文書は互いに独立なので並列に組み，文の数の順に並べて出す
+seq "$1" "${STEP:-1}" "$2" | xargs -P "${JOBS:-6}" -I{} ./fuzz.sh --one {} "$opt" "$N" | sort -t= -k2 -n

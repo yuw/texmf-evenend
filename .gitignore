@@ -8,3 +8,5 @@ test/split/
 test/cmp/
 test/rand/d/
 test/gy/out/
+test/results*/
+test/fixed.res

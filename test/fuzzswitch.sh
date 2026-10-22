@@ -1,12 +1,12 @@
 #!/bin/sh
 # 段数の切り換えを含む文書を，ブロックごとの段落数を変えて組み，エラー，Overfull，
 # 行送りの位置（jlreq），ブロックごとの下端の揃いを調べる
-# 使い方: [FIG=0] fuzzswitch.sh [パッケージオプション]（FIG=0なら図を入れない）
+# 使い方: [FIG=0] [JOBS=並列数] fuzzswitch.sh [パッケージオプション]（FIG=0なら図を入れない）
 cd "$(dirname "$0")"
-mkdir -p fuzz
-opt=${1:-}
-bs=$(python3 -c "print(17*72/72.27)")
-for a in 2 5 9; do for b in 1 4 8; do for c in 1 3; do for d in 3 12 25; do
+if [ "$1" = --one ]; then
+  # 1件：fuzzswitch.sh --one a b c d パッケージオプション
+  a=$2; b=$3; c=$4; d=$5; opt=$6
+  bs=$(python3 -c "print(17*72/72.27)")
   f=fuzz/s-$a-$b-$c-$d
   python3 - "$a" "$b" "$c" "$d" "$opt" > $f.tex <<'PY'
 import os, sys
@@ -27,4 +27,11 @@ PY
   blk=$(./blockcheck.py $f.log | tail -1)
   warn=$(grep -a "evenend W" $f.log | head -1)
   echo "$a-$b-$c-$d err=$err overfull=$of offgrid=$grid $blk $warn"
-done; done; done; done
+  exit
+fi
+mkdir -p fuzz
+opt=${1:-}
+# 段落数の組ごとの文書は互いに独立なので並列に組み，組の順に並べて出す
+for a in 2 5 9; do for b in 1 4 8; do for c in 1 3; do for d in 3 12 25; do
+  echo "$a $b $c $d"
+done; done; done; done | xargs -P "${JOBS:-6}" -L 1 sh -c './fuzzswitch.sh --one "$1" "$2" "$3" "$4" "$0"' "$opt" | sort -t- -k1,1n -k2,2n -k3,3n -k4,4n
