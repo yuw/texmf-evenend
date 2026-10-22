@@ -1,5 +1,5 @@
 \NeedsTeXFormat{LaTeX2e}[2024-11-01]
-\ProvidesPackage{evenend}[2026/10/22 v20261022.0 Balance the last page of multi-column text (LuaLaTeX) by Yuwsuke Kieda]
+\ProvidesPackage{evenend}[2026/10/22 v20261022.1 Balance the last page of multi-column text (LuaLaTeX) by Yuwsuke Kieda]
 
 \ifdefined\directlua\else
   \PackageError{evenend}{LuaLaTeX is required}{}
@@ -37,7 +37,7 @@
 \newif\ifevenend@loosemerged % \@outputboxに積んだブロックをまとめて詰めた
 \newattribute\evenend@fnattr
 %% footnote=page：脚注を版面の全幅で版面の下端に置く（multicolと同じ）
-\newskip\evenend@topskip    % 文書の始めの\topskip
+\newskip\evenend@topskip    % 最後に見た0でない\topskip（箱の中で0になったときに使う）
 \newdimen\evenend@maxdepth  % 同じく\maxdepth
 \newskip\evenend@fnskip     % クラスの\skip\footins（段を組むあいだは見込みのために変える）
 \newcount\evenend@fncount   % クラスの\count\footins
@@ -824,7 +824,8 @@
     \ifdim\evenend@phbot>\z@ true\else false\fi)}%
   \ifevenend@floatgrid \ifnum\evenend@gridreport>\z@
     \directlua{evenend.gridcheck(\number\@outputbox, \number\evenend@nt, \number\evenend@nb,
-      \number\evenend@topskip, \number\baselineskip)}%
+      \ifdim\topskip=\z@ \number\evenend@topskip \else \number\topskip \fi,
+      \number\baselineskip)}%
   \fi\fi
   \global\setbox\@leftcolumn\hbox{%
     \unhbox\@leftcolumn
@@ -911,8 +912,13 @@
 \def\evenend@fnreserve{%
   \ifevenend@docstarted
     \ifevenend@colmode
-      \global\count\footins\evenend@fncount
-      \global\skip\footins\evenend@fnskip
+      %% footnote=column：脚注の設定は変えない．文書の途中でクラスなどが変えることが
+      %% あるので，そのときの値を覚え直す（段をまたぐ下の図のために一時的に0にして
+      %% いるあいだは除く）
+      \ifevenend@fnadj\else
+        \global\evenend@fncount\count\footins
+        \global\evenend@fnskip\skip\footins
+      \fi
     \else\if@twocolumn
       \global\count\footins\numexpr\evenend@N*\evenend@fncount\relax
       \ifevenend@pagehasfn
@@ -1041,9 +1047,15 @@
     \evenend@mkfnrule
     \setbox\evenend@textbottombox\vbox{\@textbottom}%
     %% 出力ルーチンは箱の中の段組（\topskipを0にする）の途中で呼ばれることがあるので，
-    %% 文書の始めの\topskipと\maxdepthを使う
-    \topskip\evenend@topskip
-    \maxdepth\evenend@maxdepth
+    %% そのときは最後に見た0でない\topskipと\maxdepthを使う（文書の途中で文字の大きさを
+    %% 変えて\topskipを変えることがあるので，ふだんはそのときの値を使い，覚え直す）
+    \ifdim\topskip=\z@
+      \topskip\evenend@topskip
+      \maxdepth\evenend@maxdepth
+    \else
+      \global\evenend@topskip\topskip
+      \global\evenend@maxdepth\maxdepth
+    \fi
     \splittopskip\topskip
     \splitmaxdepth\maxdepth
     \vbadness\@M
