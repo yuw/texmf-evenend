@@ -283,6 +283,27 @@ function M.onlymarkercols()
   tex.setcount('global', 'evenend@onlymarker', (only and seen) and 1 or 0)
 end
 -- 箱の中身が，段組の環境の後に置いた目印とグルーなどの見えない要素だけか
+-- multicols環境の前のアキが，すでにページに移っているとき（今のリストが空）の，
+-- \addvspace\multicolsepで足される分：ページの末尾がグルーなら，それと\multicolsepの
+-- 大きいほうになるように足す分，ペナルティなら，その前のグルーの和（\multicolsepは
+-- そのまま足される）
+function M.curlistempty()
+  local n = tex.nest[tex.nest.ptr]
+  return n.head == n.tail
+end
+function M.pagetailskip(mcsep)
+  local t = tex.lists.page_head and node.tail(tex.lists.page_head)
+  if t and t.id == GLUE then
+    return math.max(0, t.width - mcsep)
+  end
+  local sum = 0
+  while t and (t.id == GLUE or t.id == PENALTY) do
+    if t.id == GLUE then sum = sum + t.width end
+    t = t.prev
+  end
+  return sum
+end
+
 function M.onlymarker(boxnum)
   local b = tex.getbox(boxnum)
   local only, seen = true, false
@@ -1180,6 +1201,9 @@ local function mc_balance(p, head, N, colht)
     local l = newlist()
     append(l, mkglue(0, -under, -over))
     if all[k] then append(l, all[k]) end
+    -- \raggedcolumns：multicolと同じく，段の末尾に\vfilmaxdepthを入れて伸ばさない
+    -- （0pt plus .0001fil minus \maxdepth）
+    if p.mcragged then append(l, mkglue(0, 7, maxdepth, 1, 0)) end
     local b, bad = mcvpack(l.head, d)
     if k == N and bad and bad > 9999 then
       -- 最後の段：自然な高さで組む（下を空ける）

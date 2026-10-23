@@ -39,7 +39,7 @@
 \title{\pkg{evenend}パッケージ\\[.5\baselineskip]
   \large 多段組の最終ページで各段の下端を揃える}
 \author{木枝祐介}
-\date{v20261022.1}
+\date{v20261023.0}
 
 \begin{document}
 \maketitle
@@ -704,10 +704,17 @@ LaTeXが組んだ段がはみ出す（Overfull）警告は，そのページを�
     入り切らないときは，\pkg{multicol}と同じくその段に入れる（最右段は除く）．
   \item \pkg{multicol}と同じに組む：段組の中の行分けは\cs{multicoltolerance}，
     \cs{multicolpretolerance}（既定は9999と$-1$），\cs{emergencystretch}は段数×4pt．
-    段組の前後には\cs{multicolsep}（既定は\verb|12pt plus 4pt minus 3pt|）を空け，
+    段組の前後には\cs{multicolsep}（既定は\verb|12pt plus 4pt minus 3pt|）を空け
+    （前のアキが大きければそれ．前のアキの後に\cs{nobreak}などがあっても同じ），
     前が行なら段組の1行目を前の行から行送りの倍数の位置に置く．環境を始めるときに
     ページの残りが\cs{premulticols}（既定は50pt）未満なら改ページする．段は
     \pkg{multicol}と同じ方法で揃える（脚注やフロートのない段組）．
+  \item \cs{flushcolumns}，\cs{raggedcolumns}（\pkg{multicol}と同じ）：段を段の高さまで
+    伸ばして下端をそろえるか，伸ばさずに自然な高さで組むか．環境の途中の満ページと，
+    環境の終わりの揃えるページの両方に効く（\cs{raggedcolumns}の揃えるページは，
+    \pkg{multicol}と同じく，同じ高さで分けた段を伸ばさないので，左の段ほど長くなる）．
+    環境の中で変えれば，その環境の終わりまで効く．どちらも使わなければ，満ページは
+    クラスの設定（\cs{flushbottom}，\cs{raggedbottom}）に従い，揃えるページは段を伸ばす．
   \item 1段に戻るとき，最後の1段の段組は揃えずに中身のまま積む（\cs{vfill}などが
     ページのグルーとして伸びる）．ただし，脚注や段内フロートがあるとき，\opt{floatgrid}で
     本文中のフロートや高い箱があるときは，ほかの段組と同じく組む．

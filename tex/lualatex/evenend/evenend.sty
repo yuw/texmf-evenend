@@ -1,5 +1,5 @@
 \NeedsTeXFormat{LaTeX2e}[2024-11-01]
-\ProvidesPackage{evenend}[2026/10/22 v20261022.1 Balance the last page of multi-column text (LuaLaTeX) by Yuwsuke Kieda]
+\ProvidesPackage{evenend}[2026/10/23 v20261023.0 Balance the last page of multi-column text (LuaLaTeX) by Yuwsuke Kieda]
 
 \ifdefined\directlua\else
   \PackageError{evenend}{LuaLaTeX is required}{}
@@ -1088,6 +1088,7 @@
       botfig  = \number\evenend@botfigbox,
       fnrule  = \number\evenend@fnrulebox,
       mcbal   = \ifevenend@mcbal true\else false\fi,
+      mcragged = \ifnum\evenend@mcshrink=\@ne true\else false\fi,
       loose   = \number\evenend@loosebox,
       havetop = \ifvoid\evenend@pagetop false\else true\fi,
     }}%
@@ -1556,16 +1557,45 @@
     %% \emergencystretchも，multicolと同じく段数×4pt（\setemergencystretch{段数}{段幅}）
     \providecommand\setemergencystretch[2]{%
       \emergencystretch 4pt \multiply\emergencystretch#1\relax}%
+    %% \flushcolumns，\raggedcolumns（multicolと同じ）：段組の段を，段の高さまで伸ばして
+    %% 下端をそろえるか，伸ばさずに自然な高さで組むか．揃えるページ（環境の終わり）と，
+    %% 環境の途中の満ページの両方に効く．どちらも使わなければ，満ページはクラスの
+    %% 設定（\flushbottom，\raggedbottom）に従い，揃えるページは段を伸ばす
+    \def\flushcolumns{\@bsphack\evenend@mcshrink\tw@\evenend@mcsetbottom\@esphack}%
+    \def\raggedcolumns{\@bsphack\evenend@mcshrink\@ne\evenend@mcsetbottom\@esphack}%
     %% tcolorboxなどは\columnbreakがあるとmulticolがあるとみなし，multicolの
     %% \doublecol@numberを見るので，0（multicolの段組の中ではない）で用意する
     \ifdefined\doublecol@number\else \newcount\doublecol@number \fi
   }}
+%% \flushcolumns，\raggedcolumnsの状態（0：指定なし，1：\raggedcolumns，2：\flushcolumns）．
+%% multicolと同じく，環境の中で変えれば，その環境の終わりまで効く
+\newcount\evenend@mcshrink
+%% ページの本文のmulticols環境の中では，満ページの段の下端の扱い（\@textbottom）も変える
+\def\evenend@mcsetbottom{%
+  \ifevenend@inmc
+    \ifcase\evenend@mcshrink
+    \or \def\@textbottom{\vskip\z@\@plus.0001fil}%
+    \or \let\@textbottom\relax
+    \fi
+  \fi}
 %% multicols環境の前のアキ（multicolと同じ）：\addvspace\multicolsep（前のアキが大きければ
 %% それ）．前が行なら，さらに1行目のベースラインが前の行から行送りの倍数の位置に
 %% 来るようにカーンを入れる．段組の上端（1行目の\topskipの上）までのアキとして渡す
 \def\evenend@mc@gap{%
   \@tempskipa\multicolsep
-  \ifdim\lastskip>\@tempskipa \@tempskipa\lastskip \fi
+  \ifnum\directlua{tex.sprint(evenend.curlistempty() and 1 or 0)}=\@ne
+    %% 今のリストが空（前のアキはページに移っている．\lastskipなどはページの最後の
+    %% 要素を指す）：multicolの\addvspaceと同じく，ページの末尾がグルーならそれと
+    %% \multicolsepの大きいほう，ペナルティ（\nobreakなど）なら，その前のグルーに
+    %% \multicolsepを足す（このアキは1段の段組の末尾として捨てられるので，ここで数える）
+    \advance\@tempskipa\directlua{tex.sprint(evenend.pagetailskip(\number\@tempskipa) .. 'sp')}\relax
+  \else
+    %% 前のアキの後に\nobreakがあると\lastskipが見えないので，いったん外して読み，戻す
+    \@tempswafalse
+    \ifnum\lastpenalty=\@M \unpenalty \@tempswatrue \fi
+    \ifdim\lastskip>\@tempskipa \@tempskipa\lastskip \fi
+    \if@tempswa \nobreak \fi
+  \fi
   \ifdim\prevdepth=-\@m\p@
     \@tempdima\@tempskipa
   \else
@@ -1593,6 +1623,7 @@
       \PackageError{evenend}{Nested multicols is not supported}{}%
     \fi
     \global\evenend@inmctrue
+    \evenend@mcsetbottom
     %% 環境の後は，環境の前の段組の段数・段間・段間罫に戻す
     \xdef\evenend@mc@savedN{\the\evenend@N}%
     \xdef\evenend@mc@saved{[columnsep=\the\evenend@colsep,
@@ -1682,6 +1713,7 @@
       topskip = \number\topskip,
       blskip  = \number\baselineskip,
       mcbal   = \ifdefined\multicolsep true\else false\fi,
+      mcragged = \ifnum\evenend@mcshrink=\@ne true\else false\fi,
     }}%
   \endgroup
   \ifnum\evenend@boxmc=\@ne

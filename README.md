@@ -116,7 +116,8 @@ multicolを読み込んでいなければ，`multicols`環境（終わりで揃�
 multicolを読み込んでいても使える`evenendmulticols`環境
 （`\begin{evenendmulticols}[columnsep=…,columnseprule=…]{段数}[前置き]`）もある．
 組み方はmulticolと同じにする（段組の中の行分けの設定，前後の`\multicolsep`，
-始めるときの`\premulticols`による改ページ，段の揃え方）．1段に戻るときの最後の1段の
+始めるときの`\premulticols`による改ページ，段の揃え方，`\flushcolumns`と`\raggedcolumns`）．
+`\raggedcolumns`では段を伸ばさない（環境の途中の満ページと，終わりの揃えるページ）．1段に戻るときの最後の1段の
 段組は揃えずに中身のまま積む（脚注や段内フロートがあるとき，`floatgrid`で本文中のフロートや
 高い箱があるときを除く）．
 入れ子やリストの中では使えない．ページの本文では段組のモードで使うので，1段組の文書では

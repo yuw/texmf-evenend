@@ -1,0 +1,24 @@
+%% multicols互換の環境：\flushcolumns，\raggedcolumnsと，\nobreakの後で始める段組
+%% ・表題の後に\vskipと\nobreakを置いてからmulticols環境を始める（前のアキがページに
+%%   移っているので，そのアキを段組の前のアキに数える）
+%% ・\flushcolumnsで始め，\raggedcolumnsで終える（満ページは伸ばし，揃えるページは
+%%   伸ばさない）．行送りに伸びのある本文
+\documentclass[fontsize=10pt,twocolumn]{jlreq}
+\usepackage[debug,columns=1]{evenend}
+\setlength\columnseprule{0.4pt}
+\newcount\n
+\newcommand\items[1]{\n=0 \loop\ifnum\n<#1 \advance\n1 項目\the\n\dotfill\the\n\par\repeat}
+\begin{document}
+\begingroup\centering\Large 表題\par\endgroup
+\vskip 20pt\nobreak
+\begingroup
+\baselineskip 15pt plus 1pt
+\parindent0pt
+\flushcolumns
+\begin{multicols}{3}
+\items{230}
+\raggedcolumns
+\end{multicols}
+\endgroup
+後の段落．
+\end{document}
