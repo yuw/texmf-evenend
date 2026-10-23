@@ -174,6 +174,8 @@ export TEXMFHOME=/path/to/texmf-evenend
   \item[\cs{evenendcolumns*}\texttt{\{}\textit{段数}\texttt{\}}] 段数を変えるが，その前の
     ブロックは揃えない（LaTeXの組み方のまま，段を上から詰める）．
   \item[\cs{columnbreak}] そこで段を改める（\ref{sec:multicol}節）．
+  \item[\cs{flushcolumns}，\cs{raggedcolumns}] \texttt{multicols}環境の段を，段の高さまで
+    伸ばすか，伸ばさずに自然な高さで組むか（\pkg{multicol}と同じ．\ref{sec:multicol}節）．
   \item[\cs{evenendifpageempty}\texttt{\{}\textit{真}\texttt{\}\{}\textit{偽}\texttt{\}}]
     ページが空なら\textit{真}を，そうでなければ\textit{偽}を実行する．evenendは段数を
     切り換えるとそれまでの段組をページの上部に積むので，\cs{pagetotal}が0でも，積んだ
@@ -680,7 +682,7 @@ LaTeXが組んだ段がはみ出す（Overfull）警告は，そのページを�
 \section{multicol互換の環境}\label{sec:multicol}
 
 \pkg{multicol}を読み込んでいなければ，同じ書き方の\texttt{multicols}環境，
-\texttt{multicols*}環境，\cs{columnbreak}を用意する．\pkg{multicol}を読み込んでいても
+\texttt{multicols*}環境，\cs{columnbreak}，\cs{flushcolumns}，\cs{raggedcolumns}を用意する．\pkg{multicol}を読み込んでいても
 使える\texttt{evenendmulticols}環境も用意する（段間などを指定できる）．
 \begin{verbatim}
 \begin{evenendmulticols}[columnsep=1\zw, columnseprule=0pt]{3}[前置き]
@@ -712,7 +714,7 @@ LaTeXが組んだ段がはみ出す（Overfull）警告は，そのページを�
   \item \cs{flushcolumns}，\cs{raggedcolumns}（\pkg{multicol}と同じ）：段を段の高さまで
     伸ばして下端をそろえるか，伸ばさずに自然な高さで組むか．環境の途中の満ページと，
     環境の終わりの揃えるページの両方に効く（\cs{raggedcolumns}の揃えるページは，
-    \pkg{multicol}と同じく，同じ高さで分けた段を伸ばさないので，左の段ほど長くなる）．
+    \pkg{multicol}と同じく，同じ高さで分けた段を伸ばさないので，左の段ほど長いか同じになる）．
     環境の中で変えれば，その環境の終わりまで効く．どちらも使わなければ，満ページは
     クラスの設定（\cs{flushbottom}，\cs{raggedbottom}）に従い，揃えるページは段を伸ばす．
   \item 1段に戻るとき，最後の1段の段組は揃えずに中身のまま積む（\cs{vfill}などが

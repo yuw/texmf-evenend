@@ -82,6 +82,8 @@ LaTeXが段を組むあいだは脚注の高さを段数倍で見込み，ペー
 - `\evenendcolumns*{段数}`：段数を変えるが，その前のブロックは揃えない
 - `\columnbreak`：そこで段を改める（揃えるページやブロックの中でも守る．段落の途中では
   その行の後で改める）
+- `\flushcolumns`，`\raggedcolumns`：`multicols`環境の段を段の高さまで伸ばすか，伸ばさずに
+  自然な高さで組むか（multicolと同じ）
 - `\evenendifpageempty{真}{偽}`：ページが空か（`\pagetotal`が0で，積んだ段組もない）で分ける
 - `\evenendnewpage`：改ページする（積んだ段組だけのページでも改める）
 - `spanfigure`，`spantable`環境：段をまたぐ段内フロート（`\begin{spanfigure}[b]{2}`など）
@@ -112,7 +114,7 @@ LaTeXが段を組むあいだは脚注の高さを段数倍で見込み，ペー
 ### multicol互換の環境
 
 multicolを読み込んでいなければ，`multicols`環境（終わりで揃える），`multicols*`環境
-（揃えない），`\columnbreak`を用意する．`\begin{multicols}{3}[前置き]`の前置きは1段で組む．
+（揃えない），`\columnbreak`，`\flushcolumns`，`\raggedcolumns`を用意する．`\begin{multicols}{3}[前置き]`の前置きは1段で組む．
 multicolを読み込んでいても使える`evenendmulticols`環境
 （`\begin{evenendmulticols}[columnsep=…,columnseprule=…]{段数}[前置き]`）もある．
 組み方はmulticolと同じにする（段組の中の行分けの設定，前後の`\multicolsep`，
