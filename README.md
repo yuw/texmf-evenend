@@ -275,6 +275,10 @@ evenendはgyoudori（行取りのパッケージ）に依存しない．gyoudori
   フロートが来ることがある）．段の高さより高い分けられない材料は，そのページにほかに何も
   なければ段からはみ出させて置き，そうでなければ次のページへ送る．
 - `\evenendcolumns`はリスト環境などの中では使えない（段落の間で使う）．
+- 段の中の積み順のソケット（`build/column/outputbox`）のないLaTeX（2024-11-01など）では，
+  `footnote=column`でLaTeXが通常どおり組む段は，下に段をまたぐフロートがあっても脚注を
+  フロートの上に置く（そのLaTeXの積み順のまま）．`spanfootnote=bottom`は，evenendが組み直す
+  段（揃える段組）だけに効く．
 - `\@outputdblcol`を再定義する他のパッケージ（flushend，balanceなど）とは併用できない．
   stfloats，tcolorbox（分割できる箱も），hyperrefは併用できる．tcolorboxの分割できる箱に
   キー`evenend breakable`を付けると，揃えるページで段の下端がそろう分け方を`.aux`に書き，

@@ -39,7 +39,7 @@
 \title{\pkg{evenend}パッケージ\\[.5\baselineskip]
   \large 多段組の最終ページで各段の下端を揃える}
 \author{木枝祐介}
-\date{v20261023.0}
+\date{v20261023.1}
 
 \begin{document}
 \maketitle
@@ -859,6 +859,10 @@ evenendは\pkg{gyoudori}（行取りのパッケージ）に依存しない．\p
     LaTeXの組み方に戻す（警告を出す）．
   \item \pkg{jlreq}では，脚注と段内フロートや段抜きフロートが同じ段に入ると，LaTeXが
     通常どおり組んだ段がわずかにはみ出すことがある（evenendを使わなくても起きる）．
+  \item 段の中の積み順のソケット（\texttt{build/column/outputbox}）のないLaTeX
+    （2024-11-01など）では，\opt{footnote=column}でLaTeXが通常どおり組む段は，下に段を
+    またぐフロートがあっても，脚注をフロートの上に置く（そのLaTeXの積み順のまま）．
+    \opt{spanfootnote=bottom}は，evenendが組み直す段（揃える段組）だけに効く．
 \end{itemize}
 
 \section{配布物}

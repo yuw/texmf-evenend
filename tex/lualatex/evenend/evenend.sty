@@ -1,5 +1,5 @@
 \NeedsTeXFormat{LaTeX2e}[2024-11-01]
-\ProvidesPackage{evenend}[2026/10/23 v20261023.0 Balance the last page of multi-column text (LuaLaTeX) by Yuwsuke Kieda]
+\ProvidesPackage{evenend}[2026/10/23 v20261023.1 Balance the last page of multi-column text (LuaLaTeX) by Yuwsuke Kieda]
 
 \ifdefined\directlua\else
   \PackageError{evenend}{LuaLaTeX is required}{}
@@ -1436,25 +1436,32 @@
   \fi}
 %% 下に段をまたぐフロートがある段では，脚注をフロートの上に置く（またがる段の
 %% あいだでフロートの位置がそろうように）．段の中の積み順はソケット
-%% build/column/outputboxで決まるので，その段を組むあいだだけプラグを換える
+%% build/column/outputboxで決まるので，その段を組むあいだだけプラグを換える．
+%% このソケット（と\socket_if_exist:n）のないLaTeX（2024-11-01など）の\@makecolは，
+%% 本文，脚注，下のフロートの順に積むので，プラグを換えずにそのまま組む
+%% （脚注はフロートの上．spanfootnote=bottomは，evenendが組み直す段だけに効く）
 \ExplSyntaxOn
-\cs_new_protected:Npn \evenend@fnabovespan #1
+\cs_if_exist:NTF \socket_if_exist_p:n
   {
-    \bool_lazy_and:nnTF
-      { \legacy_if_p:n { evenend@spanbot } }
-      { \socket_if_exist_p:n { build/column/outputbox } }
+    \cs_new_protected:Npn \evenend@fnabovespan #1
       {
-        \str_set_eq:Nc \l_tmpa_str { l__socket_build/column/outputbox_plug_str }
-        \legacy_if:nTF { evenend@sfb }
-          { \str_set:Nn \l_tmpb_str { space-floats-footnotes } }
-          { \str_set:Nn \l_tmpb_str { space-footnotes-floats } }
-        \socket_assign_plug:nV { build/column/outputbox } \l_tmpb_str
-        #1
-        \socket_assign_plug:nV { build/column/outputbox } \l_tmpa_str
+        \bool_lazy_and:nnTF
+          { \legacy_if_p:n { evenend@spanbot } }
+          { \socket_if_exist_p:n { build/column/outputbox } }
+          {
+            \str_set_eq:Nc \l_tmpa_str { l__socket_build/column/outputbox_plug_str }
+            \legacy_if:nTF { evenend@sfb }
+              { \str_set:Nn \l_tmpb_str { space-floats-footnotes } }
+              { \str_set:Nn \l_tmpb_str { space-footnotes-floats } }
+            \socket_assign_plug:nV { build/column/outputbox } \l_tmpb_str
+            #1
+            \socket_assign_plug:nV { build/column/outputbox } \l_tmpa_str
+          }
+          {#1}
       }
-      {#1}
+    \cs_generate_variant:Nn \socket_assign_plug:nn { nV }
   }
-\cs_generate_variant:Nn \socket_assign_plug:nn { nV }
+  { \cs_new_protected:Npn \evenend@fnabovespan #1 {#1} }
 \ExplSyntaxOff
 \def\evenend@spanclear#1{%
   \expandafter\global\expandafter\let\csname evenend@span@\number#1\endcsname\@undefined
