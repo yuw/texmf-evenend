@@ -1,5 +1,5 @@
 \NeedsTeXFormat{LaTeX2e}[2024-11-01]
-\ProvidesPackage{evenend}[2026/10/23 v20261023.1 Balance the last page of multi-column text (LuaLaTeX) by Yuwsuke Kieda]
+\ProvidesPackage{evenend}[2026/11/22 v20261122.0 Balance the last page of multi-column text (LuaLaTeX) by Yuwsuke Kieda]
 
 \ifdefined\directlua\else
   \PackageError{evenend}{LuaLaTeX is required}{}
@@ -909,17 +909,27 @@
 %% ときだけ段数倍で見込む．ページの最後の段で，ページの本文を，版面からページの脚注を
 %% 除いた高さの段に組み直す（入り切らない本文はその脚注とともに次のページへ送り返す）
 \newif\ifevenend@docstarted
+%% \evenend@fnmod：\count\footinsと\skip\footinsが，上の見込みのために変えた値に
+%% なっている．偽のときはクラスなどの値なので，文書の途中で変えられていてもよいように，
+%% そのときの値を覚え直す（段をまたぐ下の図のために一時的に0にしているあいだは除く）
+\newif\ifevenend@fnmod
+\def\evenend@fnremember{%
+  \ifevenend@fnmod
+    \global\count\footins\evenend@fncount
+    \global\skip\footins\evenend@fnskip
+    \global\evenend@fnmodfalse
+  \else\ifevenend@fnadj\else
+    \global\evenend@fncount\count\footins
+    \global\evenend@fnskip\skip\footins
+  \fi\fi}
 \def\evenend@fnreserve{%
   \ifevenend@docstarted
     \ifevenend@colmode
-      %% footnote=column：脚注の設定は変えない．文書の途中でクラスなどが変えることが
-      %% あるので，そのときの値を覚え直す（段をまたぐ下の図のために一時的に0にして
-      %% いるあいだは除く）
-      \ifevenend@fnadj\else
-        \global\evenend@fncount\count\footins
-        \global\evenend@fnskip\skip\footins
-      \fi
+      %% footnote=column：脚注の設定は変えない（footnote=pageから切り替えたときは戻す）
+      \evenend@fnremember
     \else\if@twocolumn
+      \ifevenend@fnmod\else \evenend@fnremember \fi
+      \global\evenend@fnmodtrue
       \global\count\footins\numexpr\evenend@N*\evenend@fncount\relax
       \ifevenend@pagehasfn
         \global\skip\footins\z@
@@ -928,8 +938,7 @@
         \global\multiply\skip\footins\evenend@N
       \fi
     \else
-      \global\count\footins\evenend@fncount
-      \global\skip\footins\evenend@fnskip
+      \evenend@fnremember
     \fi\fi
   \fi}
 %% ページの最後の段は，段数×行送りだけ多めに詰めさせる（LaTeXが段ごとに改段すると

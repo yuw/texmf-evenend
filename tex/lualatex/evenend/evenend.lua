@@ -2714,7 +2714,13 @@ function M.balance(p)
     if segs[id].head then flush_list(segs[id].head) end
   end
   flush_list(text.head)
-  tex.setdimen('global', 'evenend@ruleht', usefnpage and colht or h)
+  -- どの段にも中身がなければ（入り切らない本文をすべて次のページへ送り返したとき），
+  -- 段間罫は引かない
+  local allempty = true
+  for i = 1, N do
+    if (res[i].ht or 0) > 0 or #tops[i] + #bots[i] > 0 then allempty = false end
+  end
+  tex.setdimen('global', 'evenend@ruleht', allempty and 0 or (usefnpage and colht or h))
   local colboxht = (p.block or fullfn) and h or colht
   tex.setdimen('global', 'evenend@colboxht', colboxht)
   tex.setdimen('global', 'evenend@rowht', colboxht + dblh)
