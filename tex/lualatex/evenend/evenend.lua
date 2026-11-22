@@ -399,9 +399,14 @@ function M.mcoverflow(allow)
     last.next = pen; pen.prev = last
     return false
   end
-  -- 箱はそのままで中身と伸縮だけ組み直す（\box255を差し替えない）
+  -- 箱はそのままで中身と伸縮だけ組み直す（\box255を差し替えない）．わざとはみ出させる
+  -- ので，multicolと同じくOverfullの警告は出さない（ここと，\@makecolが組む段の箱）
   local list = b.list; b.list = nil
+  local vfuzz, vbadness = tex.getdimen('vfuzz'), tex.getcount('vbadness')
+  tex.setdimen('vfuzz', 1073741823); tex.setcount('vbadness', 10000)
   local nb = node.vpack(list, b.height, 'exactly')
+  tex.setdimen('vfuzz', vfuzz); tex.setcount('vbadness', vbadness)
+  M.mcover = true
   b.list = nb.list; nb.list = nil
   b.glue_set, b.glue_sign, b.glue_order = nb.glue_set, nb.glue_sign, nb.glue_order
   b.depth = nb.depth
@@ -447,6 +452,10 @@ end
 function M.checkcol(boxnum, fuzz)
   local c = M.cols[#M.cols]
   local b = tex.getbox(boxnum)
+  -- \columnbreakの前の残りをわざとはみ出させた段（mcoverflow）は数えない
+  local mcover = M.mcover
+  M.mcover = nil
+  if mcover then return end
   if not (c and b and b.list) then return end
   -- TeXと同じく，縮められるグルーを縮めても入らないときだけはみ出しとみなす
   local nat = vpack(copy_list(b.list))
