@@ -287,7 +287,8 @@ evenendはgyoudori（行取りのパッケージ）に依存しない．gyoudori
 ## マニュアル
 
 `doc/lualatex/evenend/`にマニュアル（`evenend-ja.tex`）と見本（`evenend-sample.tex`，
-`evenend-sample-column.tex`，`evenend-sample-switch.tex`，`evenend-sample-colsep.tex`，
+`evenend-sample-column.tex`，`evenend-sample-switch.tex`，`evenend-sample-same.tex`，
+`evenend-sample-colsep.tex`，
 `evenend-sample-box.tex`，`evenend-sample-span.tex`，`evenend-sample-options.tex`）がある．
 マニュアルは見本のページを貼り込むので，
 見本を先に組む．
@@ -297,6 +298,7 @@ cd doc/lualatex/evenend
 lualatex evenend-sample.tex
 lualatex evenend-sample-column.tex
 lualatex evenend-sample-switch.tex
+lualatex evenend-sample-same.tex
 lualatex evenend-sample-colsep.tex
 lualatex evenend-sample-box.tex
 lualatex evenend-sample-span.tex
@@ -321,6 +323,7 @@ test/run.sh test/t1-basic.tex
 - `all.sh`：回帰試験の全部（`rand/std.sh`，`suite.sh`，`fixed.sh`）を順に流し，結果を`test/results/`に書く
 - `fixed.sh`：固定のテスト文書（`t*.tex`，`fb*.tex`，`tcb/`，`span/`，`split/`，`mc/`，`box/`）を並列に組み，
   Overfull，エラー，`blockcheck.py`の結果と，`mc/mkcheck.py`による柱を調べる
+- `samplecheck.sh`：マニュアルの見本を今の版で組み，コミット済みのPDFと語の位置を比べる
 - `suite.sh`：固定のテスト一式（`fuzz.sh`，`fuzzswitch.sh`，`fnfloat.sh`，`gy/sweep.sh`）をまとめて走らせる
 - `colbottoms.py`：最終ページの各段の最下行の位置を表示する
 - `fuzz.sh`：本文の長さを1文ずつ変えて組み，エラーと段の下端を調べる

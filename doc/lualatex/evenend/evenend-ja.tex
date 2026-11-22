@@ -3,6 +3,19 @@
 %% 先に組んでおくこと
 \documentclass[paper=a4,fontsize=10pt]{jlreq}
 \usepackage{graphicx}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,calc}
+\tikzset{
+  alg/.style={font=\small,>={Stealth[length=5pt]},node distance=5mm and 9mm},
+  proc/.style={draw,rounded corners=2pt,align=left,inner sep=4pt,text width=#1},
+  proc/.default=11\zw,
+  cond/.style={draw,chamfered rectangle,chamfered rectangle xsep=6pt,align=center,inner sep=3pt,text width=#1},
+  cond/.default=9\zw,
+  term/.style={draw,rounded corners=8pt,align=center,inner sep=4pt,text width=#1},
+  term/.default=9\zw,
+  lab/.style={font=\footnotesize,inner sep=1.5pt},
+}
+\usetikzlibrary{shapes.misc}
 \usepackage{hyperref}
 \hypersetup{hidelinks,pdftitle={evenendパッケージ},pdfauthor={木枝祐介}}
 
@@ -39,7 +52,7 @@
 \title{\pkg{evenend}パッケージ\\[.5\baselineskip]
   \large 多段組の最終ページで各段の下端を揃える}
 \author{木枝祐介}
-\date{v20261023.1}
+\date{v20261122.0}
 
 \begin{document}
 \maketitle
@@ -72,7 +85,8 @@
   \fbox{\includegraphics[page=2,width=.4\linewidth]{evenend-sample.pdf}}\hspace{2\zw}%
   \fbox{\includegraphics[page=2,width=.4\linewidth]{evenend-sample-column.pdf}}
   \caption{均した最終ページ．左は\opt{footnote=page}，右は\opt{footnote=column}
-    （\texttt{evenend-sample.tex}，\texttt{evenend-sample-column.tex}）}
+    （\texttt{evenend-sample.tex}，\texttt{evenend-sample-column.tex}）．このマニュアルの
+    見本は，どれもA6判，8ptの\pkg{jlreq}で組み，同じ大きさで示す}
   \label{fig:sample}
 \end{figure}
 
@@ -371,6 +385,14 @@ LaTeXが組んだ段の箱をたどり，上のフロートの後の最初の行
 切り換えの位置までのそのページの段組（ブロック）は，最終ページと同じ方法で下端を揃えて
 確定し，その下に新しい段数で段組を続ける（図\ref{fig:switch}）．1つのページに
 いくつでもブロックを積める．
+\begin{figure}[tb]
+  \centering
+  \fbox{\includegraphics[page=1,width=.4\linewidth]{evenend-sample-switch.pdf}}\hspace{2\zw}%
+  \fbox{\includegraphics[page=2,width=.4\linewidth]{evenend-sample-switch.pdf}}
+  \caption{2段→3段→1段→2段と切り換えたページ（\texttt{evenend-sample-switch.tex}）．
+    左は\opt{headingskip=column}（既定），右は\opt{headingskip=block}}
+  \label{fig:switch}
+\end{figure}
 \begin{itemize}
   \item 前のブロックの最終行から次のブロックの1行目までのベースライン間は
     \opt{blockskip}（既定は2行分）にする．さらに，ページの残りの高さが版面と同じく
@@ -389,6 +411,50 @@ LaTeXが組んだ段の箱をたどり，上のフロートの後の最初の行
   \item フロートはそのブロックの中で完結させる（\ref{sec:floats}節）．
   \item 段数を変えても，ページの行の位置は変わらない（行送りの位置に揃った組版なら，
     すべての行が版面の行の位置に乗る）．
+\end{itemize}
+
+\subsection{段数を変えずに段組を改める}\label{sec:same}
+
+\cs{evenendcolumns}に今と同じ段数を指定すれば，段数を変えずに，そこまでの段組を揃えて
+確定し，その下に新しい段組を始める．節ごとに段組を改めれば，節ごとに下端が揃う
+（図\ref{fig:same}）．
+\begin{verbatim}
+\section{A節}
+...
+\evenendcolumns{2}
+\section{B節}
+...
+\evenendcolumns{2}
+\section{C節}
+...
+\end{verbatim}
+\begin{figure}[tb]
+  \centering
+  \fbox{\includegraphics[page=1,width=.4\linewidth]{evenend-sample-same.pdf}}\hspace{2\zw}%
+  \fbox{\includegraphics[page=2,width=.4\linewidth]{evenend-sample-same.pdf}}
+  \caption{2段のまま節ごとに段組を改めたページ（\texttt{evenend-sample-same.tex}）．
+    左は\opt{footnote=page}（既定），右は\opt{footnote=column}．B節に脚注と
+    上のフロート（\texttt{[t]}）がある}
+  \label{fig:same}
+\end{figure}
+
+ページの途中で段組を改めたときの脚注とフロートは，次のようになる（段数を変えたときも
+同じ）．
+\begin{itemize}
+  \item 脚注（\opt{footnote=page}）：そのページのどのブロックの脚注も，まとめて版面の
+    下端に全幅で置く．
+  \item 脚注（\opt{footnote=column}）：参照位置のあるブロックの，参照位置のある段の下端に
+    置く．ブロックの下端は，脚注を含めて揃う．
+  \item 上のフロート（\texttt{[t]}）：書いたブロックの段の上端に置く（ページの上端では
+    ない）．ブロックが見出しで始まる段に置くと，フロートは見出しより上に来る．どの段に
+    置くかは，ブロックの高さが最も小さくなるように選び直す．
+  \item 下のフロート（\texttt{[b]}）：書いたブロックの段の下端に置く（ページの下端では
+    ない）．
+  \item その場のフロート（\texttt{[h]}）：書いた位置に置く．フロートは分けられないので，
+    前後の本文の量によっては下端が揃わない（最右段は他の段より高くしない）．
+  \item 段抜きのフロート（\texttt{figure*}など）：書いたブロックの下に段抜きで置く．
+  \item フロートは，書いたブロックより前や後のブロックへは動かさない（そのブロックの
+    中で完結させる．入り切らないときの扱いは\ref{sec:floats}節）．
 \end{itemize}
 
 \subsection{見出しの上アキ（\opt{headingskip}）}\label{sec:headingskip}
@@ -422,7 +488,7 @@ LaTeXが組んだ段の箱をたどり，上のフロートの後の最初の行
 
 \begin{figure}[tb]
   \centering
-  \fbox{\includegraphics[page=1,width=.5\linewidth]{evenend-sample-colsep.pdf}}
+  \fbox{\includegraphics[page=1,width=.4\linewidth]{evenend-sample-colsep.pdf}}
   \caption{段組ごとに段間と段間罫を変えたページ（\texttt{evenend-sample-colsep.tex}）}
   \label{fig:colsep}
 \end{figure}
@@ -450,15 +516,6 @@ LaTeXが組んだ段の箱をたどり，上のフロートの後の最初の行
   \item \texttt{multicols}環境は，始まりのときの\cs{columnsep}，\cs{columnseprule}を
     使い，終わりで環境の前の段組の段数・段間・段間罫に戻す．
 \end{itemize}
-
-\begin{figure}[tb]
-  \centering
-  \fbox{\includegraphics[page=1,width=.4\linewidth]{evenend-sample-switch.pdf}}\hspace{2\zw}%
-  \fbox{\includegraphics[page=2,width=.4\linewidth]{evenend-sample-switch.pdf}}
-  \caption{2段→3段→1段→2段と切り換えたページ（\texttt{evenend-sample-switch.tex}）．
-    左は\opt{headingskip=column}（既定），右は\opt{headingskip=block}}
-  \label{fig:switch}
-\end{figure}
 
 \section{揃え方}
 
@@ -655,6 +712,182 @@ TeXが段をまたいで分割した脚注は，1つにまとめ直す．参照�
 
 \section{仕組み}
 
+\subsection{処理の流れ}
+
+段組の出力ルーチン（\cs{@outputdblcol}）は，段が1つ組み上がるたびに呼ばれる．evenendは
+そのたびに段の材料をとっておき，ページの最後の段で，そのページをどう出力するかを決める
+（図\ref{fig:alg-flow}）．
+
+\begin{figure}[tbp]
+  \centering
+  \begin{tikzpicture}[alg,x=1mm,y=1mm]
+    \node[term=10\zw] (start) at (0,0) {段が1つ組み上がる};
+    \node[proc=10\zw] (cap) at (0,-14) {段の材料（本文，脚注，段内フロート）をとっておく};
+    \node[cond=8\zw] (last) at (0,-30) {揃える場面か};
+    \node[cond=8\zw] (pagelast) at (0,-46) {ページの最後の段か};
+    \node[cond=8\zw] (fnpage) at (0,-62) {\opt{footnote=page}か};
+    \node[proc=10\zw] (latex) at (0,-80) {LaTeXが組んだ段のままページを出力する};
+    \node[proc=10\zw] (bal) at (50,-30) {そのページの全段を揃える（図\ref{fig:alg-balance}）};
+    \node[proc=10\zw] (next) at (50,-46) {次の段へ進む};
+    \node[proc=10\zw] (rebuild) at (50,-66) {ページを組み直す：版面から脚注の領域を除いた高さで分け直し，入り切らない本文は次のページへ送り返す};
+    \node[cond=7\zw] (sw) at (100,-30) {段数の切り換えか};
+    \node[proc=9\zw] (push) at (100,-48) {揃えた段組をページの上部に積み，残りの高さで段組を続ける};
+    \node[proc=9\zw] (ship) at (100,-72) {積んだ段組，揃えた段組，ページの脚注をまとめてページを出力する};
+    \draw[->] (start) -- (cap);
+    \draw[->] (cap) -- (last);
+    \draw[->] (last) -- node[lab,right] {いいえ} (pagelast);
+    \draw[->] (last) -- node[lab,above] {はい} (bal);
+    \draw[->] (bal) -- (sw);
+    \draw[->] (sw) -- node[lab,right] {はい} (push);
+    \draw[->] (sw.east) -- ++(4,0) |- node[lab,pos=.25,right] {いいえ} (ship.east);
+    \draw[->] (pagelast) -- node[lab,right] {はい} (fnpage);
+    \draw[->] (pagelast) -- node[lab,above] {いいえ} (next);
+    \draw[->] (fnpage) -- node[lab,right] {いいえ} (latex);
+    \draw[->] (fnpage.east) -- node[lab,above] {はい} (fnpage.east -| rebuild.west);
+    \draw[->] (rebuild.east |- ship.west) -- (ship.west);
+  \end{tikzpicture}
+  \caption{段が組み上がるたびの処理．揃える場面は，文書末，\cs{evenendclearpage}，
+    \cs{onecolumn}の直前，段数の切り換え（\cs{evenendcolumns}）}
+  \label{fig:alg-flow}
+\end{figure}
+
+揃えるときは，LaTeXが上から詰めて組んだ段を1本の材料に戻し，各段に同じ高さで分け直す
+（図\ref{fig:alg-picture}）．手順は図\ref{fig:alg-balance}のとおり．
+
+\begin{figure}[tbp]
+  \centering
+  \begin{tikzpicture}[alg,x=.88mm,y=.92mm,
+      txt/.style={fill=black!18},fl/.style={fill=black!45}]
+    %% TeX側：LaTeXが組んだページ
+    \begin{scope}
+      \draw (0,0) rectangle (30,40);
+      \fill[txt] (2,2) rectangle (14,38);
+      \fill[fl] (16,30) rectangle (28,38);
+      \fill[txt] (16,17) rectangle (28,28);
+      \draw[densely dashed] (15,2) -- (15,38);
+      \node[lab,below,align=center] at (15,-1) {LaTeXが段を組む\\（上から詰める）};
+      \node[lab,above] at (15,41) {\textgt{TeX側}（\texttt{evenend.sty}）};
+    \end{scope}
+    \draw[->] (31,20) -- node[lab,above,align=center] {材料を\\渡す} (45,20);
+    %% Lua側
+    \draw[densely dashed,rounded corners=3pt] (42,-24) rectangle (124,50);
+    \node[lab,above] at (83,50) {\textgt{Lua側}（\texttt{evenend.lua}）で計算する};
+    \begin{scope}[xshift=42.24mm]
+      \fill[txt] (3,-4) rectangle (15,43);
+      \fill[fl] (18,35) rectangle (30,43);
+      \node[lab,right] at (17,31) {フロート};
+      \node[lab,right,align=left] at (17,10) {本文を\\1本に\\つなぐ};
+    \end{scope}
+    \draw[->] (80,20) -- (90,20);
+    \begin{scope}[xshift=83.6mm]
+      \fill[txt] (0,10.5) rectangle (12,38);
+      \fill[fl] (14,30) rectangle (26,38);
+      \fill[txt] (14,10.5) rectangle (26,28);
+      \draw[<->] (-2,10.5) -- node[lab,left] {$h$} (-2,38);
+      \node[lab,below,align=center] at (13,9) {段の箱};
+    \end{scope}
+    \node[lab,align=left,anchor=north west] at (50,-8) {・フロートの置き方を選ぶ\\・入り切る最小の$h$を探す（\cs{vsplit}）\\・下端をそろえて段の箱を組む};
+    \draw[->] (122,20) -- node[lab,above,align=center,pos=.62] {段の箱を\\返す} (137,20);
+    %% TeX側：出力
+    \begin{scope}[xshift=120.56mm]
+      \draw (0,0) rectangle (30,40);
+      \fill[txt] (2,10.5) rectangle (14,38);
+      \fill[fl] (16,30) rectangle (28,38);
+      \fill[txt] (16,10.5) rectangle (28,28);
+      \draw (15,10.5) -- (15,38);
+      \draw (2,6) -- (10,6);
+      \fill[txt] (2,2.5) rectangle (22,4.5);
+      \node[lab,below,align=center] at (15,-1) {段の箱を並べ，罫と\\脚注を付けて出力する};
+      \node[lab,above] at (15,41) {\textgt{TeX側}};
+    \end{scope}
+  \end{tikzpicture}
+  \caption{揃え方の考え方と，TeX側とLua側の分担．LaTeXが組んだ全段の材料をLua側に渡し，
+    Lua側で本文を1本につなぎ，フロートと脚注の高さを差し引いて，入り切る最小の段の高さ$h$で
+    分け直して段の箱を組む（破線の枠の中）．TeX側は，返された段の箱を並べ，段間罫と脚注を
+    付けてページを出力する}
+  \label{fig:alg-picture}
+\end{figure}
+
+TeX側（\texttt{evenend.sty}）とLua側（\texttt{evenend.lua}）は，組版のあいだ何度もやりとりする．
+いつ，どちらが，何をするかを図\ref{fig:alg-lua}に示す．TeX側は，箱やレジスタの受け渡しと，
+段の箱を並べてページを出力することを受け持つ．Lua側は，箱の中の要素を1つずつたどって
+測ること，グルーを書き換えること，材料を写して何通りも分けてみることを受け持つ
+（TeXのマクロでは，組み上がった箱の中身をたどれない）．箱の中の段組（\pkg{tcolorbox}の中の
+\texttt{multicols}環境など）は，出力ルーチンを使わず，その場でLua側（\texttt{boxbalance}）が
+分けて1つの箱にする．
+
+\begin{figure}[p]
+  \centering
+  \begin{tikzpicture}[alg,
+      tx/.style={proc=14\zw,anchor=north},
+      lu/.style={proc=21\zw,anchor=north,fill=black!7},
+      when/.style={font=\small\gtfamily}]
+    \matrix[row sep=2mm,column sep=21mm,nodes={anchor=north}] {
+      \node[when] {TeX側（\texttt{evenend.sty}）}; & \node[when] {Lua側（\texttt{evenend.lua}）}; \\
+      \node[tx] (t1) {{\gtfamily (1) 本文を組むあいだ}\\\cs{footnote}ごとに，脚注の中身に番号の属性を付け，参照位置の行の直後に同じ番号の印を置く}; &
+      \node[lu] (l1) {脚注の番号を発行する（\texttt{newfn}）．行の直後に置く印（whatsit）を作る（\texttt{anchor}）}; \\
+      \node[tx] (t2) {{\gtfamily (2) 段が1つ組み上がるたび}\\\cs{@makecol}の直前に，段の本文（\cs{box255}），脚注（\cs{box}\cs{footins}），上下のフロートの箱を渡す}; &
+      \node[lu] (l2) {段の本文と脚注を写してとっておく．改段の位置で捨てられたグルーも覚える（\texttt{capture}）．フロートの写しをとる（\texttt{addfloat}）}; \\
+      \node[tx] (t3) {{\gtfamily (3) LaTeXが段を組んだ直後}\\揃えないページで，組み上がった段の箱を渡し，罫の端を受け取って段間罫を引く}; &
+      \node[lu] (l3) {段の箱をたどって，段をまたぐフロートを避ける罫の端を字面から測る（\texttt{colrule}）．フロートの後の行が行送りの位置にあるかを調べる（\texttt{gridcheck}）}; \\
+      \node[tx] (t4) {{\gtfamily (4) 揃える場面と，ページを組み直す場面}\\段数，段の高さ，行送り，\cs{topskip}，フロートまわりのアキ，オプションを渡す（\cs{evenend@balance}）}; &
+      \node[lu] (l4) {\texttt{balance}：\\
+        ・全段の本文を1本につなぎ，本文中のフロートに印を付ける\\
+        ・フロートの置き方の候補ごとに，材料を写して\cs{vsplit}で分け，入り切る最小の高さを探す\\
+        ・行の印をたどって，脚注がどの段に入ったかを調べる\\
+        ・各段の見かけの下端（最終行のベースライン，深さ，箱からのはみ出し）を測る\\
+        ・\opt{floatgrid}：本文中のフロートの前後のグルーを書き換える\\
+        ・グルーを伸ばし，フロートと脚注を付けて，段の箱を組む}; \\
+      \node[tx] (t5) {{\gtfamily (5) 揃えた直後}\\段の箱を1つずつ受け取り，段間罫を引いて横に並べる．ページの脚注と段抜きフロートの箱も受け取る}; &
+      \node[lu] (l5) {段の箱と罫の端（\texttt{getcolumn}），ページの脚注（\texttt{getfn}），段抜きフロート（\texttt{getdbl}）を返す．揃えた高さなどはTeXの寸法レジスタに入れる}; \\
+      \node[tx] (t6) {{\gtfamily (6) 入り切らない本文があるとき}\\\opt{footnote=page}でページを組み直したとき，残りの材料を出力ルーチンから主垂直リストへ戻す}; &
+      \node[lu] (l6) {残りの本文に付いていた脚注を\cs{insert}に包み直して返す（\texttt{getpush}）．戻した後の改ページのペナルティを直す（\texttt{fixcontrib}）}; \\
+      \node[tx] (t7) {{\gtfamily (7) ページを出力するとき}\\積んだ段組と揃えた段組をまとめて出力し，柱を更新する}; &
+      \node[lu] (l7) {ページの本文から，読む順にマークを集める（\texttt{collectmarks}）．とっておいた材料を片付ける（\texttt{reset}）}; \\
+    };
+    \draw[<->] (t1.east |- l1.north) ++(0,-5mm) coordinate (a) -- node[lab,above] {番号，印} (a -| l1.west);
+    \draw[->] (t2.east |- l2.north) ++(0,-5mm) coordinate (a) -- node[lab,above] {段の材料} (a -| l2.west);
+    \draw[<->] (t3.east |- l3.north) ++(0,-5mm) coordinate (a) -- node[lab,above,align=center] {箱，罫の端} (a -| l3.west);
+    \draw[->] (t4.east |- l4.north) ++(0,-5mm) coordinate (a) -- node[lab,above,align=center] {寸法など} (a -| l4.west);
+    \draw[<-] (t5.east |- l5.north) ++(0,-5mm) coordinate (a) -- node[lab,above,align=center] {段の箱，寸法} (a -| l5.west);
+    \draw[<-] (t6.east |- l6.north) ++(0,-5mm) coordinate (a) -- node[lab,above] {残りの本文} (a -| l6.west);
+    \draw[<-] (t7.east |- l7.north) ++(0,-5mm) coordinate (a) -- node[lab,above] {マーク} (a -| l7.west);
+    \foreach \a/\b in {t1/t2,t2/t3,t3/t4,t4/t5,t5/t6,t6/t7} \draw[->,black!50] (\a.south) -- (\b.north);
+  \end{tikzpicture}
+  \caption{TeX側とLua側のやりとり（上から時間の順．灰色の箱がLua側の処理，括弧の中は
+    \texttt{evenend.lua}の関数）．(2)は段ごと，(3)は揃えないページ，(4)〜(6)は揃える場面と
+    \opt{footnote=page}の各ページで起きる}
+  \label{fig:alg-lua}
+\end{figure}
+
+\begin{figure}[tbp]
+  \centering
+  \begin{tikzpicture}[alg,node distance=4mm and 13mm]
+    \node[proc=17\zw] (join) {1.\ 全段の本文を1本の垂直リストにつなぐ};
+    \node[proc=17\zw,below=of join] (cand) {2.\ 段内フロートの置き方の候補を挙げる（番号順を保ち，LaTeXが置いた段より前の段へは動かさない）};
+    \node[proc=17\zw,below=of cand] (search) {3.\ 候補ごとに，段の高さ$h$を小さいほうから行送りずつ上げ，\cs{vsplit}で分けて，入り切る最小の$h$を探す（各段で，フロートと脚注の高さを差し引く）};
+    \node[proc=17\zw,below=of search] (choose) {4.\ $h$が最も小さい候補を選ぶ（同じなら，動かすフロートが少ないもの）};
+    \node[cond=13\zw,below=of choose] (mis) {下端がそろう配分か（最右段がほかの段より高くないか）};
+    \node[proc=17\zw,below=of mis] (build) {5.\ 段を組む：見かけの下端をそろえ，届かない段はグルーを伸ばす．最右段は短くてよい};
+    \node[proc=17\zw,below=of build] (fn) {6.\ 脚注を置く（\opt{page}：版面の下端に全幅．\opt{column}：参照位置のある段の下端）};
+    \node[proc=8\zw,right=of mis] (raise) {$h$を上げて分け直す};
+    \node[proc=8\zw,right=of search] (relax) {入り切らないとき：行送りへの切り上げをやめる→\opt{floatgrid}をやめる→LaTeXの組み方に戻す（警告）};
+    \draw[->] (join) -- (cand);
+    \draw[->] (cand) -- (search);
+    \draw[->] (search) -- (choose);
+    \draw[->] (choose) -- (mis);
+    \draw[->] (mis) -- node[lab,right] {はい} (build);
+    \draw[->] (build) -- (fn);
+    \draw[->] (mis) -- node[lab,above] {いいえ} (raise);
+    \draw[->] (raise.south) |- (build.east);
+    \draw[->,densely dashed] (search) -- (relax);
+  \end{tikzpicture}
+  \caption{段を揃える手順}
+  \label{fig:alg-balance}
+\end{figure}
+
+\subsection{実装}
+
 \begin{enumerate}
   \item 各段を出力するとき（\cs{@makecol}の直前），段の生の材料（\cs{box255}），改段位置で
     捨てられるグルー類，脚注（\cs{box}\cs{footins}），段内フロートの複製を，Lua側に
@@ -737,7 +970,7 @@ LaTeXが組んだ段がはみ出す（Overfull）警告は，そのページを�
 図\ref{fig:box}）．
 \begin{figure}[tb]
   \centering
-  \fbox{\includegraphics[page=1,width=.5\linewidth]{evenend-sample-box.pdf}}
+  \fbox{\includegraphics[page=1,width=.4\linewidth]{evenend-sample-box.pdf}}
   \caption{\pkg{tcolorbox}の中の段組（\texttt{evenend-sample-box.tex}，\texttt{evenend-sample-span.tex}）}
   \label{fig:box}
 \end{figure}
@@ -871,7 +1104,8 @@ evenendは\pkg{gyoudori}（行取りのパッケージ）に依存しない．\p
   \item[\texttt{tex/lualatex/evenend/}] \texttt{evenend.sty}，\texttt{evenend.lua}
   \item[\texttt{doc/lualatex/evenend/}] このマニュアル（\texttt{evenend-ja.tex}）と
     見本（\texttt{evenend-sample.tex}，\texttt{evenend-sample-column.tex}，
-    \texttt{evenend-sample-switch.tex}，\texttt{evenend-sample-colsep.tex}，
+    \texttt{evenend-sample-switch.tex}，\texttt{evenend-sample-same.tex}，
+    \texttt{evenend-sample-colsep.tex}，
     \texttt{evenend-sample-box.tex}，\texttt{evenend-sample-span.tex}，
     \texttt{evenend-sample-options.tex}）
   \item[\texttt{LICENSE}] ライセンス（MIT）
@@ -893,6 +1127,7 @@ evenendは\pkg{gyoudori}（行取りのパッケージ）に依存しない．\p
 lualatex evenend-sample.tex
 lualatex evenend-sample-column.tex
 lualatex evenend-sample-switch.tex
+lualatex evenend-sample-same.tex
 lualatex evenend-sample-colsep.tex
 lualatex evenend-sample-box.tex
 lualatex evenend-sample-span.tex

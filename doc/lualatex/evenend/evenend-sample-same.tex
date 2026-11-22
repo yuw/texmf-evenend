@@ -1,0 +1,31 @@
+%% evenend-sample-same.tex：evenendの見本（段数を変えずに段組を改める．2段→2段）
+%% マニュアル（evenend-ja.tex）が貼り込む．節ごとに\evenendcolumns{2}で段組を改め，
+%% 節ごとに下端を揃える．1ページ目はfootnote=page，2ページ目はfootnote=column
+\documentclass[twocolumn,paper=a6,fontsize=8pt]{jlreq}
+\usepackage{evenend}
+\setlength\columnseprule{0.4pt}
+\newcommand\para{吾輩は猫である．名前はまだ無い．どこで生れたかとんと見当がつかぬ．何でも薄暗いじめじめした所でニャーニャー泣いていた事だけは記憶している．\par}
+\newcommand\short{吾輩は猫である．名前はまだ無い．どこで生れたかとんと見当がつかぬ．\par}
+\newcommand\samesample{%
+  \section{A節}
+  \para
+  A節の脚注\footnote{A節の脚注．}．
+  \evenendcolumns{2}
+  \section{B節}
+  \short
+  \begin{figure}[t]
+    \centering\fbox{\parbox[c][2\baselineskip][c]{.8\columnwidth}{\centering B節の図（\texttt{[t]}）}}
+    \caption{B節の図}
+  \end{figure}
+  B節の脚注\footnote{B節の脚注．}．
+  \short
+  \evenendcolumns{2}
+  \section{C節}
+  \para}
+\begin{document}
+\samesample
+\evenendclearpage
+\evenendsetup{footnote=column}
+\setcounter{section}{0}\setcounter{footnote}{0}\setcounter{figure}{0}
+\samesample
+\end{document}
