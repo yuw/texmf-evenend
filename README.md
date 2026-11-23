@@ -315,6 +315,8 @@ lualatex evenend-theory-ja.tex
 lualatex evenend-theory-ja.tex
 ```
 
+定式化の例，補題，命題の一部は，Lean 4でも確かめてある（`lean/`．確かめ方は`lean/README.md`）．
+
 ## テスト
 
 `test/`にテスト文書と補助スクリプトがある（poppler-utilsの`pdftotext`などを使う）．

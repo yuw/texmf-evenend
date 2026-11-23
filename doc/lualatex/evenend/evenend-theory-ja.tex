@@ -3,6 +3,7 @@
 \documentclass[paper=a4,fontsize=10pt]{jlreq}
 \usepackage{graphicx}
 \usepackage{longtable,array}
+\usepackage{float}
 \usepackage{tikz}
 \usetikzlibrary{arrows.meta,positioning,calc}
 \tikzset{
@@ -29,6 +30,15 @@
 \newcommand\pkg[1]{\textsf{#1}}
 %% 強調：和文はゴシック体，欧文はイタリック体
 \newcommand\kyocho[1]{{\gtfamily\itshape #1}}
+%% 例の図：x=1mm，y=-.25mm（縦は1ptを0.25mmとし，下向き）で描く
+%% \excol[高さ]{x}{y}：段の地，\exlines{x}{1行目のベースライン}{行数}：本文の行，
+%% \exfloat{x}{y}：フロート（40ptと下のアキ8pt），\exfoot{x}{最終行のベースライン}：脚注
+\newcommand\excol[3][178]{\fill[black!8] (#2,#3) rectangle ++(20,#1);}
+\newcommand\exlines[3]{\foreach \exi in {1,...,#3}
+  {\fill[black!18] (#1,{#2+(\exi-1)*12-7}) rectangle ++(20,7);}}
+\newcommand\exfloat[2]{\fill[black!45] (#1,#2) rectangle ++(20,40);}
+\newcommand\exfoot[2]{\draw[line width=.3pt] (#1,{#2-12}) -- ++(7,0);
+  \fill[black!30] (#1,{#2-5}) rectangle ++(20,5);}
 %% 定義・問題・命題などの文：\begin{stmt}[名前]{種類}
 \newcounter{stmt}
 \newenvironment{stmt}[2][]{%
@@ -60,7 +70,8 @@
 マニュアル（\texttt{evenend-ja.pdf}）の「揃え方」と「仕組み」の節と内容は同じで，述べ方だけが
 違う．使い方はマニュアルを参照されたい．長さはすべて段の上端から下向きに測る．
 記号が\TeX{}のどの概念（\cs{box}255，インサート，マークなど）にあたるかは，
-\ref{sec:formal-tex}節にまとめる．
+\ref{sec:formal-tex}節にまとめる．証明の一部は，定理証明支援系Lean 4でも確かめてある
+（\ref{sec:lean}節）．
 
 \section{記号と定義}
 
@@ -71,7 +82,7 @@
 （図\ref{fig:formal-frame}の左）．
 \end{stmt}
 
-\begin{figure}[tbp]
+\begin{figure}[H]
   \centering
   \begin{tikzpicture}[alg,x=.9mm,y=.9mm,
       txt/.style={fill=black!18},fl/.style={fill=black!45}]
@@ -119,6 +130,31 @@
   \label{fig:formal-frame}
 \end{figure}
 
+\begin{stmt}[段組]{例}\label{ex:frame}
+この節の例では，次の1つの段組を通して使う（図\ref{fig:ex-frame}）．段数は$N=3$，行送りは
+$b=12\,\mathrm{pt}$，1行目のベースラインの位置は$\tau=10\,\mathrm{pt}$である．版面の高さは
+$238\,\mathrm{pt}$で，上に段抜きのフロートがあり，下のアキを含めて$60\,\mathrm{pt}$を占める．
+よって，段の高さは$H=238-60=178\,\mathrm{pt}$である．$178=\tau+14b$なので，1つの段に
+本文が15行入る．
+\end{stmt}
+
+\begin{figure}[H]
+  \centering
+  \begin{tikzpicture}[alg,x=1mm,y=-.25mm]
+    \fill[black!45] (0,0) rectangle (68,48);
+    \node[white] at (34,24) {段抜きのフロート};
+    \foreach \x in {0,24,48} {\excol{\x}{60}}
+    \foreach \x/\i in {10/1,34/2,58/3} {\node at (\x,149) {段\i};}
+    \draw (0,0) rectangle (68,238);
+    \draw[<->] (72,0) -- (72,60) node[midway,right=2pt] {$60\,\mathrm{pt}$（下のアキを含む）};
+    \draw[<->] (72,60) -- (72,238) node[midway,right=2pt] {$H=178\,\mathrm{pt}$（15行）};
+    \draw[<->] (-4,0) -- (-4,238) node[midway,left=2pt] {版面$238\,\mathrm{pt}$};
+  \end{tikzpicture}
+  \caption{例\ref{ex:frame}の段組．版面から段抜きのフロートとその下のアキを除いた
+    高さが，段の高さ$H$である（ごく薄い地が段）}
+  \label{fig:ex-frame}
+\end{figure}
+
 \begin{stmt}[材料]{定義}\label{def:material}
 ページの\kyocho{材料}とは，次の3つの組$M=(T,F,\Phi)$である．
 \begin{itemize}
@@ -132,6 +168,42 @@
     \{1,\dots,n\}$を持つ．
 \end{itemize}
 \end{stmt}
+
+\begin{stmt}[材料]{例}\label{ex:material}
+例\ref{ex:frame}の段組に，次の材料を組む（図\ref{fig:ex-material}）．
+\begin{itemize}
+  \item 本文$T$は23行で，行の間のグルーは行送りだけとする．以下，番号は行だけに振り，
+    $T=(t_1,\dots,t_{23})$と書く．
+  \item 段内フロートは$F=(f_1)$の1つで，高さ$|f_1|=48\,\mathrm{pt}$（下のアキを含む．
+    $4b$にあたる），位置$\pi_1=\mbox{上}$である．\LaTeX{}は段1に置いた（$o_1=1$）．
+  \item 脚注は$\Phi=\{\varphi\}$の1つで，参照位置は3行目（$a(\varphi)=3$）である．
+    区切りの罫と上のアキを含めた塊の高さは$20\,\mathrm{pt}$とする．
+\end{itemize}
+本文の行の深さは，どの行も$d=3\,\mathrm{pt}$とする．
+\end{stmt}
+
+\begin{figure}[H]
+  \centering
+  \begin{tikzpicture}[alg,x=1mm,y=-.25mm]
+    \exlines{0}{10}{23}
+    \node[left=2pt] at (0,6.5) {$t_1$};
+    \node[left=2pt] at (0,30.5) {$t_3$};
+    \node[left=2pt] at (0,270.5) {$t_{23}$};
+    \node[font=\footnotesize] at (17,30.5) {\textdagger};
+    \node at (10,292) {本文$T$};
+    \exfloat{40}{0}
+    \draw[<->] (63,0) -- (63,48) node[midway,right=2pt] {$|f_1|=48\,\mathrm{pt}$};
+    \draw[densely dotted] (60,48) -- (64,48);
+    \node at (50,62) {フロート$f_1$（上，$o_1=1$）};
+    \exfoot{40}{120}
+    \draw[<->] (63,100) -- (63,120) node[midway,right=2pt] {$20\,\mathrm{pt}$};
+    \node at (50,134) {脚注$\varphi$（$a(\varphi)=3$）};
+    \draw[->,densely dashed] (20,30.5) to[out=0,in=180] (39,112);
+  \end{tikzpicture}
+  \caption{例\ref{ex:material}の材料．本文$T$は23行を1本につないだもの，$f_1$は段内
+    フロート，$\varphi$は3行目（\textdagger）に参照位置のある脚注である}
+  \label{fig:ex-material}
+\end{figure}
 
 \begin{stmt}[配置]{定義}\label{def:layout}
 材料$M$の\kyocho{配置}とは，次の組$(k,\sigma)$である（図\ref{fig:formal-layout}）．
@@ -149,7 +221,7 @@
 与える（$\sigma^0(j)=o_j$）．
 \end{stmt}
 
-\begin{figure}[tb]
+\begin{figure}[H]
   \centering
   \begin{tikzpicture}[alg,x=.9mm,y=.9mm,
       txt/.style={fill=black!18},fl/.style={fill=black!45}]
@@ -232,6 +304,40 @@
   \label{fig:formal-layout}
 \end{figure}
 
+\begin{stmt}[配置]{例}\label{ex:layout}
+例\ref{ex:material}の材料の配置を2つ挙げる（図\ref{fig:ex-layout}）．フロートは1つで
+$o_1=1$なので，割り振りは$\sigma(1)=1,2,3$の3つである（$\Sigma$の元は3つ）．
+\begin{itemize}
+  \item \LaTeX{}が組んだ配置$(k^0,\sigma^0)$：$k^0=(0,9,23,23)$，$\sigma^0(1)=1$．段1に
+    フロートと9行と脚注，段2に14行が入り，段3は空である．
+  \item 揃えた配置$(k,\sigma)$：$k=(0,4,14,23)$，$\sigma(1)=1$．段1にフロートと4行と脚注，
+    段2に10行，段3に9行が入る．
+\end{itemize}
+どちらも，脚注の参照位置の3行目は段1にある．
+\end{stmt}
+
+\begin{figure}[H]
+  \centering
+  \begin{tikzpicture}[alg,x=1mm,y=-.25mm]
+    \foreach \x in {0,24,48} {\excol{\x}{0}}
+    \exfloat{0}{0}\exlines{0}{58}{9}\exfoot{0}{178}
+    \exlines{24}{10}{14}
+    \node[font=\footnotesize] at (17,78.5) {\textdagger};
+    \node at (34,192) {$k^0=(0,9,23,23)$，$\sigma^0(1)=1$};
+    \begin{scope}[xshift=84mm]
+      \foreach \x in {0,24,48} {\excol{\x}{0}}
+      \exfloat{0}{0}\exlines{0}{58}{4}\exfoot{0}{118}
+      \exlines{24}{10}{10}
+      \exlines{48}{10}{9}
+      \node[font=\footnotesize] at (17,78.5) {\textdagger};
+      \node at (34,192) {$k=(0,4,14,23)$，$\sigma(1)=1$};
+    \end{scope}
+  \end{tikzpicture}
+  \caption{例\ref{ex:layout}の2つの配置．左：\LaTeX{}が組んだ配置．前の段から詰めるので，
+    段3が空になる．右：揃えた配置．同じ材料を，切れ目だけを変えて3段に分けている}
+  \label{fig:ex-layout}
+\end{figure}
+
 \begin{stmt}[所要の高さ]{定義}\label{def:used}
 配置$(k,\sigma)$の段$i$について，次の量を定める（図\ref{fig:formal-frame}の右）．
 \begin{itemize}
@@ -246,6 +352,43 @@
 段$i$の\kyocho{所要の高さ}を$U_i(k,\sigma)=A_i(\sigma)+|T_i|+G_i(k)$とする．高さ$h\le H$に
 ついて，すべての$i$で$U_i\le h$のとき，配置は\kyocho{$h$に入り切る}という．
 \end{stmt}
+
+\begin{stmt}[所要の高さ]{例}\label{ex:used}
+例\ref{ex:layout}の揃えた配置$k=(0,4,14,23)$の所要の高さを求める
+（図\ref{fig:ex-used}）．$\ell$行の本文の高さは，1行目のベースラインまでの$\tau$と
+行送り$\ell-1$回分の和$\tau+(\ell-1)b$である．
+\begin{itemize}
+  \item 段1：$A_1=48$，$|T_1|=10+3\cdot12=46$．脚注の塊$20$に行の深さ$d=3$を足すと$23$で，
+    $b=12$の倍数に切り上げて$G_1=24$．よって$U_1=48+46+24=118$．
+  \item 段2：$A_2=0$，$|T_2|=10+9\cdot12=118$，$G_2=0$．よって$U_2=118$．
+  \item 段3：$A_3=0$，$|T_3|=10+8\cdot12=106$，$G_3=0$．よって$U_3=106$．
+\end{itemize}
+（単位はpt．）どの段も$U_i\le118$なので，この配置は$h=118\,\mathrm{pt}$に入り切る．
+\LaTeX{}の配置$k^0$では$U_1=48+106+24=178$，$U_2=166$，$U_3=0$で，$h=H=178\,\mathrm{pt}$で
+なければ入り切らない．
+\end{stmt}
+
+\begin{figure}[H]
+  \centering
+  \begin{tikzpicture}[alg,x=1mm,y=-.25mm]
+    \foreach \x in {0,24,48} {\excol{\x}{0}}
+    \exfloat{0}{0}\exlines{0}{58}{4}\exfoot{0}{118}
+    \exlines{24}{10}{10}
+    \exlines{48}{10}{9}
+    \draw[densely dashed] (-2,118) -- (72,118) node[right=1pt] {$h=118$};
+    \draw[<->] (-4,0) -- (-4,48) node[midway,left=2pt] {$A_1=48$};
+    \draw[<->] (-4,48) -- (-4,94) node[midway,left=2pt] {$|T_1|=46$};
+    \draw[<->] (-4,94) -- (-4,118) node[midway,left=2pt] {$G_1=24$};
+    \draw (-6,0) -- (-2,0) (-6,48) -- (-2,48) (-6,94) -- (-2,94) (-6,118) -- (-2,118);
+    \draw[<->] (46,0) -- (46,118);
+    \node[fill=white,inner sep=1pt] at (46,140) {$|T_2|=118$};
+    \draw[<->] (70,0) -- (70,106) node[midway,right=2pt] {$|T_3|=106$};
+    \foreach \x/\u in {10/{U_1=118},34/{U_2=118},58/{U_3=106}} {\node at (\x,192) {$\u$};}
+  \end{tikzpicture}
+  \caption{例\ref{ex:used}の所要の高さ（単位はpt）．段1は，フロート，本文4行，脚注の
+    高さの和である．本文の高さは最終行のベースラインまでで，行の深さは数えない}
+  \label{fig:ex-used}
+\end{figure}
 
 \begin{stmt}[見かけの下端]{定義}\label{def:bottom}
 $d$を，$T$の行の深さのうち最も多い値とする（本文の行の標準の深さ）．配置の段$i$の
@@ -264,6 +407,40 @@ $v_i$を，段の最後の要素の基準線の位置$n_i$と，その下に見�
 $e_i=0$である．
 \end{stmt}
 
+\begin{stmt}[見かけの下端]{例}\label{ex:bottom}
+例\ref{ex:layout}の揃えた配置の見かけの下端を求める（図\ref{fig:ex-bottom}）．
+\begin{itemize}
+  \item 段2は本文の行で終わる．最終行のベースラインは$118$にあり，$v_2=118+d=121$．
+  \item 段3も本文の行で終わる．最終行のベースラインは$106$にあり，$v_3=106+3=109$．
+  \item 段1は段の脚注で終わる．本文の最終行のベースラインは$48+46=94$にある．その下に，
+    行の深さ$3$と脚注の塊$20$の計$23$が要るので，脚注が収まる最初の行の位置は，2行下の
+    $94+2\cdot12=118$である．脚注の最終行のベースラインをここに置くので，
+    $v_1=118+3=121$．
+\end{itemize}
+（単位はpt．）定義\ref{def:bottom}の終わりの分け方では，$(n_1,n_2,n_3)=(118,118,106)$，
+$e_i=3$である．
+\end{stmt}
+
+\begin{figure}[H]
+  \centering
+  \begin{tikzpicture}[alg,x=1mm,y=-.25mm]
+    \foreach \x in {0,24,48} {\excol{\x}{0}}
+    \exfloat{0}{0}\exlines{0}{58}{4}\exfoot{0}{118}
+    \exlines{24}{10}{10}
+    \exlines{48}{10}{9}
+    \draw (-2,118) -- (44,118);
+    \node[left=2pt] at (-2,112) {ベースライン$118$};
+    \draw[densely dashed] (-2,121) -- (44,121);
+    \node[left=2pt] at (-2,128) {$v_1=v_2=121$};
+    \draw (48,106) -- (70,106) node[right=2pt,yshift=5pt] {ベースライン$106$};
+    \draw[densely dashed] (48,109) -- (70,109) node[right=2pt,yshift=-5pt] {$v_3=109$};
+  \end{tikzpicture}
+  \caption{例\ref{ex:bottom}の見かけの下端（単位はpt）．実線は最後の行のベースライン，
+    破線は見かけの下端で，その差が行の深さ$d=3\,\mathrm{pt}$である．段1の脚注は，本文の
+    2行下の行の位置に最終行のベースラインを置く}
+  \label{fig:ex-bottom}
+\end{figure}
+
 \begin{stmt}[揃った配置]{定義}\label{def:even}
 配置の中身のある最後の段を$L$とする（$L$より後の段は空）．配置が\kyocho{下端$\beta$で
 揃っている}とは，次の3つが成り立つことをいう．
@@ -275,7 +452,7 @@ $e_i=0$である．
 \end{enumerate}
 \end{stmt}
 
-\begin{figure}[tbp]
+\begin{figure}[H]
   \centering
   \begin{tikzpicture}[alg,x=.9mm,y=.9mm,
       txt/.style={fill=black!18},fl/.style={fill=black!45}]
@@ -311,6 +488,47 @@ $e_i=0$である．
     $\beta$に合わせる．段3は中身のある最後の段$L$で，$\beta$より高くなければよい．
     段の脚注の最終行は，行の位置（$\tau+\ell b$）に置く}
   \label{fig:formal-even}
+\end{figure}
+
+\begin{stmt}[揃った配置]{例}\label{ex:even}
+例\ref{ex:bottom}の配置は，下端$\beta=121\,\mathrm{pt}$で揃っている（図\ref{fig:ex-even}の左）．
+中身のある最後の段は$L=3$である．
+\begin{enumerate}
+  \item 段1と段2は$v_1=v_2=121=\beta$で，グルーを伸び縮みさせるまでもない．
+  \item $v_3=109\le\beta$．
+  \item 本文だけの段2と段3は，行の位置を動かしていない．
+\end{enumerate}
+揃っていない配置の例として，同じ材料で切れ目を$k'=(0,4,13,23)$とする
+（図\ref{fig:ex-even}の右）．段2が9行，段3が10行で，見かけの下端は
+$(v_1,v_2,v_3)=(121,109,121)$になる．段2は本文だけの段なので，3から伸ばせず，1を満たすには
+$\beta=109$とするしかない．しかし$v_3=121>109$で，2に反する．よって，この配置は，
+どの$\beta$でも揃っていない．
+\end{stmt}
+
+\begin{figure}[H]
+  \centering
+  \begin{tikzpicture}[alg,x=1mm,y=-.25mm]
+    \foreach \x in {0,24,48} {\excol[136]{\x}{0}}
+    \exfloat{0}{0}\exlines{0}{58}{4}\exfoot{0}{118}
+    \exlines{24}{10}{10}
+    \exlines{48}{10}{9}
+    \draw[densely dashed] (-2,121) -- (70,121) node[right=1pt] {$\beta$};
+    \node at (34,150) {$k=(0,4,14,23)$：揃っている};
+    \begin{scope}[xshift=78mm]
+      \foreach \x in {0,24,48} {\excol[136]{\x}{0}}
+      \exfloat{0}{0}\exlines{0}{58}{4}\exfoot{0}{118}
+      \exlines{24}{10}{9}
+      \exlines{48}{10}{10}
+      \draw[densely dashed] (-2,121) -- (70,121);
+      \draw[<->] (34,109) -- (34,121);
+      \node[right=1pt,font=\footnotesize] at (34,128) {1行分短い};
+      \node at (34,150) {$k'=(0,4,13,23)$：揃っていない};
+    \end{scope}
+  \end{tikzpicture}
+  \caption{例\ref{ex:even}．左：下端$\beta$で揃った配置．最後の段3は短くてよい．右：
+    途中の段2が1行分短い配置．段2は本文だけの段で伸ばせないので，揃っていない
+    （段の下の部分は省いてある）}
+  \label{fig:ex-even}
 \end{figure}
 
 \section{問題}
@@ -594,14 +812,16 @@ $\beta=\beta_T$とするのは，すべての段で，$v_i$からフロートま
     下端が$\beta$になる．
     \begin{enumerate}
       \item 不足が半行以下である：$\beta-v_i\le b/2$．
-      \item 段の本文$T_i$に，無限に伸びるグルー（\cs{vfil}など）がない．
+      \item 段の並びが，最後の要素（行，下のフロート，脚注）で終わる．つまり，最後の
+        要素の後ろにグルーがない．
       \item 段が，段の脚注か下のフロートで終わる．または，段のグルーの伸びの和が正で
         ある．
     \end{enumerate}
 \end{enumerate}
 したがって，$i<L$のすべての段が(ii)の3つを満たすか$v_i\ge\beta$であれば，
 定義\ref{def:even}の1と2が成り立つ．\opt{footnote=page}では，段がページの脚注の領域に
-掛からないことも仮定する．
+掛からないことも仮定する．\cs{columnbreak}で終わる段は，最後の行の後ろに
+\cs{vfil}が残るので，(b)を満たさない．
 \end{stmt}
 \begin{shoumei}
 \TeX{}は，高さを指定して箱を組むとき，中身の自然な高さと指定の差を，グルーに割り振る．
@@ -621,14 +841,16 @@ $\beta=\beta_T$とするのは，すべての段で，$v_i$からフロートま
 フロートまわりのグルーの縮みは，段のグルーの縮みの和以下である．よって，縮みの和は
 差$v_i-\beta$以上で，差の全部が割り振られる．
 
-\kyocho{(ii)}．(a)から，手順5の3の無限に伸びるグルーは入らない．(b)から，本文にも
-無限に伸びるグルーはない．(c)を3つに分ける．
-段の脚注で終わる段では，手順5の1のグルーだけが無限に伸び，差を受け持つ．このグルーは
-脚注の上にあるので，脚注が箱の下端まで下がる．
-下のフロートで終わる段では，伸びの和が不足に足りなければ，手順5の2のグルーが差を
-受け持ち，フロートが箱の下端まで下がる．足りていれば，有限の伸びに差の全部が割り振られる．
-どちらでもない段では，伸びの和が正なので，有限の伸びに差の全部が割り振られる．
-どの場合も，最後の要素の基準線は箱の下端に来る．
+\kyocho{(ii)}．(a)から，手順5の3の無限に伸びるグルーは入らない．(b)から，段のグルーは
+どれも最後の要素より上にある．(c)を3つに分ける．
+段の脚注で終わる段では，手順5の1のグルーが無限に伸びるので，差の全部が無限に伸びる
+グルーに割り振られ，脚注が箱の下端まで下がる．
+下のフロートで終わる段では，伸びの和が不足に足りなければ，手順5の2のグルーが入り，
+同じく差の全部が割り振られて，フロートが箱の下端まで下がる．足りていれば，伸びの和は
+正なので，差の全部が割り振られる．
+どちらでもない段では，伸びの和が正なので，差の全部が割り振られる．
+どの場合も，差を受け持つグルーは最後の要素より上にあるので，最後の要素の基準線は
+箱の下端に来る．
 
 \kyocho{定義\ref{def:even}の1と2}．1は，(i)と(ii)と，$v_i=\beta$の段では差がないこと
 による．2は，命題\ref{prop:main}の(ii)による．
@@ -640,8 +862,8 @@ $\beta=\beta_T$とするのは，すべての段で，$v_i$からフロートま
 \begin{itemize}
   \item \kyocho{途中の段を$\beta$に合わせられること}（定義\ref{def:even}の1）．
     命題\ref{prop:even}の(ii)の条件を欠く段は，揃わない．不足が半行を超える段と，
-    伸びるグルーのない本文だけの段は，行を動かさずに下が空く．\cs{vfil}のある段は，
-    \cs{vfil}が伸びて下が空く．手順4の判定は，このような配分のうち(a)から(c)にあたる
+    伸びるグルーのない本文だけの段は，行を動かさずに下が空く．最後の行の後ろに
+    \cs{vfil}の残る段（\cs{columnbreak}で終わる段）は，\cs{vfil}が伸びて下が空く．手順4の判定は，このような配分のうち(a)から(c)にあたる
     ものを除くが，すべては除けない．手順4で$H$まで上げても判定を通らないときは，元の
     配置のまま組む．
   \item \kyocho{本文だけの段を動かさないこと}（定義\ref{def:even}の3）．$\beta=\beta_T$の
@@ -953,5 +1175,63 @@ whatsit（\cs{special}，\cs{write}など） & $T$の要素（高さ0） &
   \cs{@botlist}，\cs{@deferlist}，\cs{@dbltoplist}）で持つ．evenendは，段を取り込むときに
   リストから箱の写しを取る． \\\noalign{\vskip 4pt}
 \end{longtable}}
+
+\section{Leanによる確認}\label{sec:lean}
+
+この文書の例，補題，命題の一部は，定理証明支援系Lean 4で書き直し，証明が通ることを
+確かめてある．Leanのファイルは，配布物の\texttt{lean/}にある．\texttt{lean/check.sh}で，
+すべてをまとめて確かめられる．
+
+Leanで確かめているのは，この文書に書いた手順（モデル）が，書いた性質を持つことである．
+モデルが\texttt{evenend.lua}や\TeX{}の動作に合っていることは，Leanでは確かめられない．
+それは，マニュアルの「乱数による網羅テスト」の節に述べる試験が受け持つ．
+
+文とLeanの定理の対応を，次の表に示す．
+
+{\small
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{.22\linewidth}
+    >{\raggedright\arraybackslash}p{.3\linewidth}
+    >{\raggedright\arraybackslash}p{.42\linewidth}@{}}
+\hline
+この文書の文 & Leanのファイルと定理 & モデルでの扱い \\
+\hline
+\endhead
+\hline
+\endfoot
+例\ref{ex:frame}から例\ref{ex:even} & \texttt{Example.lean} &
+  例の数値（所要の高さ，見かけの下端，揃う配置と揃わない配置）を，定義のとおりに計算して
+  確かめる．\\\noalign{\vskip 4pt}
+補題\ref{lem:minh} & \texttt{MinH.lean}：\texttt{bisect\_ok}，\texttt{bisect\_steps}，
+  \texttt{scan\_ok}，\texttt{minH\_spec}，\texttt{minH\_isSome} &
+  $\mathrm{Fill}$の成否を，任意の述語とする（単調とは仮定しない）．二分法の回数は，区間の
+  幅が$2^k$以下なら$k$回以下，の形で示す．\\\noalign{\vskip 4pt}
+注意\ref{rem:minh} & \texttt{MinH.lean}の最後の\texttt{example} &
+  成否が「3と，50以上で成功」のとき，手順は50を返す．最小でない例である．\\\noalign{\vskip 4pt}
+補題\ref{lem:fill}（止まること，(P1)，(P2)） & \texttt{Fill.lean}：
+  \texttt{fillCol\_spec}，\texttt{fill\_spec} &
+  \cs{vsplit}を，「本文を前と後ろに分け，順を変えず，何も失わない」任意の関数とする．
+  高さ$c$以下に切ることは仮定しない（切った後で高さを確かめるので，要らない）．
+  \\\noalign{\vskip 4pt}
+命題\ref{prop:main}の(ii) & \texttt{Beta.lean}：\texttt{le\_chooseBeta} &
+  段を，見かけの下端とフロートまわりのグルーの縮みの組で表す．\\\noalign{\vskip 4pt}
+命題\ref{prop:even}の(i) & \texttt{Glue.lean}：\texttt{packed\_shrink} &
+  垂直の並びを，箱とグルー（自然な長さ，伸び，縮み，無限に伸びるか）の並びとし，高さを
+  指定して組むときの\TeX{}の割り振りを定義する．長さは有理数．\\\noalign{\vskip 4pt}
+命題\ref{prop:even}の(ii) & \texttt{Glue.lean}：\texttt{attach\_bottom}，
+  \texttt{stretch\_finite}，\texttt{ragged} &
+  脚注や下のフロートを\cs{vfil}で箱の下端に付ける場合，有限の伸びで届く場合，本文の
+  末尾に\cs{vfil}を入れて下を空ける場合（本文が動かないこと）．\\
+\end{longtable}}
+
+次のものは，Leanに書いていない．
+\begin{itemize}
+  \item (P3)（脚注の置き方）．モデルでは，脚注の高さを段の所要の高さに数えることだけを
+    扱う．
+  \item 命題\ref{prop:main}の手順1から4と6（候補の列挙，候補の選び方，揃わない配分の判定，
+    条件を緩めること）と，手順の全体が止まること．命題の(i)は，補題\ref{lem:fill}と
+    補題\ref{lem:minh}をそのまま使うだけである．
+  \item 段の先頭で捨てられる要素（グルーなど）の扱い．
+  \item \ref{sec:formal-apply}節の2つの場面．
+\end{itemize}
 
 \end{document}
