@@ -19,6 +19,9 @@
 \usepackage{hyperref}
 \hypersetup{hidelinks,pdftitle={evenendパッケージ},pdfauthor={木枝祐介}}
 
+%% ロゴ（クラスやパッケージが定義していなければ定義する）
+\providecommand\LuaTeX{Lua\TeX}
+\providecommand\LuaLaTeX{Lua\LaTeX}
 \newcommand\cs[1]{\texttt{\textbackslash #1}}
 %% 制御綴の「\」と和文の間にも和欧文間のアキを入れる（LuaTeX-jaの既定では入らない）
 \ltjsetparameter{alxspmode={`\\,allow}}
@@ -44,9 +47,21 @@
   \opt{floatgrid}は，\kyocho{evenendが組む段だけに効く}．evenendが段を組み直すとき
   （揃える最終ページとブロック．\opt{footnote=page}ではすべてのページ）に，
   evenend自身が行の位置を合わせるので，\pkg{gyoudori}は要らない（\ref{sec:gyoudori}節）．
-  逆に，evenendが組まない段（\opt{footnote=column}でLaTeXが通常どおり組む満杯のページ）
+  逆に，evenendが組まない段（\opt{footnote=column}で\LaTeX{}が通常どおり組む満杯のページ）
   には効かない．そのようなページは\opt{gridreport}で知らせる（\ref{sec:opt-gridreport}節）．
   \par}
+%% 定義・問題・命題などの文（\ref{sec:formal}節）：\begin{stmt}[名前]{種類}
+\newcounter{stmt}[section]
+\renewcommand\thestmt{\thesection.\arabic{stmt}}
+\newenvironment{stmt}[2][]{%
+  \par\addvspace{.5\baselineskip}\refstepcounter{stmt}%
+  \noindent{\gtfamily\sffamily #2\thestmt}%
+  \if\relax\detokenize{#1}\relax\else （#1）\fi\hspace{1\zw}\ignorespaces}
+  {\par\addvspace{.5\baselineskip}}
+%% 構成（構成的な証明）
+\newenvironment{kousei}[1][構成]{%
+  \par\noindent{\gtfamily\sffamily #1}\hspace{1\zw}\ignorespaces}
+  {\unskip\nobreak\hfill □\par\addvspace{.5\baselineskip}}
 \newcommand\gydep{\textsf{\small［\pkg{gyoudori}併用時］}}
 
 \title{\pkg{evenend}パッケージ\\[.5\baselineskip]
@@ -59,8 +74,8 @@
 
 \section{概要}
 
-\pkg{evenend}は，LaTeXの段組（\cs{twocolumn}）で組んだ文書の最終ページについて，
-各段の下端を揃えるLuaLaTeX用のパッケージである．目的は\pkg{flushend}（\pkg{sttools}）と
+\pkg{evenend}は，\LaTeX{}の段組（\cs{twocolumn}）で組んだ文書の最終ページについて，
+各段の下端を揃える\LuaLaTeX{}用のパッケージである．目的は\pkg{flushend}（\pkg{sttools}）と
 同じだが，次のものも扱う．
 \begin{itemize}
   \item 3段以上の段組（\opt{columns=3}など）
@@ -93,12 +108,12 @@
 \section{動作要件}
 
 \begin{itemize}
-  \item LuaLaTeX（LaTeX 2024-11-01以降）．pLaTeX，upLaTeX，pdfLaTeXでは使えない．
-    TeX Live 2025（LaTeX 2024-11-01，LuaTeX 1.21）とTeX Live 2026（LaTeX 2026-06-01，
-    LuaTeX 1.24）で動作を確かめている．
-  \item 柱の扱いは，LaTeX 2025-06-01で変わったマークの仕組みに合わせ，それより前の版
+  \item \LuaLaTeX{}（\LaTeX{} 2024-11-01以降）．p\LaTeX{}，up\LaTeX{}，pdf\LaTeX{}では使えない．
+    \TeX{} Live 2025（\LaTeX{} 2024-11-01，\LuaTeX{} 1.21）と\TeX{} Live 2026（\LaTeX{} 2026-06-01，
+    \LuaTeX{} 1.24）で動作を確かめている．
+  \item 柱の扱いは，\LaTeX{} 2025-06-01で変わったマークの仕組みに合わせ，それより前の版
     では，ページ全体のマークから\cs{firstmark}，\cs{botmark}を補う（\ref{sec:marks}節）．
-  \item LaTeX標準の段組（クラスオプション\opt{twocolumn}または\cs{twocolumn}）．
+  \item \LaTeX{}標準の段組（クラスオプション\opt{twocolumn}または\cs{twocolumn}）．
     \pkg{multicol}の\texttt{multicols}環境は対象外である．
   \item \pkg{jlreq}，\pkg{ltjsclasses}，\pkg{article}で動作を確かめている（横組のみ）．
 \end{itemize}
@@ -186,7 +201,7 @@ export TEXMFHOME=/path/to/texmf-evenend
     その位置から段数を変える（\ref{sec:switch}節）．段数には1も指定できる．省略可能な
     引数で，その段組だけの段間と段間罫を指定できる（\ref{sec:colsep}節）．
   \item[\cs{evenendcolumns*}\texttt{\{}\textit{段数}\texttt{\}}] 段数を変えるが，その前の
-    ブロックは揃えない（LaTeXの組み方のまま，段を上から詰める）．
+    ブロックは揃えない（\LaTeX{}の組み方のまま，段を上から詰める）．
   \item[\cs{columnbreak}] そこで段を改める（\ref{sec:multicol}節）．
   \item[\cs{flushcolumns}，\cs{raggedcolumns}] \texttt{multicols}環境の段を，段の高さまで
     伸ばすか，伸ばさずに自然な高さで組むか（\pkg{multicol}と同じ．\ref{sec:multicol}節）．
@@ -214,7 +229,7 @@ A6判の2段組で，オプションを\cs{evenendsetup}で換えながら組ん
 そのページの脚注の領域（\cs{skip}\cs{footins}，脚注罫，脚注）を除いた高さになる．
 最終ページでは，本文を揃えた段組の下を空け，脚注は版面の下端に置く．
 
-\opt{footnote=column}では，LaTeXの2段組と同じく，脚注を参照位置のある段の下端に置く
+\opt{footnote=column}では，\LaTeX{}の2段組と同じく，脚注を参照位置のある段の下端に置く
 （図\ref{fig:opt-footnote}下）．最終ページでは，脚注を含めた各段の下端が揃う．
 
 \begin{figure}[tbp]
@@ -230,7 +245,7 @@ A6判の2段組で，オプションを\cs{evenendsetup}で換えながら組ん
 \subsection{\opt{onecolumn}：\cs{onecolumn}の直前のページ}\label{sec:opt-onecolumn}
 
 \opt{onecolumn=true}（既定）では，\cs{onecolumn}で段組を終えるとき，その直前のページの
-各段の下端を揃える．\opt{onecolumn=false}では揃えず，LaTeXの組み方のまま（左の段から
+各段の下端を揃える．\opt{onecolumn=false}では揃えず，\LaTeX{}の組み方のまま（左の段から
 順に詰めた形）にする（図\ref{fig:opt-onecolumn}）．
 
 \begin{figure}[tbp]
@@ -310,7 +325,7 @@ A6判の2段組で，オプションを\cs{evenendsetup}で換えながら組ん
   \item \opt{bottom}：脚注をフロートの下に置き，フロートは，またがる段のうちいちばん
     高い脚注の上にそろえる．最終ページとブロック（揃える段組）では，すべての段で，脚注の
     下端を揃えた段の下端に置く．それ以外のページでは，フロートの右の段の脚注は，
-    フロートの置かれた段の脚注の高さまでに収め，残りは次の段に送る（LaTeXが脚注を
+    フロートの置かれた段の脚注の高さまでに収め，残りは次の段に送る（\LaTeX{}が脚注を
     段の終わりで分けるのと同じ）．
 \end{itemize}
 
@@ -340,7 +355,7 @@ A6判の2段組で，オプションを\cs{evenendsetup}で換えながら組ん
 
 \subsection{\opt{gridreport}：\opt{floatgrid}が効かないページの報告}\label{sec:opt-gridreport}
 
-\opt{floatgrid}はevenendが組む段だけに効く．\opt{footnote=column}でLaTeXが通常どおり組む
+\opt{floatgrid}はevenendが組む段だけに効く．\opt{footnote=column}で\LaTeX{}が通常どおり組む
 満杯のページのように，evenendが組まないページでは，高さが行送りの倍数でないフロートの後の
 行は行送りの位置からずれる．\opt{gridreport}は，そのようなページを知らせる．
 \begin{itemize}
@@ -357,7 +372,7 @@ Package evenend Info: Page 1: lines after floats are off the
 \end{verbatim}
   \item \opt{none}：何も出さない．
 \end{itemize}
-LaTeXが組んだ段の箱をたどり，上のフロートの後の最初の行のベースラインが\cs{topskip}＋
+\LaTeX{}が組んだ段の箱をたどり，上のフロートの後の最初の行のベースラインが\cs{topskip}＋
 行送りの倍数の位置にないか，本文中のフロートなどの垂直の箱の前後で行の間隔が行送りの倍数で
 ないとき（0.2pt以上ずれたとき）に該当とみなす．\gydep \pkg{gyoudori}でフロートを行取り
 すれば行は行送りの位置に乗るので，報告されない．\opt{floatgrid=false}のときは調べない．
@@ -384,7 +399,7 @@ LaTeXが組んだ段の箱をたどり，上のフロートの後の最初の行
 
 切り換えの位置までのそのページの段組（ブロック）は，最終ページと同じ方法で下端を揃えて
 確定し，その下に新しい段数で段組を続ける（図\ref{fig:switch}）．1つのページに
-いくつでもブロックを積める．
+いくつでもブロックを積める．仕組みは図\ref{fig:alg-block}に示す．
 \begin{figure}[tb]
   \centering
   \fbox{\includegraphics[page=1,width=.4\linewidth]{evenend-sample-switch.pdf}}\hspace{2\zw}%
@@ -555,7 +570,7 @@ LaTeXが組んだ段の箱をたどり，上のフロートの後の最初の行
   \item 段下端の脚注の塊を行送りの倍数に切り上げずに見込む．
   \item \opt{floatgrid}をやめる（フロートの前後の行は行送りの位置からずれることがある）．
 \end{enumerate}
-それでも入らなければ（分割しない脚注が長すぎる場合など），揃えずにLaTeXの組み方に戻し，
+それでも入らなければ（分割しない脚注が長すぎる場合など），揃えずに\LaTeX{}の組み方に戻し，
 警告を出す．ページがちょうど満杯なら，段の下端はもともと揃うので，警告ではなく情報だけ
 出す．
 
@@ -563,13 +578,13 @@ LaTeXが組んだ段の箱をたどり，上のフロートの後の最初の行
 
 \begin{itemize}
   \item 段内フロートは，番号順を保ったまま，揃えたときの段の高さが最も小さくなるように
-    段を選び直す．LaTeXが置いた段より前の段へは動かさない．高さが同じなら，動かす
+    段を選び直す．\LaTeX{}が置いた段より前の段へは動かさない．高さが同じなら，動かす
     フロートの少ない配置にする．上のフロートは段の上端に，下のフロートは段の下端に
     付ける（本文のグルーを伸ばしても届かない段では，行は行送りの位置のまま，届かない
     分を下のフロートの上に空ける）．
-  \item 段抜きフロートは，LaTeX本来の処理（\cs{@combinedblfloats}）がこれまでどおり
+  \item 段抜きフロートは，\LaTeX{}本来の処理（\cs{@combinedblfloats}）がこれまでどおり
     配置する．\pkg{stfloats}による段抜きの下のフロートは，揃えた段の下に来る．
-  \item LaTeXがフロートだけで組んだ段（フロート段）も取り込み，その中身を上のフロートと
+  \item \LaTeX{}がフロートだけで組んだ段（フロート段）も取り込み，その中身を上のフロートと
     して揃える段組に入れる．
 \end{itemize}
 
@@ -589,14 +604,14 @@ LaTeXが組んだ段の箱をたどり，上のフロートの後の最初の行
   \item フロートを入れるとそのページに入り切らなければ，本文だけで揃えてそのページを
     終え，持ち越したフロートは次のページの上に元の段数のブロックとして置いてから
     段数を変える．
-  \item 段より高いフロートがあってフロートだけのブロックも組めなければ，LaTeXの
+  \item 段より高いフロートがあってフロートだけのブロックも組めなければ，\LaTeX{}の
     フロート段として元の段数のまま出してページを終え，残ったフロート（\texttt{p}の
     指定がなくフロート段に置けないものなど）は次のページでもう一度ブロックに組む．
 \end{itemize}
 こうして，段数を変えた後のブロックに前のブロックのフロートが（前の段幅のまま）入る
 ことはない．文書末，\cs{evenendclearpage}，\cs{onecolumn}の前の最終ページでも，
 持ち越された段内フロート（段をまたぐものを含む）を揃える段組に入れてみる．入り切らな
-ければ入れずに揃え，持ち越されたフロートはこれまでどおりLaTeXが後のページに同じ段数で
+ければ入れずに揃え，持ち越されたフロートはこれまでどおり\LaTeX{}が後のページに同じ段数で
 出す．持ち越された段抜きフロートは後のページに出す．
 
 持ち越された段内フロートを揃える段組（ブロックと最終ページ）に入れる前に，フック
@@ -690,14 +705,14 @@ LaTeXが組んだ段の箱をたどり，上のフロートの後の最初の行
 \opt{footnote=page}（既定）では，脚注を\cs{columnwidth}でなく\cs{textwidth}の幅で組み，
 ページの脚注として版面の下端に置く（\pkg{multicol}と同じ）．
 \begin{itemize}
-  \item LaTeXが段を組むあいだ，脚注は全段の高さを減らすので，その高さを段数倍で見込む
+  \item \LaTeX{}が段を組むあいだ，脚注は全段の高さを減らすので，その高さを段数倍で見込む
     （\cs{count}\cs{footins}を段数倍にする）．脚注の上のアキ（\cs{skip}\cs{footins}）は，
     ページの最初の脚注のときだけ段数倍で見込む．
   \item ページの最後の段を出力するとき，そのページの本文を，版面からページの脚注の領域を
     除いた高さの段に組み直す（フロートは置かれた段のまま）．入り切らない本文は，その中で
     参照する脚注とともに次のページへ送り返す．そのぶん脚注の領域が小さくなるので，段を
     高くして組み直せる所まで組み直す．
-  \item LaTeXが段ごとに改段すると，段ごとに1行未満の余りが出る．組み直した段で本文が
+  \item \LaTeX{}が段ごとに改段すると，段ごとに1行未満の余りが出る．組み直した段で本文が
     足りなくならないよう，ページの最後の段は段数×行送りだけ多めに詰めさせる（多めに
     詰めた分は次のページへ送り返す）．
   \item 最終ページとブロックでは，本文を揃えた段組の下を空け，ページの脚注を版面の下端に
@@ -705,7 +720,7 @@ LaTeXが組んだ段の箱をたどり，上のフロートの後の最初の行
 \end{itemize}
 
 \opt{footnote=column}では，最終ページの脚注を，本文中の参照位置が入った段へ移す．
-TeXが段をまたいで分割した脚注は，1つにまとめ直す．参照位置が最終ページにない脚注
+\TeX{}が段をまたいで分割した脚注は，1つにまとめ直す．参照位置が最終ページにない脚注
 （前のページから送られてきたもの）は，もとの段に残す．脚注は各段の本文の下に置き，
 脚注の最終行のベースラインを，他の段の最終行のベースラインに揃える．脚注の塊（本文の
 最終行の深さを含む）を行送りの倍数に切り上げて見込み，端数は脚注の上のアキで吸収する．
@@ -726,7 +741,7 @@ TeXが段をまたいで分割した脚注は，1つにまとめ直す．参照�
     \node[cond=8\zw] (last) at (0,-30) {揃える場面か};
     \node[cond=8\zw] (pagelast) at (0,-46) {ページの最後の段か};
     \node[cond=8\zw] (fnpage) at (0,-62) {\opt{footnote=page}か};
-    \node[proc=10\zw] (latex) at (0,-80) {LaTeXが組んだ段のままページを出力する};
+    \node[proc=10\zw] (latex) at (0,-80) {\LaTeX{}が組んだ段のままページを出力する};
     \node[proc=10\zw] (bal) at (50,-30) {そのページの全段を揃える（図\ref{fig:alg-balance}）};
     \node[proc=10\zw] (next) at (50,-46) {次の段へ進む};
     \node[proc=10\zw] (rebuild) at (50,-66) {ページを組み直す：版面から脚注の領域を除いた高さで分け直し，入り切らない本文は次のページへ送り返す};
@@ -751,8 +766,9 @@ TeXが段をまたいで分割した脚注は，1つにまとめ直す．参照�
   \label{fig:alg-flow}
 \end{figure}
 
-揃えるときは，LaTeXが上から詰めて組んだ段を1本の材料に戻し，各段に同じ高さで分け直す
+揃えるときは，\LaTeX{}が上から詰めて組んだ段を1本の材料に戻し，各段に同じ高さで分け直す
 （図\ref{fig:alg-picture}）．手順は図\ref{fig:alg-balance}のとおり．
+図\ref{fig:alg-picture}は上のフロートの場合で，下のフロートの場合は図\ref{fig:alg-bottom}に示す．
 
 \begin{figure}[tbp]
   \centering
@@ -764,9 +780,8 @@ TeXが段をまたいで分割した脚注は，1つにまとめ直す．参照�
       \fill[txt] (2,2) rectangle (14,38);
       \fill[fl] (16,30) rectangle (28,38);
       \fill[txt] (16,17) rectangle (28,28);
-      \draw[densely dashed] (15,2) -- (15,38);
-      \node[lab,below,align=center] at (15,-1) {LaTeXが段を組む\\（上から詰める）};
-      \node[lab,above] at (15,41) {\textgt{TeX側}（\texttt{evenend.sty}）};
+      \node[lab,below,align=center] at (15,-1) {\LaTeX{}が段を組む\\（上から詰める）};
+      \node[lab,above] at (15,41) {\textgt{\TeX{}側}（\texttt{evenend.sty}）};
     \end{scope}
     \draw[->] (31,20) -- node[lab,above,align=center] {材料を\\渡す} (45,20);
     %% Lua側
@@ -794,25 +809,278 @@ TeXが段をまたいで分割した脚注は，1つにまとめ直す．参照�
       \fill[txt] (2,10.5) rectangle (14,38);
       \fill[fl] (16,30) rectangle (28,38);
       \fill[txt] (16,10.5) rectangle (28,28);
-      \draw (15,10.5) -- (15,38);
       \draw (2,6) -- (10,6);
       \fill[txt] (2,2.5) rectangle (22,4.5);
-      \node[lab,below,align=center] at (15,-1) {段の箱を並べ，罫と\\脚注を付けて出力する};
-      \node[lab,above] at (15,41) {\textgt{TeX側}};
+      \node[lab,below,align=center] at (15,-1) {段の箱を並べ，脚注を\\付けて出力する};
+      \node[lab,above] at (15,41) {\textgt{\TeX{}側}};
     \end{scope}
   \end{tikzpicture}
-  \caption{揃え方の考え方と，TeX側とLua側の分担．LaTeXが組んだ全段の材料をLua側に渡し，
+  \caption{揃え方の考え方と，\TeX{}側とLua側の分担．\LaTeX{}が組んだ全段の材料をLua側に渡し，
     Lua側で本文を1本につなぎ，フロートと脚注の高さを差し引いて，入り切る最小の段の高さ$h$で
-    分け直して段の箱を組む（破線の枠の中）．TeX側は，返された段の箱を並べ，段間罫と脚注を
+    分け直して段の箱を組む（破線の枠の中）．\TeX{}側は，返された段の箱を並べ，段間罫と脚注を
     付けてページを出力する}
   \label{fig:alg-picture}
 \end{figure}
 
-TeX側（\texttt{evenend.sty}）とLua側（\texttt{evenend.lua}）は，組版のあいだ何度もやりとりする．
-いつ，どちらが，何をするかを図\ref{fig:alg-lua}に示す．TeX側は，箱やレジスタの受け渡しと，
+下のフロートも，上のフロートと同じく，段から外して本文を1本につなぎ，フロートを置く段では
+フロートとその上のアキ（\cs{textfloatsep}）の高さを差し引いて，段の高さ$h$を探す．違うのは
+付ける位置である（図\ref{fig:alg-bottom}）．
+\begin{itemize}
+  \item \LaTeX{}は，下のフロートを段の下端，つまり版面の下端に置く．上のフロートは，揃えた後も
+    段の上端に残る．下のフロートは，揃えた段の下端（段の上端から$h$の位置）に付け直すので，
+    版面の下端から，揃えた段組の下端まで上がる．
+  \item 下のフロートのある段では，フロートの下端を見かけの下端とする．ほかの段は，最終行の
+    下端（ベースラインに本文の行の標準の深さを足した位置）をこれに揃える．
+  \item 本文とフロートの間は，グルーの伸びで合わせる．伸ばしても届かない段では，行を行送りの
+    位置に保ち，届かない分をフロートの上に空ける．
+  \item \opt{footnote=page}では，脚注は版面の下端に全幅で置くので，フロートは揃えた段組の
+    下端に，脚注は離れて版面の下端に来る．\opt{footnote=column}では，その段の脚注をフロートの
+    下に置き（\LaTeX{}の段と同じ順），脚注の最終行のベースラインをほかの段の最終行の
+    ベースラインに揃える．フロートは，脚注の分だけ上に来る．
+  \item どの段に置くかは，上のフロートと同じく，段の高さが最も小さくなるように選ぶ
+    （\ref{sec:floats}節）．
+\end{itemize}
+
+\begin{figure}[tbp]
+  \centering
+  \begin{tikzpicture}[alg,x=.84mm,y=.92mm,
+      txt/.style={fill=black!18},fl/.style={fill=black!45}]
+    %% TeX側：LaTeXが組んだページ（下のフロートは版面の下端）
+    \begin{scope}
+      \draw (0,0) rectangle (30,40);
+      \fill[txt] (2,12) rectangle (14,38);
+      \fill[fl] (2,2) rectangle (14,10);
+      \fill[txt] (16,18) rectangle (28,38);
+      \node[lab,below,align=center] at (15,-1) {\LaTeX{}が段を組む\\（下のフロートは\\版面の下端）};
+      \node[lab,above] at (15,41) {\textgt{\TeX{}側}（\texttt{evenend.sty}）};
+    \end{scope}
+    \draw[->] (31,20) -- node[lab,above,align=center] {材料を\\渡す} (45,20);
+    %% Lua側
+    \draw[densely dashed,rounded corners=3pt] (42,-24) rectangle (124,50);
+    \node[lab,above] at (83,50) {\textgt{Lua側}（\texttt{evenend.lua}）で計算する};
+    \begin{scope}[xshift=40.32mm]
+      \fill[txt] (3,-3) rectangle (15,43);
+      \fill[fl] (18,-3) rectangle (30,5);
+      \node[lab,right] at (17,8) {フロート};
+      \node[lab,right,align=left] at (17,24) {本文を\\1本に\\つなぐ};
+    \end{scope}
+    \draw[->] (80,20) -- (90,20);
+    \begin{scope}[xshift=79.8mm]
+      \fill[txt] (0,20) rectangle (12,38);
+      \fill[fl] (0,10) rectangle (12,18);
+      \fill[txt] (14,10) rectangle (26,38);
+      \draw[<->] (-2,10) -- node[lab,left] {$h$} (-2,38);
+      \node[lab,below,align=center] at (13,9) {段の箱};
+    \end{scope}
+    \node[lab,align=left,anchor=north west] at (50,-8) {・フロートの置き方を選ぶ\\・入り切る最小の$h$を探す（\cs{vsplit}）\\・下のフロートを段の下端（$h$の位置）に付ける};
+    \draw[->] (122,20) -- node[lab,above,align=center,pos=.62] {段の箱を\\返す} (137,20);
+    %% TeX側：出力
+    \begin{scope}[xshift=115.08mm]
+      \draw (0,0) rectangle (30,40);
+      \fill[txt] (2,20) rectangle (14,38);
+      \fill[fl] (2,10) rectangle (14,18);
+      \fill[txt] (16,10) rectangle (28,38);
+      \draw (2,6) -- (10,6);
+      \fill[txt] (2,2.5) rectangle (22,4.5);
+      \draw[->] (33,3) -- (33,10);
+      \node[lab,anchor=south west] at (30.6,10) {上がる};
+      \node[lab,below,align=center] at (15,-1) {段の箱を並べ，脚注を\\付けて出力する};
+      \node[lab,above] at (15,41) {\textgt{\TeX{}側}};
+    \end{scope}
+  \end{tikzpicture}
+
+  \vspace{\baselineskip}
+  \begin{tikzpicture}[alg,x=1mm,y=1mm,
+      txt/.style={fill=black!18},fl/.style={fill=black!45}]
+    %% footnote=page
+    \begin{scope}
+      \node[lab,above] at (28,2) {\opt{footnote=page}};
+      \foreach \i in {0,...,4} \fill[txt] (0,-4*\i) rectangle (26,-4*\i-2.2);
+      \fill[fl] (0,-22.2) rectangle (26,-34.2);
+      \node[lab,text=white] at (13,-28.2) {下のフロート};
+      \foreach \i in {0,...,8} \fill[txt] (30,-4*\i) rectangle (56,-4*\i-2.2);
+      \draw[|-|] (-2,-18.2) -- node[lab,left] {アキ} (-2,-22.2);
+      \draw[densely dashed] (-4,-34.2) -- (60,-34.2);
+      \node[lab,anchor=north west] at (-4,-34.8) {見かけの下端（上端から$h$）};
+      \draw (0,-47) -- (14,-47);
+      \fill[txt] (0,-49) rectangle (40,-50.6);
+      \node[lab,anchor=west] at (41,-49.8) {脚注};
+      \draw (-4,-52) -- (60,-52);
+      \node[lab,anchor=north west] at (-4,-52.6) {版面の下端};
+    \end{scope}
+    %% footnote=column
+    \begin{scope}[xshift=78mm]
+      \node[lab,above] at (28,2) {\opt{footnote=column}};
+      \foreach \i in {0,...,3} \fill[txt] (0,-4*\i) rectangle (26,-4*\i-2.2);
+      \fill[fl] (0,-17.2) rectangle (26,-28.2);
+      \node[lab,text=white] at (13,-22.7) {下のフロート};
+      \draw (0,-30.3) -- (9,-30.3);
+      \fill[txt] (0,-32.6) rectangle (15,-34.2);
+      \node[lab,anchor=west] at (15.5,-32.6) {脚注};
+      \foreach \i in {0,...,8} \fill[txt] (30,-4*\i) rectangle (56,-4*\i-2.2);
+      \draw[|-|] (-2,-14.2) -- node[lab,left] {アキ} (-2,-17.2);
+      \draw[densely dashed] (-4,-34.2) -- (60,-34.2);
+      \node[lab,anchor=north west,align=left] at (-4,-34.8) {脚注の最終行と本文の最終行の\\ベースラインをそろえる};
+    \end{scope}
+  \end{tikzpicture}
+  \caption{下のフロートの揃え方．上：\LaTeX{}は下のフロートを版面の下端に置く．Lua側は，
+    フロートを外して本文を1本につなぎ，フロートの高さを差し引いて段の高さ$h$を探し，
+    フロートを段の下端（上端から$h$の位置）に付け直す．フロートは版面の下端から，揃えた
+    段組の下端まで上がる．下：揃えた段組の下端の拡大（薄い帯は行，濃い箱はフロート）．
+    本文とフロートの間のアキで高さを合わせる．\opt{footnote=page}では脚注は版面の下端に
+    離れて置き，\opt{footnote=column}では段の脚注をフロートの下に置く}
+  \label{fig:alg-bottom}
+\end{figure}
+
+ページの途中で段組を改めるとき（\cs{evenendcolumns}と，\texttt{multicols}環境の始まりと
+終わり）は，そこまでの段組を揃えてページの上部に積み，残りの高さで次の段組を続ける
+（図\ref{fig:alg-block}）．
+\begin{enumerate}
+  \item 切り換えの位置で段を打ち切る．そのページには，\LaTeX{}が上から詰めて組んだ，
+    そこまでの段がある．
+  \item その全段を，最終ページと同じ方法で揃える（Lua側．図\ref{fig:alg-picture}）．
+  \item 揃えた段組を1つの箱にして，ページの上部にとっておく箱に積む（\TeX{}側）．その下に
+    段組の間のアキ（\opt{blockskip}）を入れる．\opt{footnote=page}では，その段組の脚注を
+    ページの脚注に移す．
+  \item 段の高さ（\cs{@colht}）から，積んだ段組の高さ，段組の間のアキ，ページの脚注の
+    領域を引く．残りが\opt{blockmin}より小さければ，ここで改ページする．
+  \item 段数と段幅を新しい値にし，\LaTeX{}に残りの高さの段を組ませる．Lua側がとっておいた
+    材料は積むたびに片付けるので，次の段組は前の段組と別に揃う．
+  \item ページの最後の段で，積んだ段組の下に最後の段組を置き，ページの脚注を付けて
+    出力する．その前にまた切り換えがあれば，2からくり返す．
+\end{enumerate}
+
+フロートは，書いた段組の中で完結させる（図\ref{fig:alg-block}の下．\ref{sec:floats}節）．
+2で揃えるときに，次のように置く．
+\begin{itemize}
+  \item 上のフロートは，その段組の段の上端に置く．下のフロートは，その段組の段の下端に
+    置く（図\ref{fig:alg-bottom}と同じく，版面の下端から，揃えた段組の下端まで上がる）．
+    どちらも，ページの上端や下端ではなく，段組の上端や下端である．
+  \item \LaTeX{}がまだ置いていない（持ち越した）段内フロートは，その段組の段の上に入れる．
+  \item 持ち越した段抜きのフロートは，その段組の下に全幅で置く．段組を積んだページには，
+    \LaTeX{}に段抜きのフロートを置かせない（ページの上端に置けば前の段組より上に，下端に
+    置けば後の段組より下に来るため）．
+  \item フロートを入れるとページに入り切らないときは，本文だけで揃えてページを終え，
+    フロートは次のページの上に元の段数の段組として置いてから，段数を変える．
+\end{itemize}
+こうして，段数を変えた後の段組に，前の段幅のフロートが入ることはない．
+
+\begin{figure}[tbp]
+  \centering
+  \begin{tikzpicture}[alg,x=.78mm,y=.92mm,
+      txt/.style={fill=black!18},blk/.style={fill=black!32}]
+    %% (1) 切り換えの時点
+    \begin{scope}
+      \draw (0,0) rectangle (30,40);
+      \fill[txt] (2,2) rectangle (14,38);
+      \fill[txt] (16,34) rectangle (28,38);
+      \draw[very thick] (16,34) -- (28,34);
+      \draw[<-] (22,33.4) -- (22,29);
+      \node[lab,below] at (22,29) {切り換え};
+      \node[lab,above] at (15,41) {\textgt{(1) 切り換えの位置}};
+      \node[lab,below,align=center] at (15,-1) {\LaTeX{}が上から\\詰めて組んだ段};
+    \end{scope}
+    \draw[->] (31,30) -- node[lab,above,align=center] {揃える\\(Lua)} (45,30);
+    %% (2) 揃えて積む
+    \begin{scope}[xshift=35.88mm]
+      \draw (0,0) rectangle (30,40);
+      \fill[blk] (2,18) rectangle (14,38);
+      \fill[blk] (16,18) rectangle (28,38);
+      \draw (2,5.5) -- (9,5.5);
+      \fill[txt] (2,2.5) rectangle (20,4);
+      \draw[densely dashed] (2,6.5) rectangle (28,14);
+      \draw[|-|] (31.5,14) -- (31.5,18);
+      \node[lab,anchor=west] at (32,18.5) {アキ};
+      \draw[|-|] (31.5,6.5) -- (31.5,14);
+      \node[lab,anchor=west,align=left] at (32,8.5) {残りの\\高さ};
+      \node[lab,above] at (15,41) {\textgt{(2) 揃えて積む}};
+      \node[lab,below,align=center] at (15,-1) {揃えた段組を上部に\\積み，脚注を版面の\\下端に移す（\TeX{}側）};
+    \end{scope}
+    \draw[->] (77,30) -- node[lab,above,align=center] {段数を\\変える} (91,30);
+    %% (3) 残りの高さで続ける
+    \begin{scope}[xshift=71.76mm]
+      \draw (0,0) rectangle (30,40);
+      \fill[blk] (2,18) rectangle (14,38);
+      \fill[blk] (16,18) rectangle (28,38);
+      \fill[txt] (2,6.5) rectangle (9.33,14);
+      \fill[txt] (11.33,6.5) rectangle (18.67,14);
+      \fill[txt] (20.67,10) rectangle (28,14);
+      \draw (2,5.5) -- (9,5.5);
+      \fill[txt] (2,2.5) rectangle (20,4);
+      \node[lab,above] at (15,41) {\textgt{(3) 続きを組む}};
+      \node[lab,below,align=center] at (15,-1) {\LaTeX{}が，残りの高さの\\段を新しい段数で組む};
+    \end{scope}
+    \draw[->] (123,30) -- node[lab,above,align=center] {ページ\\の最後} (137,30);
+    %% (4) 出力
+    \begin{scope}[xshift=107.64mm]
+      \draw (0,0) rectangle (30,40);
+      \fill[blk] (2,18) rectangle (14,38);
+      \fill[blk] (16,18) rectangle (28,38);
+      \fill[txt] (2,6.5) rectangle (9.33,14);
+      \fill[txt] (11.33,6.5) rectangle (18.67,14);
+      \fill[txt] (20.67,6.5) rectangle (28,14);
+      \draw (2,5.5) -- (9,5.5);
+      \fill[txt] (2,2.5) rectangle (20,4);
+      \node[lab,above] at (15,41) {\textgt{(4) 出力する}};
+      \node[lab,below,align=center] at (15,-1) {積んだ段組，最後の段組，\\脚注をまとめて出力する};
+    \end{scope}
+  \end{tikzpicture}
+
+  \vspace{\baselineskip}
+  \begin{tikzpicture}[alg,x=.78mm,y=.92mm,
+      txt/.style={fill=black!18},blk/.style={fill=black!32},fl/.style={fill=black!55}]
+    %% 切り換えの位置：LaTeXが組んだ段とフロート
+    \begin{scope}
+      \draw (0,0) rectangle (30,40);
+      \fill[txt] (2,10) rectangle (14,38);
+      \fill[fl] (2,2) rectangle (14,8);
+      \fill[fl] (16,32) rectangle (28,38);
+      \fill[txt] (16,26) rectangle (28,30);
+      \draw[very thick] (16,26) -- (28,26);
+      \node[lab,anchor=east] at (-1,35) {上のフロート};
+      \draw (-1,35) -- (16,35);
+      \node[lab,anchor=east] at (-1,5) {下のフロート};
+      \draw (-1,5) -- (2,5);
+      \fill[fl] (36,17) rectangle (54,22);
+      \node[lab,below,align=center] at (45,16.5) {持ち越した\\段抜きの\\フロート};
+      \node[lab,above] at (15,41) {\textgt{切り換えの位置}};
+      \node[lab,below,align=center] at (15,-1) {\LaTeX{}が置いたフロート\\（下のフロートは版面の下端）};
+    \end{scope}
+    \draw[->] (31,30) -- node[lab,above,align=center] {揃えて\\積む} (59,30);
+    %% 揃えて積んだ後
+    \begin{scope}[xshift=46.8mm]
+      \draw (0,0) rectangle (30,40);
+      \fill[blk] (2,22) rectangle (14,38);
+      \fill[fl] (2,14) rectangle (14,20);
+      \fill[fl] (16,32) rectangle (28,38);
+      \fill[blk] (16,14) rectangle (28,30);
+      \fill[fl] (2,7) rectangle (28,12);
+      \node[lab,anchor=west] at (31,35) {上のフロート：段組の段の上端};
+      \draw (28,35) -- (31,35);
+      \node[lab,anchor=west] at (31,17) {下のフロート：段組の段の下端};
+      \draw (14,17) -- (31,17);
+      \node[lab,anchor=west] at (31,9.5) {段抜きのフロート：段組の下};
+      \draw (28,9.5) -- (31,9.5);
+      \node[lab,anchor=west] at (31,3.5) {次の段組はこの下に続く};
+      \node[lab,above] at (15,41) {\textgt{揃えて積んだ後}};
+      \node[lab,below,align=center] at (15,-1) {フロートは，書いた\\段組の中で完結する};
+    \end{scope}
+  \end{tikzpicture}
+  \caption{ページの途中で段組を改めるとき．上：2段から3段へ改める流れ（\opt{footnote=page}）．
+    (1) 切り換えの位置までに\LaTeX{}が組んだ段を，(2) 揃えて（濃い帯）ページの上部に積み，
+    その段組の脚注を版面の下端に移す．段組の間のアキと脚注の領域を除いた残りの高さ
+    （破線の枠）が，次の段組の段の高さになる．(3) \LaTeX{}が残りの高さの段を新しい段数で
+    組み，(4) ページの最後の段で，積んだ段組とまとめて出力する．下：フロート（最も濃い箱）の
+    扱い．上のフロートと下のフロートは揃えた段組の段の上端と下端に置き，持ち越した段抜きの
+    フロートはその段組の下に全幅で置く}
+  \label{fig:alg-block}
+\end{figure}
+
+\TeX{}側（\texttt{evenend.sty}）とLua側（\texttt{evenend.lua}）は，組版のあいだ何度もやりとりする．
+いつ，どちらが，何をするかを図\ref{fig:alg-lua}に示す．\TeX{}側は，箱やレジスタの受け渡しと，
 段の箱を並べてページを出力することを受け持つ．Lua側は，箱の中の要素を1つずつたどって
 測ること，グルーを書き換えること，材料を写して何通りも分けてみることを受け持つ
-（TeXのマクロでは，組み上がった箱の中身をたどれない）．箱の中の段組（\pkg{tcolorbox}の中の
+（\TeX{}のマクロでは，組み上がった箱の中身をたどれない）．箱の中の段組（\pkg{tcolorbox}の中の
 \texttt{multicols}環境など）は，出力ルーチンを使わず，その場でLua側（\texttt{boxbalance}）が
 分けて1つの箱にする．
 
@@ -823,12 +1091,12 @@ TeX側（\texttt{evenend.sty}）とLua側（\texttt{evenend.lua}）は，組版�
       lu/.style={proc=21\zw,anchor=north,fill=black!7},
       when/.style={font=\small\gtfamily}]
     \matrix[row sep=2mm,column sep=21mm,nodes={anchor=north}] {
-      \node[when] {TeX側（\texttt{evenend.sty}）}; & \node[when] {Lua側（\texttt{evenend.lua}）}; \\
+      \node[when] {\TeX{}側（\texttt{evenend.sty}）}; & \node[when] {Lua側（\texttt{evenend.lua}）}; \\
       \node[tx] (t1) {{\gtfamily (1) 本文を組むあいだ}\\\cs{footnote}ごとに，脚注の中身に番号の属性を付け，参照位置の行の直後に同じ番号の印を置く}; &
       \node[lu] (l1) {脚注の番号を発行する（\texttt{newfn}）．行の直後に置く印（whatsit）を作る（\texttt{anchor}）}; \\
       \node[tx] (t2) {{\gtfamily (2) 段が1つ組み上がるたび}\\\cs{@makecol}の直前に，段の本文（\cs{box255}），脚注（\cs{box}\cs{footins}），上下のフロートの箱を渡す}; &
       \node[lu] (l2) {段の本文と脚注を写してとっておく．改段の位置で捨てられたグルーも覚える（\texttt{capture}）．フロートの写しをとる（\texttt{addfloat}）}; \\
-      \node[tx] (t3) {{\gtfamily (3) LaTeXが段を組んだ直後}\\揃えないページで，組み上がった段の箱を渡し，罫の端を受け取って段間罫を引く}; &
+      \node[tx] (t3) {{\gtfamily (3) \LaTeX{}が段を組んだ直後}\\揃えないページで，組み上がった段の箱を渡し，罫の端を受け取って段間罫を引く}; &
       \node[lu] (l3) {段の箱をたどって，段をまたぐフロートを避ける罫の端を字面から測る（\texttt{colrule}）．フロートの後の行が行送りの位置にあるかを調べる（\texttt{gridcheck}）}; \\
       \node[tx] (t4) {{\gtfamily (4) 揃える場面と，ページを組み直す場面}\\段数，段の高さ，行送り，\cs{topskip}，フロートまわりのアキ，オプションを渡す（\cs{evenend@balance}）}; &
       \node[lu] (l4) {\texttt{balance}：\\
@@ -839,7 +1107,7 @@ TeX側（\texttt{evenend.sty}）とLua側（\texttt{evenend.lua}）は，組版�
         ・\opt{floatgrid}：本文中のフロートの前後のグルーを書き換える\\
         ・グルーを伸ばし，フロートと脚注を付けて，段の箱を組む}; \\
       \node[tx] (t5) {{\gtfamily (5) 揃えた直後}\\段の箱を1つずつ受け取り，段間罫を引いて横に並べる．ページの脚注と段抜きフロートの箱も受け取る}; &
-      \node[lu] (l5) {段の箱と罫の端（\texttt{getcolumn}），ページの脚注（\texttt{getfn}），段抜きフロート（\texttt{getdbl}）を返す．揃えた高さなどはTeXの寸法レジスタに入れる}; \\
+      \node[lu] (l5) {段の箱と罫の端（\texttt{getcolumn}），ページの脚注（\texttt{getfn}），段抜きフロート（\texttt{getdbl}）を返す．揃えた高さなどは\TeX{}の寸法レジスタに入れる}; \\
       \node[tx] (t6) {{\gtfamily (6) 入り切らない本文があるとき}\\\opt{footnote=page}でページを組み直したとき，残りの材料を出力ルーチンから主垂直リストへ戻す}; &
       \node[lu] (l6) {残りの本文に付いていた脚注を\cs{insert}に包み直して返す（\texttt{getpush}）．戻した後の改ページのペナルティを直す（\texttt{fixcontrib}）}; \\
       \node[tx] (t7) {{\gtfamily (7) ページを出力するとき}\\積んだ段組と揃えた段組をまとめて出力し，柱を更新する}; &
@@ -854,7 +1122,7 @@ TeX側（\texttt{evenend.sty}）とLua側（\texttt{evenend.lua}）は，組版�
     \draw[<-] (t7.east |- l7.north) ++(0,-5mm) coordinate (a) -- node[lab,above] {マーク} (a -| l7.west);
     \foreach \a/\b in {t1/t2,t2/t3,t3/t4,t4/t5,t5/t6,t6/t7} \draw[->,black!50] (\a.south) -- (\b.north);
   \end{tikzpicture}
-  \caption{TeX側とLua側のやりとり（上から時間の順．灰色の箱がLua側の処理，括弧の中は
+  \caption{\TeX{}側とLua側のやりとり（上から時間の順．灰色の箱がLua側の処理，括弧の中は
     \texttt{evenend.lua}の関数）．(2)は段ごと，(3)は揃えないページ，(4)〜(6)は揃える場面と
     \opt{footnote=page}の各ページで起きる}
   \label{fig:alg-lua}
@@ -864,14 +1132,14 @@ TeX側（\texttt{evenend.sty}）とLua側（\texttt{evenend.lua}）は，組版�
   \centering
   \begin{tikzpicture}[alg,node distance=4mm and 13mm]
     \node[proc=17\zw] (join) {1.\ 全段の本文を1本の垂直リストにつなぐ};
-    \node[proc=17\zw,below=of join] (cand) {2.\ 段内フロートの置き方の候補を挙げる（番号順を保ち，LaTeXが置いた段より前の段へは動かさない）};
-    \node[proc=17\zw,below=of cand] (search) {3.\ 候補ごとに，段の高さ$h$を小さいほうから行送りずつ上げ，\cs{vsplit}で分けて，入り切る最小の$h$を探す（各段で，フロートと脚注の高さを差し引く）};
-    \node[proc=17\zw,below=of search] (choose) {4.\ $h$が最も小さい候補を選ぶ（同じなら，動かすフロートが少ないもの）};
+    \node[proc=17\zw,below=of join] (cand) {2.\ 段内フロートの置き方の候補を挙げる（番号順を保ち，\LaTeX{}が置いた段より前の段へは動かさない）};
+    \node[proc=17\zw,below=of cand] (search) {3.\ 候補ごとに，段の高さ$h$で\cs{vsplit}で分けてみて（各段で，フロートと脚注の高さを差し引く），入り切る最小の$h$を二分法で探す（1ptの精度）};
+    \node[proc=17\zw,below=of search] (choose) {4.\ $h$が最も小さい候補を選ぶ（差が1行未満なら，動かすフロートが少ないもの）};
     \node[cond=13\zw,below=of choose] (mis) {下端がそろう配分か（最右段がほかの段より高くないか）};
     \node[proc=17\zw,below=of mis] (build) {5.\ 段を組む：見かけの下端をそろえ，届かない段はグルーを伸ばす．最右段は短くてよい};
     \node[proc=17\zw,below=of build] (fn) {6.\ 脚注を置く（\opt{page}：版面の下端に全幅．\opt{column}：参照位置のある段の下端）};
-    \node[proc=8\zw,right=of mis] (raise) {$h$を上げて分け直す};
-    \node[proc=8\zw,right=of search] (relax) {入り切らないとき：行送りへの切り上げをやめる→\opt{floatgrid}をやめる→LaTeXの組み方に戻す（警告）};
+    \node[proc=8\zw,right=of mis] (raise) {$h$を1ptずつ上げて分け直す};
+    \node[proc=8\zw,right=of search] (relax) {入り切らないとき：行送りへの切り上げをやめる→\opt{floatgrid}をやめる→\LaTeX{}の組み方に戻す（警告）};
     \draw[->] (join) -- (cand);
     \draw[->] (cand) -- (search);
     \draw[->] (search) -- (choose);
@@ -892,7 +1160,7 @@ TeX側（\texttt{evenend.sty}）とLua側（\texttt{evenend.lua}）は，組版�
   \item 各段を出力するとき（\cs{@makecol}の直前），段の生の材料（\cs{box255}），改段位置で
     捨てられるグルー類，脚注（\cs{box}\cs{footins}），段内フロートの複製を，Lua側に
     とっておく．
-  \item 脚注には番号をLuaTeXの属性として付け，本文中の参照位置には同じ番号の印
+  \item 脚注には番号を\LuaTeX{}の属性として付け，本文中の参照位置には同じ番号の印
     （\cs{vadjust}で行の直後に置くwhatsit）を置く．
   \item 最終ページの最後の段が，\cs{clearpage}の強制改段で出力されるとき，そのページの全段の
     材料を1本の垂直リストにつなぎ直す．そのうえで，入り切る最小の段の高さを探して，
@@ -906,11 +1174,243 @@ TeX側（\texttt{evenend.sty}）とLua側（\texttt{evenend.lua}）は，組版�
 \opt{footnote=column}では，最終ページ以外の組版は，このパッケージを読み込まない場合と
 変わらない．
 
-LaTeXが組んだ段がはみ出す（Overfull）警告は，そのページを組み直さずに出力するときだけ出す．
+\LaTeX{}が組んだ段がはみ出す（Overfull）警告は，そのページを組み直さずに出力するときだけ出す．
 後でevenendが組み直す段の警告は出さない．
 
 段組の出力ルーチン\cs{@outputdblcol}は，このパッケージが置き換える．3段以上の段組も
 ここで扱う．
+
+\section{定式化}\label{sec:formal}
+
+この節では，evenendが解く問題を定義から述べ直し，解を作る手順を，実装
+（\texttt{evenend.lua}の\texttt{balance}）に即して構成の形で記す．前の節までの説明と
+内容は同じで，述べ方だけが違う．長さはすべて段の上端から下向きに測る．
+
+\subsection{記号と定義}
+
+\begin{stmt}[段組]{定義}\label{def:frame}
+段数を$N\ge 1$，段の高さを$H$，行送りを$b$（\cs{baselineskip}），1行目のベースラインの
+位置を$\tau$（\cs{topskip}）とする．$H$は，版面の高さから，段抜きのフロート，そのページに
+すでに積んだ段組とその後のアキを除いた高さ（\cs{@colht}）である．
+\end{stmt}
+
+\begin{stmt}[材料]{定義}\label{def:material}
+ページの\kyocho{材料}とは，次の3つの組$M=(T,F,\Phi)$である．
+\begin{itemize}
+  \item 本文$T=(t_1,\dots,t_n)$：\LaTeX{}が組んだ全段の本文を，読む順に1本につないだ垂直
+    リスト．要素は，箱（行など），グルー，カーン，ペナルティである．改段の位置で\TeX{}が
+    捨てたグルーは，元に戻してつなぐ．
+  \item 段内フロートの列$F=(f_1,\dots,f_m)$：番号順に並べる．$f_j$は，高さ$|f_j|$（まわりの
+    アキを含む），位置$\pi_j\in\{\mbox{上},\mbox{下}\}$，\LaTeX{}が置いた段$o_j\in\{1,\dots,N\}$を
+    持つ．\LaTeX{}がまだ置いていない（持ち越した）フロートは$o_j=1$とする．
+  \item 脚注の集合$\Phi$：脚注$\varphi$は，高さ$|\varphi|$と，参照位置の行$a(\varphi)\in
+    \{1,\dots,n\}$を持つ．
+\end{itemize}
+\end{stmt}
+
+\begin{stmt}[配置]{定義}\label{def:layout}
+材料$M$の\kyocho{配置}とは，次の組$(k,\sigma)$である．
+\begin{itemize}
+  \item 切れ目$k=(k_0,\dots,k_N)$，$0=k_0\le k_1\le\dots\le k_N=n$．段$i$の本文は
+    $T_i=(t_{k_{i-1}+1},\dots,t_{k_i})$である．切れ目は，\TeX{}が改ページできる位置に限る．
+    段の先頭に来た捨てられる要素（グルーなど）は，$T_i$から除く．
+  \item フロートの割り振り$\sigma\colon\{1,\dots,m\}\to\{1,\dots,N\}$．次の2つを満たす．
+    \begin{enumerate}
+      \item 番号順を保つ：$\sigma(j)\le\sigma(j+1)$．
+      \item 前の段へ動かさない：$\sigma(j)\ge o_j$．段をまたぐフロートは$\sigma(j)=o_j$．
+    \end{enumerate}
+\end{itemize}
+割り振りの全体を$\Sigma$と書く．\LaTeX{}が組んだページは，1つの配置$(k^0,\sigma^0)$を
+与える（$\sigma^0(j)=o_j$）．
+\end{stmt}
+
+\begin{stmt}[所要の高さ]{定義}\label{def:used}
+配置$(k,\sigma)$の段$i$について，次の量を定める．
+\begin{itemize}
+  \item フロートの高さ$A_i(\sigma)=\sum_{\sigma(j)=i}|f_j|$．
+  \item 本文の高さ$|T_i|$：$T_i$の自然な高さ（グルーを伸び縮みさせない高さ）．
+  \item 脚注の高さ$G_i(k)$．$\Phi_i=\{\varphi\in\Phi : k_{i-1}<a(\varphi)\le k_i\}$を，
+    参照位置が段$i$に入る脚注の集合とする．\opt{footnote=column}では，$\Phi_i$の脚注を
+    積んだ塊（区切りの罫と上のアキを含む）の高さに本文の行の深さ$d$（定義\ref{def:bottom}）を
+    足し，$b$の倍数に切り上げたものとする．\opt{footnote=page}では$G_i=0$とし，かわりに
+    $H$から，ページの脚注の領域（全幅で組んだ$\Phi$の高さ）を引いておく．
+\end{itemize}
+段$i$の\kyocho{所要の高さ}を$U_i(k,\sigma)=A_i(\sigma)+|T_i|+G_i(k)$とする．高さ$h\le H$に
+ついて，すべての$i$で$U_i\le h$のとき，配置は\kyocho{$h$に入り切る}という．
+\end{stmt}
+
+\begin{stmt}[見かけの下端]{定義}\label{def:bottom}
+$d$を，$T$の行の深さのうち最も多い値とする（本文の行の標準の深さ）．配置の段$i$の
+\kyocho{見かけの下端}$v_i$を，段の最後の要素に応じて次のように定める．
+\begin{itemize}
+  \item 本文の行で終わる段：最終行のベースラインの位置に$d$を足した位置．
+  \item 下のフロートで終わる段：そのフロートの下端．
+  \item 段の脚注で終わる段（\opt{footnote=column}）：脚注の最終行のベースラインを，本文の
+    後で脚注が収まる最初の行の位置（$\tau+\ell b$の形の位置）に置いたときの，その位置に
+    $d$を足した位置．
+  \item 垂直の箱で終わり，中身が箱の下端より下に出ている段：中身の下端．
+\end{itemize}
+\end{stmt}
+
+\begin{stmt}[揃った配置]{定義}\label{def:even}
+配置の中身のある最後の段を$L$とする（$L$より後の段は空）．配置が\kyocho{下端$\beta$で
+揃っている}とは，次の3つが成り立つことをいう．
+\begin{enumerate}
+  \item $i<L$のすべての段で，グルーを伸び縮みさせて$v_i=\beta$にできる．
+  \item $v_L\le\beta$（最後の段は短くてよいが，高くはしない）．
+  \item 本文だけの段（フロートも脚注もない段）では，グルーを伸び縮みさせない．つまり，
+    行の位置は，\LaTeX{}が組むときの位置のままである．
+\end{enumerate}
+\end{stmt}
+
+\subsection{問題}
+
+\begin{stmt}[最終ページを揃える]{問題}\label{prob:main}
+材料$M$，段数$N$，段の高さ$H$が与えられ，$M$は\LaTeX{}が高さ$H$の$N$段に組んだものと
+する．次を満たす配置$(k,\sigma)$と高さ$h\le H$を求めよ．
+\begin{enumerate}
+  \item[(P1)\hspace{.5\zw}] 配置は$h$に入り切る．
+  \item[(P2)\hspace{.5\zw}] 順序を保つ．本文は読む順のまま（切れ目$k$で分けるだけ），フロートは
+    $\sigma\in\Sigma$．
+  \item[(P3)\hspace{.5\zw}] 脚注は，\opt{footnote=column}では参照位置と同じ段の下端に，
+    \opt{footnote=page}では版面の下端に全幅で置く．
+  \item[(P4)\hspace{.5\zw}] 配置は，ある下端$\beta\le h$で揃っている．
+  \item[(P5)\hspace{.5\zw}] (P1)〜(P4)を満たすもののうちで，$h$が最も小さい．$h$の差が1行未満なら，
+    動かすフロートの少ないものを選ぶ．動かす量は$\mu(\sigma)=\sum_j(\sigma(j)-o_j)$で測る．
+\end{enumerate}
+\end{stmt}
+
+\begin{stmt}{注意}\label{rem:exist}
+行もフロートも分けられないので，(P4)を満たす配置があるとは限らない．また，(P1)は
+\LaTeX{}の配置$(k^0,\sigma^0)$が$h=H$で満たすように見えるが，定義\ref{def:used}の切り上げの
+分だけ所要の高さが増えるので，これも保証されない．そこで実装は，問題\ref{prob:main}の
+厳密な解ではなく，次の小節の構成が与える配置を解とする．解が得られない場合の扱いも，
+構成の中で定める．
+\end{stmt}
+
+\subsection{構成}
+
+割り振り$\sigma$と高さ$h$を決めれば，切れ目は貪欲に決まる．
+
+\begin{stmt}[貪欲な分割]{補題}\label{lem:fill}
+$\sigma\in\Sigma$と$h\le H$に対し，次の手順$\mathrm{Fill}(\sigma,h)$は，$h$に入り切る配置
+$(k,\sigma)$を1つ返すか，失敗する．返した配置は(P1)〜(P3)を満たす．
+\end{stmt}
+\begin{kousei}
+$i=1,\dots,N-1$の順に，残りの本文の先頭から段$i$の本文を切り出す．
+\begin{enumerate}
+  \item 本文に使える高さを$c=h-A_i(\sigma)-G$とする．初めは，$G$を，段$i$に必ず入る脚注
+    だけの高さとする．$c<0$なら失敗とする．
+  \item 残りの本文から，\TeX{}の\cs{vsplit}で高さ$c$までを切り出す．\cs{vsplit}は，$c$を
+    超えない最もよい切れ目を選ぶ．これを$T_i$とする．
+  \item $T_i$に参照位置のある脚注から$G_i$を求め直す．$A_i+|T_i|+G_i\le h$なら，この段を
+    確定する．
+  \item 超えていれば，超えた分だけ$c$を小さくして，2からやり直す．10回くり返しても
+    収まらなければ失敗とする．
+\end{enumerate}
+最後に，残りの本文のすべてを$T_N$とする．$U_N\le h$で，$T_N$に強制の改段が残って
+いなければ，配置を返す．そうでなければ失敗とする．
+
+返した配置では，すべての段で$U_i\le h$を確かめているので，(P1)が成り立つ．本文は先頭から
+順に切り出すだけなので，(P2)が成り立つ．脚注は，行の直後に置いた印（番号を持つ）で
+参照位置を知り，その行が入った段に付けるので，(P3)が成り立つ．
+\end{kousei}
+
+\begin{stmt}{注意}
+$\mathrm{Fill}$は貪欲で，前の段にできるだけ多く入れる．$h$に入り切る配置があっても，
+$\mathrm{Fill}(\sigma,h)$が失敗することはありうる．また，$\mathrm{Fill}(\sigma,h)$が成功
+するかどうかは，$h$について単調とは限らない．切れ目が変わると，脚注の入る段が変わる
+ためである．
+\end{stmt}
+
+\begin{stmt}[割り振りごとの最小の高さ]{補題}\label{lem:minh}
+$\sigma\in\Sigma$に対し，次の手順は，$\mathrm{Fill}(\sigma,h)$が成功する高さ$h(\sigma)$を
+1つ返すか，「入り切らない」と答える．
+\end{stmt}
+\begin{kousei}
+$\mathrm{Fill}(\sigma,H)$が失敗すれば，「入り切らない」と答える．成功すれば，下界を
+\[ h_0=\Bigl\lfloor\bigl(|T|+\textstyle\sum_j|f_j|\bigr)/N\Bigr\rfloor-2b \]
+とし，区間$[h_0,H]$を二分法で狭める．中点で$\mathrm{Fill}$が成功すれば上端を，失敗すれば
+下端を中点に移し，幅が1ptになるまで続ける．上端を$h_1$とする．$\mathrm{Fill}$の成否は
+単調とは限らないので，最後に$h_1-4\,\mathrm{pt}$から$h_1$まで1ptずつ調べ，最初に成功した
+高さを$h(\sigma)$とする．$h_1$では成功するので，$h(\sigma)$は必ず決まる．
+\end{kousei}
+
+\begin{stmt}[揃えた配置の構成]{命題}\label{prop:main}
+次の手順は，有限回で止まり，配置$(k,\sigma)$，高さ$h$，下端$\beta$を返すか，「揃えられない」と
+答える．返した配置は(P1)〜(P3)を満たす．(P4)は，手順4の判定を通った配置について，
+各段のグルーの伸びが足りる限り成り立つ．(P5)は，調べた候補と1ptの精度の範囲で成り立つ．
+\end{stmt}
+\begin{kousei}
+\begin{enumerate}
+  \item \kyocho{候補を挙げる}．$\Sigma$の割り振りを列挙する．64個を超えるときは，\LaTeX{}が
+    置いたフロートを動かさず（$\sigma(j)=o_j$），持ち越したフロートだけを動かす候補に限る．
+    段をまたぐフロートが同じ位置で同じ段に重なる候補は除く．
+  \item \kyocho{高さを求める}．各候補$\sigma$について，補題\ref{lem:minh}で$h(\sigma)$を
+    求める．
+  \item \kyocho{候補を選ぶ}．候補を順に見て，それまでの最良$(\sigma^*,h^*)$を次の規則で
+    置き換える．$\mu(\sigma)\le\mu(\sigma^*)$のときは，$h(\sigma)<h^*$か，高さがほぼ同じで
+    $\mu(\sigma)<\mu(\sigma^*)$なら置き換える．$\mu(\sigma)>\mu(\sigma^*)$のときは，
+    $h(\sigma)\le h^*-b$のときだけ置き換える（フロートを余計に動かすのは，1行以上低く
+    なるときだけ）．どの候補も入り切らなければ，手順6へ進む．
+  \item \kyocho{揃わない配分を直す}．$\mathrm{Fill}(\sigma^*,h^*)$の配置の$v_1,\dots,v_N$を
+    測る．次のどれかが成り立てば，揃わない配分とみなす．
+    \begin{enumerate}
+      \item $v_N>\max_{i<N}v_i$（最右段がほかのどの段よりも高い）．
+      \item 本文だけの段の見かけの下端の最大を$\beta_T$として，後ろに中身のある途中の段で
+        $v_i<\beta_T-b/2$（途中の段が明らかに短い）．
+      \item フロートまわりのグルーを縮めても，$v_i>\beta_T$となる段がある．
+    \end{enumerate}
+    揃わない配分なら，$h$を$h^*$から1ptずつ上げて$\mathrm{Fill}(\sigma^*,h)$をやり直し，
+    揃わない配分でなくなった最初の$h$を採る．$H$まで上げても見つからなければ，元の配置の
+    ままとする．
+  \item \kyocho{段を組む}．$\beta=\max_i v_i$とする．本文だけの段があり，ほかの段を
+    グルーの縮みで$\beta_T$に合わせられるなら，$\beta=\beta_T$とする（本文だけの段を基準に
+    する）．各段を，上のフロート，本文，下のフロート，脚注の順に積む．$i<L$の段は，
+    グルーを伸び縮みさせて$v_i=\beta$にする．伸びが足りない段は，行を動かさず，足りない分を
+    下のフロートや脚注の上に空ける．段$L$は伸ばさない．$h=\beta$として返す．
+  \item \kyocho{緩める}．どの候補も入り切らないときは，条件を1つ緩めて，手順1から
+    やり直す．1回目は，脚注の塊を$b$の倍数に切り上げない（定義\ref{def:used}）．2回目は，
+    \opt{floatgrid}もやめる．それでも入り切らなければ，「揃えられない」と答える．このとき
+    \TeX{}側は，\LaTeX{}の配置$(k^0,\sigma^0)$のままページを出力し，警告を出す．
+\end{enumerate}
+
+\kyocho{止まること}．候補は高々257個である．補題\ref{lem:minh}の二分法は，
+$\log_2(H/1\,\mathrm{pt})+6$回以内の$\mathrm{Fill}$で終わる．手順4は高々$(H-h^*)/1\,\mathrm{pt}$回，
+手順6は高々2回である．$\mathrm{Fill}$は，$N$段のそれぞれで高々10回の\cs{vsplit}で終わる．
+
+\kyocho{性質}．(P1)〜(P3)は補題\ref{lem:fill}による．手順4の判定を通った配置では，
+(a)の否定から$v_L\le\beta$が，(b)と(c)の否定から，途中の段の差が半行より小さく，
+グルーで合わせられる見込みが得られる．定義\ref{def:even}の3は，手順5で本文だけの段を
+基準にすることによる．(P5)は，$h^*$が各候補の$h(\sigma)$の最小（手順3の規則のもとで）で
+あることによる．ただし，補題\ref{lem:fill}の注意のとおり，$\mathrm{Fill}$が見つけない配置は
+調べていない．
+\end{kousei}
+
+\subsection{ほかの場面への適用}
+
+\begin{stmt}[ページの途中で段組を改める]{系}\label{cor:block}
+$H$を，そのページの残りの高さとして，命題\ref{prop:main}の構成をそのまま使う．得た
+下端$\beta$と，段組の間のアキ$g$から，次の段組の段の高さを$H'=H-\beta-g$とする
+（図\ref{fig:alg-block}）．持ち越したフロートは$o_j=1$として$F$に加えるので，その段組の
+中に置かれる．
+\end{stmt}
+
+\begin{stmt}[\opt{footnote=page}のページ]{系}\label{cor:page}
+最終ページでないページでは，割り振りを$\sigma^0$に固定し，$h=H-\Psi$として
+$\mathrm{Fill}(\sigma^0,h)$を使う．$\Psi$は，ページの脚注の領域の高さである．ここでは
+最後の段にも\cs{vsplit}を使い，入り切らない本文$R$を次のページへ送り返す．$R$の脚注は
+このページに要らないので，$\Psi$を残った本文の脚注だけで求め直し，$h$を上げて
+やり直す．送り返す本文の脚注が戻らない所まで，高々6回くり返す．
+\end{stmt}
+
+\begin{stmt}[実装との対応]{注意}
+この節の手順は，\texttt{evenend.lua}の\texttt{balance}の中の次の関数にあたる．
+$\mathrm{Fill}$は\texttt{fill\_once}（段をまたぐフロートの脚注を見込むときは\texttt{fill}），
+補題\ref{lem:minh}は\texttt{min\_h}，割り振りの列挙は\texttt{enum}，見かけの下端は
+\texttt{measure}，揃わない配分の判定は\texttt{misaligned}である．箱の中の段組
+（\texttt{boxbalance}）は，フロートと脚注のない場合（$F=\Phi=\emptyset$）の同じ構成である．
+\end{stmt}
 
 \section{multicol互換の環境}\label{sec:multicol}
 
@@ -1004,10 +1504,10 @@ LaTeXが組んだ段がはみ出す（Overfull）警告は，そのページを�
 段組のモードでは，柱（\cs{markboth}などのマーク）の情報を，ページを出力するときに1回だけ
 更新する．ページの本文全体から，読む順序（ブロックは上から，段は左から，段の中は上から）で
 マークを集め，1段組と同じ方法で更新する．揃えた段や積んだブロックでも，柱の最初と最後の
-マークは，そのページの本文の最初と最後のものになる．LaTeXの2段組向けの，段ごとの更新は
+マークは，そのページの本文の最初と最後のものになる．\LaTeX{}の2段組向けの，段ごとの更新は
 使わない．
 
-LaTeX 2025-06-01より前の版では，\cs{leftmark}，\cs{rightmark}がTeXのマーク
+\LaTeX{} 2025-06-01より前の版では，\cs{leftmark}，\cs{rightmark}が\TeX{}のマーク
 （\cs{firstmark}，\cs{botmark}）を使う．このときは，ページ全体から集めたマークの最初と
 最後を\cs{firstmark}，\cs{botmark}の代わりにする（マークのないページでは，前のページの
 最後のマーク）．
@@ -1052,8 +1552,8 @@ evenendは\pkg{gyoudori}（行取りのパッケージ）に依存しない．\p
       変わらない \\
     evenendが組む段でのフロートの前後の行の位置 & \opt{floatgrid}で合わせる &
       行取りしたフロートは高さが行送りの倍数なので，\opt{floatgrid}は何も足さずにそのまま使う \\
-    \opt{footnote=column}でLaTeXが組む満杯のページでのフロートの前後の行の位置 &
-      合わせない（LaTeXのまま） & \opt{float}オプションで行取りして合う \\
+    \opt{footnote=column}で\LaTeX{}が組む満杯のページでのフロートの前後の行の位置 &
+      合わせない（\LaTeX{}のまま） & \opt{float}オプションで行取りして合う \\
     持ち越されたフロートを揃える段組に入れるときの中身の位置 &
       箱のまま上か下に置く & フック\texttt{evenend/deferredfloat}で，上のフロートとして
       行取りし直す \\
@@ -1069,16 +1569,16 @@ evenendは\pkg{gyoudori}（行取りのパッケージ）に依存しない．\p
 
 \begin{itemize}
   \item 揃える段組では，脚注は段をまたいで分割しない．
-  \item 段内フロートは，LaTeXが置いた段かそれより後の段に置く．参照位置との前後関係は
+  \item 段内フロートは，\LaTeX{}が置いた段かそれより後の段に置く．参照位置との前後関係は
     保証しない．
   \item \cs{marginpar}の左右は計算し直さない．
   \item 縦組には対応していない．
   \item \opt{floatgrid}はevenendが組む段だけに効く（\opt{footnote=page}ではすべての
-    ページ，\opt{footnote=column}では揃える段組）．\opt{footnote=column}でLaTeXが通常
+    ページ，\opt{footnote=column}では揃える段組）．\opt{footnote=column}で\LaTeX{}が通常
     どおり組む満杯のページでは，行送りの倍数でない高さのフロートの後の行はずれる．
     \gydep \pkg{gyoudori}でフロートを行ドリすれば揃う．
   \item \opt{footnote=page}でページの本文を組み直すとき，入り切らない本文は次のページへ
-    送り返すが，LaTeXがそのページに置いた段内フロートはそのページに残す．参照位置より
+    送り返すが，\LaTeX{}がそのページに置いた段内フロートはそのページに残す．参照位置より
     前のページにフロートが来ることがある．
   \item \opt{footnote=page}でページの本文を組み直すとき，分けられない材料（箱など）が段の
     高さより高ければ，そのページにほかに何もない（ブロックも段抜きのフロートもない）ときは
@@ -1089,12 +1589,12 @@ evenendは\pkg{gyoudori}（行取りのパッケージ）に依存しない．\p
     下端は揃わないことがある．
   \item \cs{evenendcolumns}は，リスト環境などの中では使えない（段落の間で使う）．
   \item 分割しない脚注が長くて，揃える段組がページの残りに入り切らないときは，揃えずに
-    LaTeXの組み方に戻す（警告を出す）．
-  \item \pkg{jlreq}では，脚注と段内フロートや段抜きフロートが同じ段に入ると，LaTeXが
+    \LaTeX{}の組み方に戻す（警告を出す）．
+  \item \pkg{jlreq}では，脚注と段内フロートや段抜きフロートが同じ段に入ると，\LaTeX{}が
     通常どおり組んだ段がわずかにはみ出すことがある（evenendを使わなくても起きる）．
-  \item 段の中の積み順のソケット（\texttt{build/column/outputbox}）のないLaTeX
-    （2024-11-01など）では，\opt{footnote=column}でLaTeXが通常どおり組む段は，下に段を
-    またぐフロートがあっても，脚注をフロートの上に置く（そのLaTeXの積み順のまま）．
+  \item 段の中の積み順のソケット（\texttt{build/column/outputbox}）のない\LaTeX{}
+    （2024-11-01など）では，\opt{footnote=column}で\LaTeX{}が通常どおり組む段は，下に段を
+    またぐフロートがあっても，脚注をフロートの上に置く（その\LaTeX{}の積み順のまま）．
     \opt{spanfootnote=bottom}は，evenendが組み直す段（揃える段組）だけに効く．
 \end{itemize}
 
