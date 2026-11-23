@@ -286,7 +286,8 @@ evenendはgyoudori（行取りのパッケージ）に依存しない．gyoudori
 
 ## マニュアル
 
-`doc/lualatex/evenend/`にマニュアル（`evenend-ja.tex`）と見本（`evenend-sample.tex`，
+`doc/lualatex/evenend/`にマニュアル（`evenend-ja.tex`），定式化と証明（`evenend-theory-ja.tex`．
+問題の定義，手順，証明，TeXの概念との対応）と見本（`evenend-sample.tex`，
 `evenend-sample-column.tex`，`evenend-sample-switch.tex`，`evenend-sample-same.tex`，
 `evenend-sample-colsep.tex`，
 `evenend-sample-box.tex`，`evenend-sample-span.tex`，`evenend-sample-options.tex`）がある．
@@ -305,6 +306,13 @@ lualatex evenend-sample-span.tex
 lualatex evenend-sample-options.tex
 lualatex evenend-ja.tex
 lualatex evenend-ja.tex
+```
+
+定式化と証明の文書は，見本を使わない．
+
+```bash
+lualatex evenend-theory-ja.tex
+lualatex evenend-theory-ja.tex
 ```
 
 ## テスト
