@@ -865,8 +865,10 @@ $\beta=\beta_T$とするのは，すべての段で，$v_i$からフロートま
   \item \kyocho{途中の段を$\beta$に合わせられること}（定義\ref{def:even}の1）．
     命題\ref{prop:even}の(ii)の条件を欠く段は，揃わない．不足が半行を超える段と，
     伸びるグルーのない本文だけの段は，行を動かさずに下が空く．最後の行の後ろに
-    \cs{vfil}の残る段（\cs{columnbreak}で終わる段）は，\cs{vfil}が伸びて下が空く．手順4の判定は，このような配分のうち(a)から(c)にあたる
-    ものを除くが，すべては除けない．手順4で$H$まで上げても判定を通らないときは，元の
+    \cs{vfil}の残る段（\cs{columnbreak}で終わる段）は，\cs{vfil}が伸びて下が空く．手順4の判定を通り，本文だけの段が
+    あれば，下端は$\beta_T$になり，後ろに中身のある途中の段（本文のあるもの）の不足は
+    半行以下になる．つまり，命題\ref{prop:even}の(ii)の(a)が成り立つ．本文だけの段が
+    ないときは，これは言えない．手順4で$H$まで上げても判定を通らないときは，元の
     配置のまま組む．
   \item \kyocho{本文だけの段を動かさないこと}（定義\ref{def:even}の3）．$\beta=\beta_T$の
     とき，基準にした段は動かない．それより短い本文だけの段は，グルーに伸びがあれば
@@ -1224,9 +1226,16 @@ Leanで確かめているのは，この文書に書いた手順（モデル）�
 補題\ref{lem:fill}の(P3) & \texttt{Fill.lean}：\texttt{fill\_notes}，\texttt{page\_region} &
   \opt{footnote=column}：どの脚注も，参照位置と同じ段に，ちょうど1回，読む順に置かれる．
   \opt{footnote=page}：入り切る段は，ページの脚注の領域に掛からない．\\\noalign{\vskip 4pt}
-命題\ref{prop:main}の手順1 & \texttt{Enum.lean}：\texttt{mem\_enumFrom} &
+定義\ref{def:bottom} & \texttt{Bottom.lean}：\texttt{foot\_fits}，\texttt{foot\_first}，
+  \texttt{foot\_grid} &
+  見かけの下端を，段の終わり方ごとに定義する．段の脚注を置く位置は，脚注が収まる最初の
+  行の位置である．\\\noalign{\vskip 4pt}
+命題\ref{prop:main}の手順1 & \texttt{Enum.lean}：\texttt{mem\_enumFrom}，
+  \texttt{mem\_enumG}，\texttt{candidates\_valid}，\texttt{candidates\_length}，
+  \texttt{self\_valid} &
   列挙は，定義\ref{def:layout}の条件を満たす割り振りのすべてを，それだけを挙げる．
-  \\\noalign{\vskip 4pt}
+  段をまたぐフロートは動かさない．64個を超えて絞った候補も条件を満たす．候補は高々
+  257個．\LaTeX{}の割り振り$\sigma^0$は，つねに列挙に入る．\\\noalign{\vskip 4pt}
 命題\ref{prop:main}の手順3 & \texttt{Select.lean}：\texttt{select\_mem}，
   \texttt{select\_isSome} &
   選ぶのは候補のどれかで，候補があれば必ず選ぶ．最後の\texttt{example}は，
@@ -1235,10 +1244,20 @@ Leanで確かめているのは，この文書に書いた手順（モデル）�
   \texttt{step4\_spec} &
   「$\mathrm{Fill}$が成功し，揃わない配分でない」を任意の述語とする．結果は，元の$h^*$か，
   $h^*$より高く$H$以下で，その述語を満たす高さである．\\\noalign{\vskip 4pt}
+命題\ref{prop:main}の手順4の判定 & \texttt{Misaligned.lean}：\texttt{last\_le}，
+  \texttt{shrinks\_to}，\texttt{deficit\_le} &
+  判定(a)から(c)を定義する．判定を通れば，最右段はほかの段より高くない．本文だけの
+  段があれば，どの段も縮めて$\beta_T$に収まり，途中の段の不足は半行以下である．
+  \\\noalign{\vskip 4pt}
 命題\ref{prop:main}の手順6 & \texttt{Select.lean}：\texttt{relax\_spec}，
   \texttt{relax\_none} &
   結果は，3回の試みのどれかの結果である．3回とも失敗したときだけ「揃えられない」．
   \\\noalign{\vskip 4pt}
+命題\ref{prop:main}の手順の全体と(i) & \texttt{Balance.lean}：\texttt{balance\_spec}，
+  \texttt{balance\_isSome}，\texttt{procedure\_spec}，\texttt{procedure\_none} &
+  手順1から6を1つの関数につなぐ．返す配置は，候補のどれかの$\sigma$と$h\le H$での
+  $\mathrm{Fill}$の結果である．「揃えられない」と答えるのは，3つの緩め方のどれでも，
+  どの候補も$H$に入り切らないときだけである．\\\noalign{\vskip 4pt}
 命題\ref{prop:main}の(ii) & \texttt{Beta.lean}：\texttt{le\_chooseBeta} &
   段を，見かけの下端とフロートまわりのグルーの縮みの組で表す．\\\noalign{\vskip 4pt}
 命題\ref{prop:even}の(i) & \texttt{Glue.lean}：\texttt{packed\_shrink} &
@@ -1258,12 +1277,14 @@ Leanで確かめているのは，この文書に書いた手順（モデル）�
 
 次のものは，Leanに書いていない．
 \begin{itemize}
-  \item 手順1のうち，段をまたぐフロートの扱いと，候補が64個を超えるときの打ち切り．
-  \item 手順4の揃わない配分の判定(a)から(c)の中身．Leanでは，判定を任意の述語として扱う．
-  \item 手順の全体を1つの関数につないだもの．命題\ref{prop:main}の(i)は，
-    補題\ref{lem:fill}と補題\ref{lem:minh}をそのまま使うだけである．
-  \item 見かけの下端の測り方（定義\ref{def:bottom}）の一般の場合．例の数値だけを確かめて
-    いる．
+  \item 段をまたぐフロートが重なる候補を除く判定の中身．Leanでは，任意の述語として扱う．
+  \item 手順の全体（\texttt{Balance.lean}）の$\mathrm{Fill}$に，\texttt{Fill.lean}の関数を
+    代入すること．手順の全体は，「$\mathrm{Fill}$が返す配置は(P1)から(P3)を満たす」を
+    仮定として受け取り，その仮定を\texttt{Fill.lean}が別に証明している．
+  \item 手順5で各段の並び（上のフロート，本文，下のフロート，脚注）を作る部分．
+    \texttt{Glue.lean}は，できた並びを箱に組むところから扱う．
+  \item 所要の高さ（定義\ref{def:used}）と見かけの下端（定義\ref{def:bottom}）を，本文の
+    要素の並びから求める計算．Leanでは，高さを与えられた値として扱う．
 \end{itemize}
 
 \end{document}

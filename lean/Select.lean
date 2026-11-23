@@ -6,29 +6,30 @@ evenendパッケージの定式化の命題「揃えた配置の構成」の手�
 -/
 namespace Evenend.Select
 
-/-- 候補：動かす量μと，高さh(σ) -/
-structure Cand where
+/-- 候補：割り振りなどの名札`tag`，動かす量μ，高さh(σ) -/
+structure Cand (α : Type) where
+  tag : α
   m : Nat
   h : Nat
-  deriving DecidableEq, Repr
+  deriving DecidableEq
 
 /-- 手順3の規則：最良`best`を候補`c`で置き換えるか．`g`は1行（行送り）．
 ・動かす量が同じか少ないとき：高さが1行未満しか高くならず，しかも，明らかに低いか，動かす量が
   少ないなら，置き換える．
 ・動かす量が多いとき：1行以上低くなるときだけ，置き換える． -/
-def better (g : Nat) (best c : Cand) : Bool :=
+def better {α : Type} (g : Nat) (best c : Cand α) : Bool :=
   (c.m ≤ best.m && c.h + 1 < best.h + g && (c.h + 1 < best.h || c.m < best.m))
     || (best.m < c.m && c.h + g < best.h + 1)
 
 /-- 候補を順に見て，最良を選ぶ -/
-def select (g : Nat) : Option Cand → List Cand → Option Cand
+def select {α : Type} (g : Nat) : Option (Cand α) → List (Cand α) → Option (Cand α)
   | best, [] => best
   | none, c :: cs => select g (some c) cs
   | some b, c :: cs => select g (some (if better g b c then c else b)) cs
 
 /-- 選んだものは，初めの最良か，候補のどれかである． -/
-theorem select_mem (g : Nat) :
-    ∀ (cs : List Cand) (init : Option Cand) (r : Cand),
+theorem select_mem {α : Type} (g : Nat) :
+    ∀ (cs : List (Cand α)) (init : Option (Cand α)) (r : Cand α),
       select g init cs = some r → init = some r ∨ r ∈ cs := by
   intro cs
   induction cs with
@@ -51,8 +52,8 @@ theorem select_mem (g : Nat) :
       · exact Or.inr (by simp [h1])
 
 /-- 入り切る候補が1つでもあれば，必ずどれかを選ぶ（選べないのは，候補がないときだけ）． -/
-theorem select_isSome (g : Nat) :
-    ∀ (cs : List Cand) (init : Option Cand),
+theorem select_isSome {α : Type} (g : Nat) :
+    ∀ (cs : List (Cand α)) (init : Option (Cand α)),
       (init.isSome = true ∨ cs ≠ []) → (select g init cs).isSome = true := by
   intro cs
   induction cs with
@@ -66,7 +67,7 @@ theorem select_isSome (g : Nat) :
 /-- 注意：選んだ高さは，調べた候補の最小より1行以上高いことがある．
 1行を12pt（`g = 24`）として，候補が（μ = 2，100pt），（μ = 1，110pt），（μ = 0，120pt）の順に
 来ると，動かす量の少ないほうへ2回置き換わり，最小より20pt高い120ptを選ぶ． -/
-example : select 24 none [⟨2, 200⟩, ⟨1, 220⟩, ⟨0, 240⟩] = some ⟨0, 240⟩ := by decide
+example : select 24 none [⟨(), 2, 200⟩, ⟨(), 1, 220⟩, ⟨(), 0, 240⟩] = some ⟨(), 0, 240⟩ := by decide
 
 /-- 手順4：`good h`は「Fill(σ*, h)が成功し，揃わない配分でない」．`h`から1ずつ上げて，`H`までで
 最初に`good`になる高さを探す． -/
