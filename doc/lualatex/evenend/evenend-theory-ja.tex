@@ -747,10 +747,12 @@ $h(\sigma)$より低いものでは失敗することだけである．
   \item \kyocho{高さを求める}．各候補$\sigma$について，補題\ref{lem:minh}で$h(\sigma)$を
     求める．
   \item \kyocho{候補を選ぶ}．候補を順に見て，それまでの最良$(\sigma^*,h^*)$を次の規則で
-    置き換える．$\mu(\sigma)\le\mu(\sigma^*)$のときは，$h(\sigma)<h^*$か，高さがほぼ同じで
-    $\mu(\sigma)<\mu(\sigma^*)$なら置き換える．$\mu(\sigma)>\mu(\sigma^*)$のときは，
+    置き換える．$\mu(\sigma)<\mu(\sigma^*)$のときは，$h(\sigma)<h^*+b$なら置き換える（動かす
+    フロートが少なければ，1行未満の高さの差は許す）．$\mu(\sigma)=\mu(\sigma^*)$のときは，
+    $h(\sigma)<h^*$なら置き換える．$\mu(\sigma)>\mu(\sigma^*)$のときは，
     $h(\sigma)\le h^*-b$のときだけ置き換える（フロートを余計に動かすのは，1行以上低く
-    なるときだけ）．どの候補も入り切らなければ，手順6へ進む．
+    なるときだけ）．高さの比較には，高さを調べる刻み（1pt）の半分の余裕を持たせる．
+    どの候補も入り切らなければ，手順6へ進む．
   \item \kyocho{揃わない配分を直す}．$\mathrm{Fill}(\sigma^*,h^*)$の配置の$v_1,\dots,v_N$を
     測る．次のどれかが成り立てば，揃わない配分とみなす
     （図\ref{fig:formal-misaligned}）．
@@ -872,7 +874,11 @@ $\beta=\beta_T$とするのは，すべての段で，$v_i$からフロートま
   \item \kyocho{高さが最も小さいこと}（P5）．$h^*$は，調べた候補の$h(\sigma)$から手順3の
     規則で選んだものである．$\mathrm{Fill}$は貪欲なので，$\mathrm{Fill}$が作らない配置は
     調べていない．候補が64個を超えるときに除いた割り振りも調べていない．$h(\sigma)$
-    そのものも，最小とは限らない（注意\ref{rem:minh}）．
+    そのものも，最小とは限らない（注意\ref{rem:minh}）．さらに，手順3の規則は，
+    動かすフロートの少ない候補を1行未満の差なら優先するので，調べた候補の中でも最小とは
+    限らない．たとえば，$(\mu,h)$が$(2,100\,\mathrm{pt})$，$(1,110\,\mathrm{pt})$，
+    $(0,120\,\mathrm{pt})$の順に来ると，2回置き換わって$120\,\mathrm{pt}$を選ぶ
+    （$b=12\,\mathrm{pt}$のとき）．
   \item \kyocho{解があれば見つけること}．問題\ref{prob:main}の条件を満たす配置があっても，
     手順が「揃えられない」と答えることはありうる．
 \end{itemize}
@@ -1212,6 +1218,27 @@ Leanで確かめているのは，この文書に書いた手順（モデル）�
   \cs{vsplit}を，「本文を前と後ろに分け，順を変えず，何も失わない」任意の関数とする．
   高さ$c$以下に切ることは仮定しない（切った後で高さを確かめるので，要らない）．
   \\\noalign{\vskip 4pt}
+補題\ref{lem:fill}（捨てられる要素） & \texttt{Fill.lean}：\texttt{fill\_spec} &
+  \cs{vsplit}が切れ目で捨てるのは，捨てられる要素だけとする．各段の本文と捨てた要素を
+  順につなぐと，元の本文になる．\\\noalign{\vskip 4pt}
+補題\ref{lem:fill}の(P3) & \texttt{Fill.lean}：\texttt{fill\_notes}，\texttt{page\_region} &
+  \opt{footnote=column}：どの脚注も，参照位置と同じ段に，ちょうど1回，読む順に置かれる．
+  \opt{footnote=page}：入り切る段は，ページの脚注の領域に掛からない．\\\noalign{\vskip 4pt}
+命題\ref{prop:main}の手順1 & \texttt{Enum.lean}：\texttt{mem\_enumFrom} &
+  列挙は，定義\ref{def:layout}の条件を満たす割り振りのすべてを，それだけを挙げる．
+  \\\noalign{\vskip 4pt}
+命題\ref{prop:main}の手順3 & \texttt{Select.lean}：\texttt{select\_mem}，
+  \texttt{select\_isSome} &
+  選ぶのは候補のどれかで，候補があれば必ず選ぶ．最後の\texttt{example}は，
+  注意\ref{rem:noproof}の「調べた候補の中でも最小とは限らない」例．\\\noalign{\vskip 4pt}
+命題\ref{prop:main}の手順4 & \texttt{Select.lean}：\texttt{raise\_spec}，
+  \texttt{step4\_spec} &
+  「$\mathrm{Fill}$が成功し，揃わない配分でない」を任意の述語とする．結果は，元の$h^*$か，
+  $h^*$より高く$H$以下で，その述語を満たす高さである．\\\noalign{\vskip 4pt}
+命題\ref{prop:main}の手順6 & \texttt{Select.lean}：\texttt{relax\_spec}，
+  \texttt{relax\_none} &
+  結果は，3回の試みのどれかの結果である．3回とも失敗したときだけ「揃えられない」．
+  \\\noalign{\vskip 4pt}
 命題\ref{prop:main}の(ii) & \texttt{Beta.lean}：\texttt{le\_chooseBeta} &
   段を，見かけの下端とフロートまわりのグルーの縮みの組で表す．\\\noalign{\vskip 4pt}
 命題\ref{prop:even}の(i) & \texttt{Glue.lean}：\texttt{packed\_shrink} &
@@ -1220,18 +1247,23 @@ Leanで確かめているのは，この文書に書いた手順（モデル）�
 命題\ref{prop:even}の(ii) & \texttt{Glue.lean}：\texttt{attach\_bottom}，
   \texttt{stretch\_finite}，\texttt{ragged} &
   脚注や下のフロートを\cs{vfil}で箱の下端に付ける場合，有限の伸びで届く場合，本文の
-  末尾に\cs{vfil}を入れて下を空ける場合（本文が動かないこと）．\\
+  末尾に\cs{vfil}を入れて下を空ける場合（本文が動かないこと）．\\\noalign{\vskip 4pt}
+\ref{sec:formal-apply}節 & \texttt{Page.lean}：\texttt{block\_height}，\texttt{loop\_inv} &
+  段組を改めるときの高さの勘定．\opt{footnote=page}のくり返しでは，採った結果の脚注が
+  つねに領域$\Psi$に収まる（何回で打ち切っても成り立つ）．\\
 \end{longtable}}
+
+手順が止まることは，Leanでは定義そのものが保証する．Leanの関数は，必ず止まる形（回数の
+上限を引数に持つ再帰）でしか定義できないからである．
 
 次のものは，Leanに書いていない．
 \begin{itemize}
-  \item (P3)（脚注の置き方）．モデルでは，脚注の高さを段の所要の高さに数えることだけを
-    扱う．
-  \item 命題\ref{prop:main}の手順1から4と6（候補の列挙，候補の選び方，揃わない配分の判定，
-    条件を緩めること）と，手順の全体が止まること．命題の(i)は，補題\ref{lem:fill}と
-    補題\ref{lem:minh}をそのまま使うだけである．
-  \item 段の先頭で捨てられる要素（グルーなど）の扱い．
-  \item \ref{sec:formal-apply}節の2つの場面．
+  \item 手順1のうち，段をまたぐフロートの扱いと，候補が64個を超えるときの打ち切り．
+  \item 手順4の揃わない配分の判定(a)から(c)の中身．Leanでは，判定を任意の述語として扱う．
+  \item 手順の全体を1つの関数につないだもの．命題\ref{prop:main}の(i)は，
+    補題\ref{lem:fill}と補題\ref{lem:minh}をそのまま使うだけである．
+  \item 見かけの下端の測り方（定義\ref{def:bottom}）の一般の場合．例の数値だけを確かめて
+    いる．
 \end{itemize}
 
 \end{document}

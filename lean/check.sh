@@ -5,7 +5,7 @@ dir=$(cd "$(dirname "$0")" && pwd)
 ws=${LEAN_WS:-$HOME/lean/mathlib-ws}
 cd "$ws" || exit 1
 st=0
-for f in Example MinH Fill Beta Glue; do
+for f in Example MinH Fill Enum Select Beta Glue Page; do
   out=$(lake env lean "$dir/$f.lean" 2>&1)
   if [ -z "$out" ]; then echo "ok   $f.lean"; else echo "FAIL $f.lean"; echo "$out"; st=1; fi
 done
