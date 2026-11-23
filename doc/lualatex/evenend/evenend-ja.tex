@@ -59,10 +59,16 @@
   \noindent{\gtfamily\sffamily #2\thestmt}%
   \if\relax\detokenize{#1}\relax\else （#1）\fi\hspace{1\zw}\ignorespaces}
   {\par\addvspace{.5\baselineskip}}
-%% 構成（構成的な証明）
-\newenvironment{kousei}[1][構成]{%
-  \par\noindent{\gtfamily\sffamily #1}\hspace{1\zw}\ignorespaces}
+%% 手順（文の主張する手順そのもの）と証明
+\newenvironment{tejun}{%
+  \par\noindent{\gtfamily\sffamily 手順}\hspace{1\zw}\ignorespaces}
+  {\par\addvspace{.5\baselineskip}}
+\newenvironment{shoumei}{%
+  \par\noindent{\gtfamily\sffamily 証明}\hspace{1\zw}\ignorespaces}
   {\unskip\nobreak\hfill □\par\addvspace{.5\baselineskip}}
+%% 地の文の小見出し
+\newcommand\komidashi[1]{\par\addvspace{.5\baselineskip}%
+  \noindent{\gtfamily\sffamily #1}\hspace{1\zw}\ignorespaces}
 \newcommand\gydep{\textsf{\small［\pkg{gyoudori}併用時］}}
 
 \title{\pkg{evenend}パッケージ\\[.5\baselineskip]
@@ -1184,7 +1190,7 @@ Package evenend Info: Page 1: lines after floats are off the
 \section{定式化}\label{sec:formal}
 
 この節では，evenendが解く問題を定義から述べ直し，解を作る手順を，実装
-（\texttt{evenend.lua}の\texttt{balance}）に即して構成の形で記す．前の節までの説明と
+（\texttt{evenend.lua}の\texttt{balance}）に即して，手順とその性質の証明の形で記す．前の節までの説明と
 内容は同じで，述べ方だけが違う．長さはすべて段の上端から下向きに測る．
 記号が\TeX{}のどの概念（\cs{box}255，インサート，マークなど）にあたるかは，
 \ref{sec:formal-tex}節にまとめる．
@@ -1458,19 +1464,21 @@ $d$を，$T$の行の深さのうち最も多い値とする（本文の行の�
 行もフロートも分けられないので，(P4)を満たす配置があるとは限らない．また，(P1)は
 \LaTeX{}の配置$(k^0,\sigma^0)$が$h=H$で満たすように見えるが，定義\ref{def:used}の切り上げの
 分だけ所要の高さが増えるので，これも保証されない．そこで実装は，問題\ref{prob:main}の
-厳密な解ではなく，次の小節の構成が与える配置を解とする．解が得られない場合の扱いも，
-構成の中で定める．
+厳密な解ではなく，次の小節の手順が与える配置を解とする．解が得られない場合の扱いも，
+手順の中で定める．手順について証明できることと，証明しないことは，命題\ref{prop:main}と
+注意\ref{rem:noproof}に分けて述べる．
 \end{stmt}
 
-\subsection{構成}
+\subsection{手順と証明}
 
 割り振り$\sigma$と高さ$h$を決めれば，切れ目は貪欲に決まる．
 
 \begin{stmt}[貪欲な分割]{補題}\label{lem:fill}
-$\sigma\in\Sigma$と$h\le H$に対し，次の手順$\mathrm{Fill}(\sigma,h)$は，$h$に入り切る配置
-$(k,\sigma)$を1つ返すか，失敗する．返した配置は(P1)から(P3)を満たす．
+$\sigma\in\Sigma$と$h\le H$に対し，次の手順$\mathrm{Fill}(\sigma,h)$は，高々$10(N-1)$回の
+\cs{vsplit}で止まり，配置$(k,\sigma)$を1つ返すか，失敗する．返した配置は(P1)から(P3)を
+満たす．
 \end{stmt}
-\begin{kousei}
+\begin{tejun}
 $i=1,\dots,N-1$の順に，残りの本文の先頭から段$i$の本文を切り出す
 （図\ref{fig:formal-fill}）．
 \begin{enumerate}
@@ -1485,11 +1493,28 @@ $i=1,\dots,N-1$の順に，残りの本文の先頭から段$i$の本文を切�
 \end{enumerate}
 最後に，残りの本文のすべてを$T_N$とする．$U_N\le h$で，$T_N$に強制の改段が残って
 いなければ，配置を返す．そうでなければ失敗とする．
+\end{tejun}
+\begin{shoumei}
+\kyocho{止まること}．段$1$から$N-1$のそれぞれで，2から4のくり返しは高々10回である．
+1回のくり返しで\cs{vsplit}を1回使うので，\cs{vsplit}は高々$10(N-1)$回である．
 
-返した配置では，すべての段で$U_i\le h$を確かめているので，(P1)が成り立つ．本文は先頭から
-順に切り出すだけなので，(P2)が成り立つ．脚注は，行の直後に置いた印（番号を持つ）で
-参照位置を知り，その行が入った段に付けるので，(P3)が成り立つ．
-\end{kousei}
+\kyocho{(P1)}．$i<N$の段は，3で$A_i+|T_i|+G_i\le h$を確かめたときにだけ確定する．
+段$N$は，最後に$U_N\le h$を確かめる．$A_i$は$\sigma$だけで決まる．後の段の切り出しは残りの
+本文だけを使うので，確定した段の$T_i$は変わらず，$|T_i|$と$G_i$も変わらない．
+したがって，返した配置ではすべての段で$U_i\le h$である．
+
+\kyocho{(P2)}．\cs{vsplit}は，残りの本文の先頭から，改ページできる位置までを，要素の順を
+変えずに切り出す．段の先頭に来た捨てられる要素を除くのも，定義\ref{def:layout}の
+とおりである．よって，切り出した$T_1,\dots,T_N$は，ある切れ目$k_0\le\dots\le k_N$による
+分割で，本文は読む順のままである．$\sigma$は，初めから$\Sigma$の元である．
+
+\kyocho{(P3)}．3の$G_i$は，参照位置が$T_i$に入る脚注の集合$\Phi_i$だけから求める．
+参照位置は，行の直後に置いた印（番号を持つ）でわかる．\opt{footnote=column}では，
+(P1)から，どの段も本文の下に$\Phi_i$を積む高さ$G_i$を$h$の中に持つ．よって，脚注を
+参照位置と同じ段の下端に置ける．\opt{footnote=page}では，$H$からページの脚注の領域を
+引いてある（定義\ref{def:used}）．$h\le H$なので，どの段もその領域に掛からず，脚注を
+版面の下端に全幅で置ける．
+\end{shoumei}
 
 \begin{figure}[tbp]
   \centering
@@ -1548,17 +1573,36 @@ $\mathrm{Fill}(\sigma,h)$が失敗することはありうる．また，$\mathr
 \end{stmt}
 
 \begin{stmt}[割り振りごとの最小の高さ]{補題}\label{lem:minh}
-$\sigma\in\Sigma$に対し，次の手順は，$\mathrm{Fill}(\sigma,h)$が成功する高さ$h(\sigma)$を
-1つ返すか，「入り切らない」と答える．
+$\sigma\in\Sigma$に対し，次の手順は，高々
+$\max\{0,\lceil\log_2((H-h_0)/1\,\mathrm{pt})\rceil\}+6$回の$\mathrm{Fill}$で止まり，
+$\mathrm{Fill}(\sigma,h)$が成功する高さ$h(\sigma)\le H$を1つ返すか，「入り切らない」と
+答える．$h_0$は，手順の中で定める下界である．
 \end{stmt}
-\begin{kousei}
+\begin{tejun}
 $\mathrm{Fill}(\sigma,H)$が失敗すれば，「入り切らない」と答える．成功すれば，下界を
 \[ h_0=\Bigl\lfloor\bigl(|T|+\textstyle\sum_j|f_j|\bigr)/N\Bigr\rfloor-2b \]
 とし，区間$[h_0,H]$を二分法で狭める（図\ref{fig:formal-minh}）．中点で$\mathrm{Fill}$が成功すれば上端を，失敗すれば
 下端を中点に移し，幅が1ptになるまで続ける．上端を$h_1$とする．$\mathrm{Fill}$の成否は
 単調とは限らないので，最後に$h_1-4\,\mathrm{pt}$から$h_1$まで1ptずつ調べ，最初に成功した
-高さを$h(\sigma)$とする．$h_1$では成功するので，$h(\sigma)$は必ず決まる．
-\end{kousei}
+高さを$h(\sigma)$とする．
+\end{tejun}
+\begin{shoumei}
+二分法のあいだ，区間の上端では，つねに$\mathrm{Fill}$が成功する．初めの上端$H$では
+$\mathrm{Fill}(\sigma,H)$が成功しており，上端を移すのは，中点で成功したときだけだからで
+ある．よって，$h_1$で$\mathrm{Fill}$は成功する．最後の調べ直しは$h_1$を含むので，最初に
+成功する高さが必ずあり，$h(\sigma)\le h_1\le H$である．
+
+$\mathrm{Fill}$の回数は，初めの1回，二分法の
+$\max\{0,\lceil\log_2((H-h_0)/1\,\mathrm{pt})\rceil\}$回（1回ごとに区間の幅が半分になる），
+調べ直しの高々5回である．
+\end{shoumei}
+
+\begin{stmt}{注意}\label{rem:minh}
+$h(\sigma)$は，$\mathrm{Fill}(\sigma,h)$が成功する最小の$h$とは限らない．成否が単調で
+ないので，二分法が捨てた区間（失敗した中点より下）に，成功する高さが残りうる．
+補題\ref{lem:minh}から言えるのは，$h(\sigma)$で成功することと，調べ直した高さのうち
+$h(\sigma)$より低いものでは失敗することだけである．
+\end{stmt}
 
 \begin{figure}[tbp]
   \centering
@@ -1596,11 +1640,17 @@ $\mathrm{Fill}(\sigma,H)$が失敗すれば，「入り切らない」と答え�
 \end{figure}
 
 \begin{stmt}[揃えた配置の構成]{命題}\label{prop:main}
-次の手順は，有限回で止まり，配置$(k,\sigma)$，高さ$h$，下端$\beta$を返すか，「揃えられない」と
-答える．返した配置は(P1)から(P3)を満たす．(P4)は，手順4の判定を通った配置について，
-各段のグルーの伸びが足りる限り成り立つ．(P5)は，調べた候補と1ptの精度の範囲で成り立つ．
+次の手順は，有限回の$\mathrm{Fill}$で止まり，配置$(k,\sigma)$と下端$\beta$を返すか，
+「揃えられない」と答える．返した配置と$\beta$について，次が成り立つ．
+\begin{enumerate}
+  \item[(i)\hspace{.5\zw}] ある$h\le H$について，配置は(P1)から(P3)を満たす．
+  \item[(ii)\hspace{.5\zw}] どの段の見かけの下端も，フロートまわりのグルーの縮みの範囲で
+    $\beta$以下にできる．とくに，定義\ref{def:even}の2（$v_L\le\beta$）にあたる条件が
+    成り立つ．
+\end{enumerate}
+(P4)の残りの条件と(P5)は，この命題では主張しない（注意\ref{rem:noproof}）．
 \end{stmt}
-\begin{kousei}
+\begin{tejun}
 \begin{enumerate}
   \item \kyocho{候補を挙げる}．$\Sigma$の割り振りを列挙する．64個を超えるときは，\LaTeX{}が
     置いたフロートを動かさず（$\sigma(j)=o_j$），持ち越したフロートだけを動かす候補に限る．
@@ -1628,24 +1678,57 @@ $\mathrm{Fill}(\sigma,H)$が失敗すれば，「入り切らない」と答え�
     グルーの縮みで$\beta_T$に合わせられるなら，$\beta=\beta_T$とする（本文だけの段を基準に
     する）．各段を，上のフロート，本文，下のフロート，脚注の順に積む．$i<L$の段は，
     グルーを伸び縮みさせて$v_i=\beta$にする．伸びが足りない段は，行を動かさず，足りない分を
-    下のフロートや脚注の上に空ける．段$L$は伸ばさない．$h=\beta$として返す．
+    下のフロートや脚注の上に空ける．段$L$は伸ばさない．配置と$\beta$を返す（実装は，
+    $\beta$を揃えた段組の高さとして使う）．
   \item \kyocho{緩める}．どの候補も入り切らないときは，条件を1つ緩めて，手順1から
     やり直す．1回目は，脚注の塊を$b$の倍数に切り上げない（定義\ref{def:used}）．2回目は，
     \opt{floatgrid}もやめる．それでも入り切らなければ，「揃えられない」と答える．このとき
     \TeX{}側は，\LaTeX{}の配置$(k^0,\sigma^0)$のままページを出力し，警告を出す．
 \end{enumerate}
+\end{tejun}
+\begin{shoumei}
+\kyocho{止まること}．手順1の候補は高々257個である．手順2は，候補ごとに
+補題\ref{lem:minh}の回数の$\mathrm{Fill}$で終わる．手順4は，$h$を1ptずつ$H$まで上げる
+だけなので，高々$(H-h^*)/1\,\mathrm{pt}$回の$\mathrm{Fill}$で終わる．手順3と5は
+$\mathrm{Fill}$を使わない．手順6から手順1へ戻るのは高々2回なので，全体は高々3巡で
+終わる．$\mathrm{Fill}$そのものは，補題\ref{lem:fill}から，高々$10(N-1)$回の\cs{vsplit}で
+止まる．
 
-\kyocho{止まること}．候補は高々257個である．補題\ref{lem:minh}の二分法は，
-$\log_2(H/1\,\mathrm{pt})+6$回以内の$\mathrm{Fill}$で終わる．手順4は高々$(H-h^*)/1\,\mathrm{pt}$回，
-手順6は高々2回である．$\mathrm{Fill}$は，$N$段のそれぞれで高々10回の\cs{vsplit}で終わる．
+\kyocho{(i)}．配置を返すのは，手順3で候補が選ばれたときだけである．このとき返す配置は，
+$\mathrm{Fill}(\sigma^*,h^*)$が返したものか，手順4の$\mathrm{Fill}(\sigma^*,h)$
+（$h^*<h\le H$）が返したものである．$h^*=h(\sigma^*)\le H$は，補題\ref{lem:minh}による．
+手順5は，切れ目も割り振りも変えない．よって，補題\ref{lem:fill}から，配置はその$h$に
+ついて(P1)から(P3)を満たす．手順6で条件を緩めた後は，緩めた$G_i$で定めた所要の高さに
+ついて同じことが成り立つ．
 
-\kyocho{性質}．(P1)から(P3)は補題\ref{lem:fill}による．手順4の判定を通った配置では，
-(a)の否定から$v_L\le\beta$が，(b)と(c)の否定から，途中の段の差が半行より小さく，
-グルーで合わせられる見込みが得られる．定義\ref{def:even}の3は，手順5で本文だけの段を
-基準にすることによる．(P5)は，$h^*$が各候補の$h(\sigma)$の最小（手順3の規則のもとで）で
-あることによる．ただし，補題\ref{lem:fill}の注意のとおり，$\mathrm{Fill}$が見つけない配置は
-調べていない．
-\end{kousei}
+\kyocho{(ii)}．手順5で$\beta=\max_i v_i$としたときは，すべての段で$v_i\le\beta$である．
+$\beta=\beta_T$とするのは，すべての段で，$v_i$からフロートまわりのグルーの縮みを引いた
+値が$\beta_T$以下のときだけである．どちらの場合も，主張が成り立つ．
+\end{shoumei}
+
+\begin{stmt}[証明しないこと]{注意}\label{rem:noproof}
+命題\ref{prop:main}は，(P4)の残りの条件と(P5)を主張しない．手順はこれらを目指して
+作ってあるが，次のとおり，材料によっては成り立たない．
+\begin{itemize}
+  \item \kyocho{途中の段を$\beta$に合わせられること}（定義\ref{def:even}の1）．手順4の
+    判定は，(a)から(c)にあたる配分を除くだけである．判定を通れば，(b)の否定から途中の
+    段の不足は半行より小さく，(c)の否定からフロートのある段は縮めて$\beta_T$に収まる．
+    しかし，不足を埋めるだけのグルーの伸びがあるかどうかは，材料による．伸びが足りない段は，
+    手順5で行を動かさずに下を空ける．手順4で$H$まで上げても判定を通らないときは，
+    元の配置のまま組む．
+  \item \kyocho{本文だけの段を動かさないこと}（定義\ref{def:even}の3）．$\beta=\beta_T$の
+    とき，基準にした段は動かない．それより短い本文だけの段は，グルーに伸びがあれば
+    伸ばすことがある．
+  \item \kyocho{高さが最も小さいこと}（P5）．$h^*$は，調べた候補の$h(\sigma)$から手順3の
+    規則で選んだものである．$\mathrm{Fill}$は貪欲なので，$\mathrm{Fill}$が作らない配置は
+    調べていない．候補が64個を超えるときに除いた割り振りも調べていない．$h(\sigma)$
+    そのものも，最小とは限らない（注意\ref{rem:minh}）．
+  \item \kyocho{解があれば見つけること}．問題\ref{prob:main}の条件を満たす配置があっても，
+    手順が「揃えられない」と答えることはありうる．
+\end{itemize}
+証明のないこれらの性質は，乱数による網羅テスト（\ref{sec:randtest}節）で，組んだ結果を
+検査して確かめている．
+\end{stmt}
 
 \begin{figure}[tbp]
   \centering
@@ -1695,23 +1778,44 @@ $\log_2(H/1\,\mathrm{pt})+6$回以内の$\mathrm{Fill}$で終わる．手順4は
   \label{fig:formal-misaligned}
 \end{figure}
 
-\subsection{ほかの場面への適用}
+\subsection{ほかの場面への適用}\label{sec:formal-apply}
 
-\begin{stmt}[ページの途中で段組を改める]{系}\label{cor:block}
-$H$を，そのページの残りの高さとして，命題\ref{prop:main}の構成をそのまま使う．得た
-下端$\beta$と，段組の間のアキ$g$から，次の段組の段の高さを$H'=H-\beta-g$とする
-（図\ref{fig:alg-block}）．持ち越したフロートは$o_j=1$として$F$に加えるので，その段組の
-中に置かれる．
-\end{stmt}
+最終ページのほかにも，同じ手順を2つの場面で使う．どちらも新しい命題ではなく，手順の
+使い方である．補題と命題から言えることは，それぞれの終わりに記す．
 
-\begin{stmt}[\opt{footnote=page}のページ]{系}\label{cor:page}
-最終ページでないページでは，割り振りを$\sigma^0$に固定し，$h=H-\Psi$として
-$\mathrm{Fill}(\sigma^0,h)$を使う．$\Psi$は，ページの脚注の領域の高さである．ここでは
-最後の段にも\cs{vsplit}を使い，入り切らない本文$R$を次のページへ送り返す．$R$の脚注は
-このページに要らないので，$\Psi$を残った本文の脚注だけで求め直し，$h$を上げて
-やり直す．送り返す本文の脚注が戻らない所まで，高々6回くり返す
-（図\ref{fig:formal-page}）．
-\end{stmt}
+\komidashi{ページの途中で段組を改める}
+\cs{evenendcolumns}などで段組を改めるとき，それまでの段組を次のように組む
+（図\ref{fig:alg-block}）．
+\begin{enumerate}
+  \item $H$を，そのページの残りの高さ（すでに積んだ段組とその後のアキを除いた高さ）と
+    する．持ち越したフロートは，$o_j=1$として$F$に加える．
+  \item 命題\ref{prop:main}の手順を，この$H$と材料にそのまま使い，配置と下端$\beta$を得る．
+  \item 得た段組をページに積む．段組の間のアキを$g$として，次の段組の段の高さを
+    $H'=H-\beta-g$とする．
+\end{enumerate}
+命題\ref{prop:main}は$H$の決め方によらないので，2で得た配置について，命題の(i)と(ii)が
+そのまま成り立つ．持ち越したフロートは，$\sigma(j)\ge o_j=1$のどの段にも置けるので，
+この段組の中に置かれる．
+
+
+\komidashi{\opt{footnote=page}のページ}
+\opt{footnote=page}では，最終ページでないページも，脚注を版面の下端に全幅で置くために
+組み直す．ここでは段を揃えず，本文を前の段から詰める（図\ref{fig:formal-page}）．
+\begin{enumerate}
+  \item 割り振りを$\sigma^0$に固定する（フロートは動かさない）．ページの脚注の領域の
+    高さを$\Psi$として，$h=H-\Psi$とする．
+  \item $\mathrm{Fill}(\sigma^0,h)$の手順1から4を，最後の段$N$にも使う．段$N$に
+    入り切らない本文を$R$とする．
+  \item $R$に参照位置のある脚注は，このページに要らない．$\Psi$を，残った本文の脚注
+    だけで求め直し，$h=H-\Psi$を上げて，2からやり直す．
+  \item 送り返す本文の脚注が戻らなくなるまで（$\Psi$が変わらなくなるまで），高々6回
+    くり返す．$R$を，脚注とともに次のページへ送り返す．
+\end{enumerate}
+補題\ref{lem:fill}の証明のうち，$i<N$の段についての部分は，段$N$にも\cs{vsplit}を使う
+この場合にそのまま通る．よって，このページに残した本文について，最後の回の$h$で(P1)と
+(P2)が成り立つ．4が6回で打ち切られたときに，$\Psi$が残った本文の脚注の高さと
+一致することは，証明しない．
+
 
 \begin{figure}[tbp]
   \centering
@@ -1752,7 +1856,7 @@ $\mathrm{Fill}(\sigma^0,h)$を使う．$\Psi$は，ページの脚注の領域�
       \node[lab,below,align=center] at (22,-1) {$R$の脚注を除いて$\Psi$を求め直し，\\$h$を上げて分け直す};
     \end{scope}
   \end{tikzpicture}
-  \caption{\opt{footnote=page}のページの組み直し（系\ref{cor:page}）．左：ページの
+  \caption{\opt{footnote=page}のページの組み直し（\ref{sec:formal-apply}節）．左：ページの
     脚注の領域$\Psi$を除いた高さ$h$で段を分ける．入り切らない本文$R$に参照（\textdagger）の
     ある脚注（濃い帯）は，このページに要らない．右：その脚注を除くと$\Psi$が減り，
     $h$が上がって，$R$の一部がこのページに入る．送り返す本文の脚注が戻らない所まで
@@ -1765,7 +1869,7 @@ $\mathrm{Fill}(\sigma^0,h)$を使う．$\Psi$は，ページの脚注の領域�
 $\mathrm{Fill}$は\texttt{fill\_once}（段をまたぐフロートの脚注を見込むときは\texttt{fill}），
 補題\ref{lem:minh}は\texttt{min\_h}，割り振りの列挙は\texttt{enum}，見かけの下端は
 \texttt{measure}，揃わない配分の判定は\texttt{misaligned}である．箱の中の段組
-（\texttt{boxbalance}）は，フロートと脚注のない場合（$F=\Phi=\emptyset$）の同じ構成である．
+（\texttt{boxbalance}）は，フロートと脚注のない場合（$F=\Phi=\emptyset$）の同じ手順である．
 \end{stmt}
 
 \subsection{\TeX{}の概念との対応}\label{sec:formal-tex}
@@ -1864,7 +1968,7 @@ $a(\varphi)$）は，\TeX{}の側には残らない．そこでevenendは，\cs{
 \endhead
 \hline
 \endfoot
-出力ルーチン（\cs{output}） & 構成を行う場所 &
+出力ルーチン（\cs{output}） & 手順を行う場所 &
   \LaTeX{}の\cs{@makecol}の直前で段を取り込み，\cs{@outputdblcol}を置き換えて，ページの
   最後の段で揃える． \\\noalign{\vskip 4pt}
 \cs{box}255 & 本文$T$の1段分 &
@@ -1898,7 +2002,7 @@ $-10000$以下のペナルティ（\cs{newpage}，\cs{columnbreak}） & 強制�
   \opt{footnote=column}では変えない．\opt{footnote=page}では，全幅の脚注が全段の高さを
   減らすので，\cs{count}\cs{footins}を段数倍にする（\cs{skip}\cs{footins}は，ページの
   最初の脚注のときだけ段数倍）． \\\noalign{\vskip 4pt}
-送り返す本文$R$のインサート & 系\ref{cor:page}の$R$の脚注 &
+送り返す本文$R$のインサート & \ref{sec:formal-apply}節の$R$の脚注 &
   $R$の脚注を\cs{insert}に作り直して印の直後に付け，$R$を\cs{unvbox}で最近の寄与へ戻す．
   ページビルダが，次のページの材料としてもう一度扱う． \\\noalign{\vskip 4pt}
 マーク（\cs{mark}） & $T$の要素（高さ0） &
