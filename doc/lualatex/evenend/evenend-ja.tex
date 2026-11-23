@@ -3,6 +3,7 @@
 %% 先に組んでおくこと
 \documentclass[paper=a4,fontsize=10pt]{jlreq}
 \usepackage{graphicx}
+\usepackage{longtable,array}
 \usepackage{tikz}
 \usetikzlibrary{arrows.meta,positioning,calc}
 \tikzset{
@@ -1123,7 +1124,7 @@ Package evenend Info: Page 1: lines after floats are off the
     \foreach \a/\b in {t1/t2,t2/t3,t3/t4,t4/t5,t5/t6,t6/t7} \draw[->,black!50] (\a.south) -- (\b.north);
   \end{tikzpicture}
   \caption{\TeX{}側とLua側のやりとり（上から時間の順．灰色の箱がLua側の処理，括弧の中は
-    \texttt{evenend.lua}の関数）．(2)は段ごと，(3)は揃えないページ，(4)〜(6)は揃える場面と
+    \texttt{evenend.lua}の関数）．(2)は段ごと，(3)は揃えないページ，(4)から(6)は揃える場面と
     \opt{footnote=page}の各ページで起きる}
   \label{fig:alg-lua}
 \end{figure}
@@ -1185,14 +1186,65 @@ Package evenend Info: Page 1: lines after floats are off the
 この節では，evenendが解く問題を定義から述べ直し，解を作る手順を，実装
 （\texttt{evenend.lua}の\texttt{balance}）に即して構成の形で記す．前の節までの説明と
 内容は同じで，述べ方だけが違う．長さはすべて段の上端から下向きに測る．
+記号が\TeX{}のどの概念（\cs{box}255，インサート，マークなど）にあたるかは，
+\ref{sec:formal-tex}節にまとめる．
 
 \subsection{記号と定義}
 
 \begin{stmt}[段組]{定義}\label{def:frame}
 段数を$N\ge 1$，段の高さを$H$，行送りを$b$（\cs{baselineskip}），1行目のベースラインの
 位置を$\tau$（\cs{topskip}）とする．$H$は，版面の高さから，段抜きのフロート，そのページに
-すでに積んだ段組とその後のアキを除いた高さ（\cs{@colht}）である．
+すでに積んだ段組とその後のアキを除いた高さ（\cs{@colht}）である
+（図\ref{fig:formal-frame}の左）．
 \end{stmt}
+
+\begin{figure}[tbp]
+  \centering
+  \begin{tikzpicture}[alg,x=.9mm,y=.9mm,
+      txt/.style={fill=black!18},fl/.style={fill=black!45}]
+    %% ページの中の段組
+    \draw (0,0) rectangle (50,70);
+    \node[lab,above] at (25,70) {版面};
+    \fill[fl] (0,62) rectangle (50,70);
+    \node[lab,text=white] at (25,66) {段抜きのフロート};
+    \foreach \i in {0,...,2} {\fill[txt] (0,59-3*\i) rectangle (23,57.2-3*\i);
+      \fill[txt] (27,59-3*\i) rectangle (50,57.2-3*\i);}
+    \node[lab,left,align=right] at (-1,55) {すでに積んだ\\段組};
+    \draw[|-|] (-2,50.5) -- node[lab,left] {アキ} (-2,46);
+    \fill[black!8] (0,0) rectangle (23,46);
+    \fill[black!8] (27,0) rectangle (50,46);
+    \draw (0,0) rectangle (50,70);
+    \node[lab] at (11.5,23) {段1};
+    \node[lab] at (38.5,23) {段$N$};
+    \draw[<->] (53,0) -- node[lab,right] {$H$} (53,46);
+    %% 段iの中身
+    \begin{scope}[xshift=70.2mm]
+      \node[lab,above] at (17,70) {段$i$};
+      \fill[fl] (0,60) rectangle (34,70);
+      \node[lab,text=white] at (17,65) {上のフロート};
+      \foreach \i in {0,...,6} \fill[txt] (0,55-4*\i) rectangle (34,52.8-4*\i);
+      \draw[|-|] (-3,48.8) -- node[lab,left=4pt] {$b$} (-3,44.8);
+      \draw (0,24) -- (12,24);
+      \fill[txt] (0,20.4) rectangle (34,22);
+      \fill[txt] (0,17) rectangle (22,18.6);
+      \node[lab,left] at (-1,20) {脚注};
+      \draw[densely dashed] (-6,12) -- (60,12);
+      \draw (-6,0) -- (68,0);
+      \draw[|-|] (37,70) -- node[lab,right] {$A_i$} (37,57);
+      \draw[|-|] (37,57) -- node[lab,right] {$|T_i|$} (37,28.8);
+      \draw[|-|] (37,28.8) -- node[lab,right] {$G_i$} (37,17);
+      \draw[<->] (48,70) -- node[lab,right] {$U_i$} (48,17);
+      \draw[<->] (56,70) -- node[lab,right,pos=.3] {$h$} (56,12);
+      \draw[<->] (64,70) -- node[lab,right,pos=.2] {$H$} (64,0);
+    \end{scope}
+  \end{tikzpicture}
+  \caption{段組と所要の高さ（定義\ref{def:frame}，\ref{def:used}）．左：段の高さ$H$は，
+    版面の高さから，段抜きのフロート，すでに積んだ段組，その後のアキを除いた高さである
+    （ごく薄い地が段）．右：段$i$の所要の高さ$U_i$は，フロートの高さ$A_i$（まわりのアキを含む），本文の
+    高さ$|T_i|$，脚注の高さ$G_i$（区切りの罫と上のアキを含む）の和である．どの段でも
+    $U_i\le h$なら，配置は$h$に入り切る}
+  \label{fig:formal-frame}
+\end{figure}
 
 \begin{stmt}[材料]{定義}\label{def:material}
 ページの\kyocho{材料}とは，次の3つの組$M=(T,F,\Phi)$である．
@@ -1209,7 +1261,7 @@ Package evenend Info: Page 1: lines after floats are off the
 \end{stmt}
 
 \begin{stmt}[配置]{定義}\label{def:layout}
-材料$M$の\kyocho{配置}とは，次の組$(k,\sigma)$である．
+材料$M$の\kyocho{配置}とは，次の組$(k,\sigma)$である（図\ref{fig:formal-layout}）．
 \begin{itemize}
   \item 切れ目$k=(k_0,\dots,k_N)$，$0=k_0\le k_1\le\dots\le k_N=n$．段$i$の本文は
     $T_i=(t_{k_{i-1}+1},\dots,t_{k_i})$である．切れ目は，\TeX{}が改ページできる位置に限る．
@@ -1224,8 +1276,91 @@ Package evenend Info: Page 1: lines after floats are off the
 与える（$\sigma^0(j)=o_j$）．
 \end{stmt}
 
+\begin{figure}[tb]
+  \centering
+  \begin{tikzpicture}[alg,x=.9mm,y=.9mm,
+      txt/.style={fill=black!18},fl/.style={fill=black!45}]
+    %% 材料：フロートFと本文T
+    \node[lab,above] at (-30,61) {フロート$F$};
+    \fill[fl] (-36,48) rectangle (-24,56);
+    \node[lab,text=white] at (-30,52) {$f_1$};
+    \fill[fl] (-36,34) rectangle (-24,42);
+    \node[lab,text=white] at (-30,38) {$f_2$};
+    \node[lab,below,align=center] at (-30,33) {$o_1=1$\\$o_2=2$};
+    \node[lab,above] at (6,61) {本文$T$};
+    \foreach \i in {0,...,19} \fill[txt] (0,60-3*\i) rectangle (12,58.2-3*\i);
+    \foreach \y/\t in {60.6/{$k_0=0$},39.6/{$k_1$},18.6/{$k_2$},0.6/{$k_3=n$}}
+      {\draw (-2,\y) -- (14,\y); \node[lab,left] at (-2,\y) {\t};}
+    \draw[|-|] (17,60) -- node[lab,right] {$T_1$} (17,40.2);
+    \draw[|-|] (17,39) -- node[lab,right] {$T_2$} (17,19.2);
+    \draw[|-|] (17,18) -- node[lab,right] {$T_3$} (17,1.2);
+    \draw[->] (28,30) -- node[lab,above,align=center] {配置\\$(k,\sigma)$} (42,30);
+    %% 配置
+    \begin{scope}[xshift=43.2mm]
+      \foreach \c/\t in {0/段1,24/段2,48/段3} \node[lab,above] at (\c+9,61) {\t};
+      \fill[fl] (0,52) rectangle (18,60);
+      \node[lab,text=white] at (9,56) {$f_1$};
+      \foreach \i in {0,...,6} \fill[txt] (0,50-3*\i) rectangle (18,48.2-3*\i);
+      \node[lab,below] at (9,29.5) {$T_1$};
+      \foreach \i in {0,...,6} \fill[txt] (24,60-3*\i) rectangle (42,58.2-3*\i);
+      \node[lab,below] at (33,39.5) {$T_2$};
+      \fill[fl] (48,52) rectangle (66,60);
+      \node[lab,text=white] at (57,56) {$f_2$};
+      \foreach \i in {0,...,5} \fill[txt] (48,50-3*\i) rectangle (66,48.2-3*\i);
+      \node[lab,below] at (57,32.5) {$T_3$};
+      \node[lab,below,align=center] at (9,22) {$\sigma(1)=1$\\（$=o_1$）};
+      \node[lab,below,align=center] at (57,22) {$\sigma(2)=3$\\（$>o_2$．後ろの段へ）};
+    \end{scope}
+  \end{tikzpicture}
+
+  \vspace{\baselineskip}
+  \begin{tikzpicture}[alg,x=.9mm,y=.9mm,
+      txt/.style={fill=black!18},fl/.style={fill=black!45}]
+    \node[lab,align=left,anchor=west] at (-38,10) {$N=2$，$m=2$，\\$o=(1,1)$の\\ときの$\Sigma$};
+    %% σ=(1,1)
+    \begin{scope}
+      \fill[fl] (0,16) rectangle (9,21); \node[lab,text=white] at (4.5,18.5) {1};
+      \fill[fl] (0,10) rectangle (9,15); \node[lab,text=white] at (4.5,12.5) {2};
+      \foreach \i in {0,...,2} \fill[txt] (0,8-3*\i) rectangle (9,6.5-3*\i);
+      \foreach \i in {0,...,6} \fill[txt] (11,20-3*\i) rectangle (20,18.5-3*\i);
+      \node[lab,below,align=center] at (10,-1) {$\sigma=(1,1)$\\$\mu=0$};
+    \end{scope}
+    %% σ=(1,2)
+    \begin{scope}[xshift=30.6mm]
+      \fill[fl] (0,16) rectangle (9,21); \node[lab,text=white] at (4.5,18.5) {1};
+      \foreach \i in {0,...,4} \fill[txt] (0,14-3*\i) rectangle (9,12.5-3*\i);
+      \fill[fl] (11,16) rectangle (20,21); \node[lab,text=white] at (15.5,18.5) {2};
+      \foreach \i in {0,...,4} \fill[txt] (11,14-3*\i) rectangle (20,12.5-3*\i);
+      \node[lab,below,align=center] at (10,-1) {$\sigma=(1,2)$\\$\mu=1$};
+    \end{scope}
+    %% σ=(2,2)
+    \begin{scope}[xshift=61.2mm]
+      \foreach \i in {0,...,6} \fill[txt] (0,20-3*\i) rectangle (9,18.5-3*\i);
+      \fill[fl] (11,16) rectangle (20,21); \node[lab,text=white] at (15.5,18.5) {1};
+      \fill[fl] (11,10) rectangle (20,15); \node[lab,text=white] at (15.5,12.5) {2};
+      \foreach \i in {0,...,2} \fill[txt] (11,8-3*\i) rectangle (20,6.5-3*\i);
+      \node[lab,below,align=center] at (10,-1) {$\sigma=(2,2)$\\$\mu=2$};
+    \end{scope}
+    %% σ=(2,1)：番号順に反する
+    \begin{scope}[xshift=91.8mm]
+      \fill[fl] (0,16) rectangle (9,21); \node[lab,text=white] at (4.5,18.5) {2};
+      \foreach \i in {0,...,4} \fill[txt] (0,14-3*\i) rectangle (9,12.5-3*\i);
+      \fill[fl] (11,16) rectangle (20,21); \node[lab,text=white] at (15.5,18.5) {1};
+      \foreach \i in {0,...,4} \fill[txt] (11,14-3*\i) rectangle (20,12.5-3*\i);
+      \draw[thick] (-2,-1) -- (22,23) (-2,23) -- (22,-1);
+      \node[lab,below,align=center] at (10,-1) {$\sigma=(2,1)$\\番号順に反する};
+    \end{scope}
+  \end{tikzpicture}
+  \caption{材料と配置（定義\ref{def:material}，\ref{def:layout}）．上：本文$T$を切れ目
+    $k_1$，$k_2$で$T_1$，$T_2$，$T_3$に分け，フロートを割り振り$\sigma$で段に置く．
+    $f_2$は，\LaTeX{}が置いた段2から段3へ動かしている．下：割り振りの全体$\Sigma$の例．
+    2つのフロートをどちらも\LaTeX{}が段1に置いたとき，$\Sigma$は左の3つからなる．
+    $\mu$は動かす量である}
+  \label{fig:formal-layout}
+\end{figure}
+
 \begin{stmt}[所要の高さ]{定義}\label{def:used}
-配置$(k,\sigma)$の段$i$について，次の量を定める．
+配置$(k,\sigma)$の段$i$について，次の量を定める（図\ref{fig:formal-frame}の右）．
 \begin{itemize}
   \item フロートの高さ$A_i(\sigma)=\sum_{\sigma(j)=i}|f_j|$．
   \item 本文の高さ$|T_i|$：$T_i$の自然な高さ（グルーを伸び縮みさせない高さ）．
@@ -1241,7 +1376,8 @@ Package evenend Info: Page 1: lines after floats are off the
 
 \begin{stmt}[見かけの下端]{定義}\label{def:bottom}
 $d$を，$T$の行の深さのうち最も多い値とする（本文の行の標準の深さ）．配置の段$i$の
-\kyocho{見かけの下端}$v_i$を，段の最後の要素に応じて次のように定める．
+\kyocho{見かけの下端}$v_i$を，段の最後の要素に応じて次のように定める
+（図\ref{fig:formal-even}）．
 \begin{itemize}
   \item 本文の行で終わる段：最終行のベースラインの位置に$d$を足した位置．
   \item 下のフロートで終わる段：そのフロートの下端．
@@ -1263,6 +1399,44 @@ $d$を，$T$の行の深さのうち最も多い値とする（本文の行の�
 \end{enumerate}
 \end{stmt}
 
+\begin{figure}[tbp]
+  \centering
+  \begin{tikzpicture}[alg,x=.9mm,y=.9mm,
+      txt/.style={fill=black!18},fl/.style={fill=black!45}]
+    %% 段1：本文だけ
+    \foreach \i in {0,...,11} \fill[txt] (0,59.2-4*\i) rectangle (30,57-4*\i);
+    \draw[|-|] (-3,60) -- node[lab,left=4pt] {$\tau$} (-3,57);
+    \draw[|-|] (-3,53) -- node[lab,left=4pt] {$b$} (-3,49);
+    \node[lab,above] at (15,60) {段1};
+    %% 段2：下のフロート
+    \foreach \i in {0,...,6} \fill[txt] (48,59.2-4*\i) rectangle (78,57-4*\i);
+    \fill[fl] (48,12) rectangle (78,25);
+    \node[lab,text=white] at (63,18.5) {下のフロート};
+    \draw[|-|] (45,32) -- node[lab,left] {アキ} (45,25);
+    \node[lab,above] at (63,60) {段2};
+    %% 段3：脚注で終わる最後の段
+    \foreach \i in {0,...,5} \fill[txt] (96,59.2-4*\i) rectangle (126,57-4*\i);
+    \draw (96,32.5) -- (106,32.5);
+    \fill[txt] (96,28.8) rectangle (126,30.4);
+    \fill[txt] (96,25) rectangle (114,26.6);
+    \node[lab,above] at (111,60) {段3（$=L$）};
+    \draw[densely dashed] (93,24) -- (129,24);
+    \node[lab,right] at (129,24) {$v_3$};
+    %% 下端
+    \draw[densely dashed] (-6,12) -- (129,12);
+    \node[lab,right] at (129,12) {$\beta$};
+    \node[lab,below,align=center] at (15,10) {本文の行で終わる段\\$v_1=$最終行のベースライン$+d$};
+    \node[lab,below,align=center] at (63,10) {下のフロートで終わる段\\$v_2=$フロートの下端};
+    \node[lab,below,align=center] at (111,10) {脚注で終わる段\\$v_3\le\beta$（最後の段は短くてよい）};
+  \end{tikzpicture}
+  \caption{見かけの下端と揃った配置（定義\ref{def:bottom}，\ref{def:even}）．帯は行で，
+    帯の下辺がベースラインである．段1は本文だけの段で，行は$\tau+\ell b$の位置から
+    動かさない．段2は，本文と下のフロートの間のアキを伸び縮みさせて，フロートの下端を
+    $\beta$に合わせる．段3は中身のある最後の段$L$で，$\beta$より高くなければよい．
+    段の脚注の最終行は，行の位置（$\tau+\ell b$）に置く}
+  \label{fig:formal-even}
+\end{figure}
+
 \subsection{問題}
 
 \begin{stmt}[最終ページを揃える]{問題}\label{prob:main}
@@ -1275,7 +1449,7 @@ $d$を，$T$の行の深さのうち最も多い値とする（本文の行の�
   \item[(P3)\hspace{.5\zw}] 脚注は，\opt{footnote=column}では参照位置と同じ段の下端に，
     \opt{footnote=page}では版面の下端に全幅で置く．
   \item[(P4)\hspace{.5\zw}] 配置は，ある下端$\beta\le h$で揃っている．
-  \item[(P5)\hspace{.5\zw}] (P1)〜(P4)を満たすもののうちで，$h$が最も小さい．$h$の差が1行未満なら，
+  \item[(P5)\hspace{.5\zw}] (P1)から(P4)を満たすもののうちで，$h$が最も小さい．$h$の差が1行未満なら，
     動かすフロートの少ないものを選ぶ．動かす量は$\mu(\sigma)=\sum_j(\sigma(j)-o_j)$で測る．
 \end{enumerate}
 \end{stmt}
@@ -1294,10 +1468,11 @@ $d$を，$T$の行の深さのうち最も多い値とする（本文の行の�
 
 \begin{stmt}[貪欲な分割]{補題}\label{lem:fill}
 $\sigma\in\Sigma$と$h\le H$に対し，次の手順$\mathrm{Fill}(\sigma,h)$は，$h$に入り切る配置
-$(k,\sigma)$を1つ返すか，失敗する．返した配置は(P1)〜(P3)を満たす．
+$(k,\sigma)$を1つ返すか，失敗する．返した配置は(P1)から(P3)を満たす．
 \end{stmt}
 \begin{kousei}
-$i=1,\dots,N-1$の順に，残りの本文の先頭から段$i$の本文を切り出す．
+$i=1,\dots,N-1$の順に，残りの本文の先頭から段$i$の本文を切り出す
+（図\ref{fig:formal-fill}）．
 \begin{enumerate}
   \item 本文に使える高さを$c=h-A_i(\sigma)-G$とする．初めは，$G$を，段$i$に必ず入る脚注
     だけの高さとする．$c<0$なら失敗とする．
@@ -1316,6 +1491,55 @@ $i=1,\dots,N-1$の順に，残りの本文の先頭から段$i$の本文を切�
 参照位置を知り，その行が入った段に付けるので，(P3)が成り立つ．
 \end{kousei}
 
+\begin{figure}[tbp]
+  \centering
+  \begin{tikzpicture}[alg,x=.9mm,y=.9mm,
+      txt/.style={fill=black!18},fl/.style={fill=black!45}]
+    \draw[densely dashed] (-8,0) -- (136,0);
+    \draw[<->] (-5,0) -- node[lab,left] {$h$} (-5,50);
+    %% 手順1，2
+    \fill[fl] (0,42) rectangle (28,50);
+    \node[lab,text=white] at (14,46) {フロート};
+    \foreach \i in {0,...,9} \fill[txt] (0,40.8-4*\i) rectangle (28,38.6-4*\i);
+    \node[lab] at (29.6,17.2) {\textdagger};
+    \draw[|-|] (34,50) -- node[lab,right] {$A_i$} (34,42);
+    \draw[|-|] (34,42) -- node[lab,right] {$c$} (34,0);
+    \node[lab,below,align=center] at (14,-11) {手順1，2：$c=h-A_i-G$\\まで\cs{vsplit}で切り出す};
+    \draw[->] (41,25) -- (49,25);
+    %% 手順3
+    \begin{scope}[xshift=46.8mm]
+      \fill[fl] (0,42) rectangle (28,50);
+      \foreach \i in {0,...,9} \fill[txt] (0,40.8-4*\i) rectangle (28,38.6-4*\i);
+      \node[lab] at (29.6,17.2) {\textdagger};
+      \draw (0,-2) -- (9,-2);
+      \fill[txt] (0,-5.6) rectangle (28,-4);
+      \fill[txt] (0,-9) rectangle (16,-7.4);
+      \draw[|-|] (31,-0.3) -- (31,-9);
+      \node[lab,right] at (32,-5.5) {超えた分};
+      \node[lab,right] at (16.5,-8.2) {脚注};
+      \node[lab,below,align=center] at (14,-11) {手順3：脚注を求め直すと\\$h$を超える};
+    \end{scope}
+    \draw[->] (93,25) -- (101,25);
+    %% 手順4
+    \begin{scope}[xshift=93.6mm]
+      \fill[fl] (0,42) rectangle (28,50);
+      \foreach \i in {0,...,6} \fill[txt] (0,40.8-4*\i) rectangle (28,38.6-4*\i);
+      \node[lab] at (29.6,17.2) {\textdagger};
+      \draw (0,9) -- (9,9);
+      \fill[txt] (0,5.4) rectangle (28,7);
+      \fill[txt] (0,2) rectangle (16,3.6);
+      \draw[|-|] (34,42) -- node[lab,right] {$c'$} (34,12);
+      \draw[|-|] (34,12) -- node[lab,right] {$G_i$} (34,0);
+      \node[lab,below,align=center] at (14,-11) {手順4：$c$を小さくして\\切り直すと入り切る};
+    \end{scope}
+  \end{tikzpicture}
+  \caption{貪欲な分割$\mathrm{Fill}$の段$i$の切り出し（補題\ref{lem:fill}）．初めは，
+    脚注を見込まずに高さ$c$まで本文を切り出す．切り出した本文に脚注の参照（\textdagger）が
+    あると，脚注の分だけ$h$を超える．超えた分だけ$c$を小さくして切り直し，
+    $A_i+|T_i|+G_i\le h$になれば段を確定する．切り出さなかった行は，次の段へ回る}
+  \label{fig:formal-fill}
+\end{figure}
+
 \begin{stmt}{注意}
 $\mathrm{Fill}$は貪欲で，前の段にできるだけ多く入れる．$h$に入り切る配置があっても，
 $\mathrm{Fill}(\sigma,h)$が失敗することはありうる．また，$\mathrm{Fill}(\sigma,h)$が成功
@@ -1330,15 +1554,50 @@ $\sigma\in\Sigma$に対し，次の手順は，$\mathrm{Fill}(\sigma,h)$が成�
 \begin{kousei}
 $\mathrm{Fill}(\sigma,H)$が失敗すれば，「入り切らない」と答える．成功すれば，下界を
 \[ h_0=\Bigl\lfloor\bigl(|T|+\textstyle\sum_j|f_j|\bigr)/N\Bigr\rfloor-2b \]
-とし，区間$[h_0,H]$を二分法で狭める．中点で$\mathrm{Fill}$が成功すれば上端を，失敗すれば
+とし，区間$[h_0,H]$を二分法で狭める（図\ref{fig:formal-minh}）．中点で$\mathrm{Fill}$が成功すれば上端を，失敗すれば
 下端を中点に移し，幅が1ptになるまで続ける．上端を$h_1$とする．$\mathrm{Fill}$の成否は
 単調とは限らないので，最後に$h_1-4\,\mathrm{pt}$から$h_1$まで1ptずつ調べ，最初に成功した
 高さを$h(\sigma)$とする．$h_1$では成功するので，$h(\sigma)$は必ず決まる．
 \end{kousei}
 
+\begin{figure}[tbp]
+  \centering
+  \begin{tikzpicture}[alg,x=.9mm,y=.9mm]
+    %% 二分法
+    \node[lab,left] at (-6,30) {二分法};
+    \draw (0,30) -- (120,30);
+    \draw[line width=3pt,black!45] (82,30) -- (120,30);
+    \draw (0,28) -- (0,32) node[lab,above] {$h_0$};
+    \draw (120,28) -- (120,32) node[lab,above] {$H$};
+    \foreach \x/\n/\m in {60/1/×,90/2/○,75/3/×}
+      {\draw (\x,28.5) -- (\x,31.5);
+       \node[lab,above] at (\x,32) {\m};
+       \node[lab,above] at (\x,36) {\n};}
+    \draw (82,27) -- (82,33) node[lab,above] {$h_1$};
+    \node[lab,below] at (30,28) {失敗する};
+    \node[lab,below] at (104,28) {成功する};
+    %% 下から調べ直す
+    \draw[densely dotted] (82,26.5) -- (16,12) (82,26.5) -- (84,12);
+    \node[lab,left,align=right] at (-6,6) {下から\\調べ直す};
+    \draw (10,6) -- (90,6);
+    \foreach \x/\t/\m in {20/{$h_1-4$}/×,35/{$h_1-3$}/○,50/{$h_1-2$}/×,65/{$h_1-1$}/×,80/{$h_1$}/○}
+      {\draw (\x,4.5) -- (\x,7.5);
+       \node[lab,above] at (\x,8) {\m};
+       \node[lab,below] at (\x,4) {\t};}
+    \node[lab,right] at (91,6) {（pt）};
+    \draw[->] (35,-7) -- (35,-1.5);
+    \node[lab,below] at (35,-7) {$h(\sigma)$：最初に成功した高さ};
+  \end{tikzpicture}
+  \caption{割り振りごとの最小の高さの探し方（補題\ref{lem:minh}）．上：区間$[h_0,H]$を
+    二分法で狭める．数字は調べる順（3回目まで），○は$\mathrm{Fill}$の成功，×は失敗で，
+    太線は成功する範囲である．幅が1ptになったときの上端を$h_1$とする．下：成否は単調とは限らないので，$h_1$の4pt下から
+    1ptずつ調べ，最初に成功した高さを$h(\sigma)$とする}
+  \label{fig:formal-minh}
+\end{figure}
+
 \begin{stmt}[揃えた配置の構成]{命題}\label{prop:main}
 次の手順は，有限回で止まり，配置$(k,\sigma)$，高さ$h$，下端$\beta$を返すか，「揃えられない」と
-答える．返した配置は(P1)〜(P3)を満たす．(P4)は，手順4の判定を通った配置について，
+答える．返した配置は(P1)から(P3)を満たす．(P4)は，手順4の判定を通った配置について，
 各段のグルーの伸びが足りる限り成り立つ．(P5)は，調べた候補と1ptの精度の範囲で成り立つ．
 \end{stmt}
 \begin{kousei}
@@ -1354,7 +1613,8 @@ $\mathrm{Fill}(\sigma,H)$が失敗すれば，「入り切らない」と答え�
     $h(\sigma)\le h^*-b$のときだけ置き換える（フロートを余計に動かすのは，1行以上低く
     なるときだけ）．どの候補も入り切らなければ，手順6へ進む．
   \item \kyocho{揃わない配分を直す}．$\mathrm{Fill}(\sigma^*,h^*)$の配置の$v_1,\dots,v_N$を
-    測る．次のどれかが成り立てば，揃わない配分とみなす．
+    測る．次のどれかが成り立てば，揃わない配分とみなす
+    （図\ref{fig:formal-misaligned}）．
     \begin{enumerate}
       \item $v_N>\max_{i<N}v_i$（最右段がほかのどの段よりも高い）．
       \item 本文だけの段の見かけの下端の最大を$\beta_T$として，後ろに中身のある途中の段で
@@ -1379,13 +1639,61 @@ $\mathrm{Fill}(\sigma,H)$が失敗すれば，「入り切らない」と答え�
 $\log_2(H/1\,\mathrm{pt})+6$回以内の$\mathrm{Fill}$で終わる．手順4は高々$(H-h^*)/1\,\mathrm{pt}$回，
 手順6は高々2回である．$\mathrm{Fill}$は，$N$段のそれぞれで高々10回の\cs{vsplit}で終わる．
 
-\kyocho{性質}．(P1)〜(P3)は補題\ref{lem:fill}による．手順4の判定を通った配置では，
+\kyocho{性質}．(P1)から(P3)は補題\ref{lem:fill}による．手順4の判定を通った配置では，
 (a)の否定から$v_L\le\beta$が，(b)と(c)の否定から，途中の段の差が半行より小さく，
 グルーで合わせられる見込みが得られる．定義\ref{def:even}の3は，手順5で本文だけの段を
 基準にすることによる．(P5)は，$h^*$が各候補の$h(\sigma)$の最小（手順3の規則のもとで）で
 あることによる．ただし，補題\ref{lem:fill}の注意のとおり，$\mathrm{Fill}$が見つけない配置は
 調べていない．
 \end{kousei}
+
+\begin{figure}[tbp]
+  \centering
+  \begin{tikzpicture}[alg,x=.9mm,y=.9mm,
+      txt/.style={fill=black!18},fl/.style={fill=black!45}]
+    %% (a)
+    \begin{scope}
+      \foreach \i in {0,...,4} {\fill[txt] (0,30-3*\i) rectangle (8,28.2-3*\i);
+        \fill[txt] (10,30-3*\i) rectangle (18,28.2-3*\i);}
+      \foreach \i in {0,...,6} \fill[txt] (20,30-3*\i) rectangle (28,28.2-3*\i);
+      \draw[densely dashed] (-2,15.6) -- (30,15.6);
+      \node[lab,below,align=center] at (14,7) {(a) 最右段がどの段\\よりも高い};
+    \end{scope}
+    %% (b)
+    \begin{scope}[xshift=32.4mm]
+      \foreach \i in {0,...,6} \fill[txt] (0,30-3*\i) rectangle (8,28.2-3*\i);
+      \foreach \i in {0,...,4} \fill[txt] (10,30-3*\i) rectangle (18,28.2-3*\i);
+      \foreach \i in {0,...,5} \fill[txt] (20,30-3*\i) rectangle (28,28.2-3*\i);
+      \draw[densely dashed] (-2,9.6) -- (30,9.6);
+      \draw[|-|] (14,15.6) -- (14,9.6);
+      \node[lab,below,align=center] at (14,7) {(b) 途中の段が\\半行以上短い};
+    \end{scope}
+    %% (c)
+    \begin{scope}[xshift=64.8mm]
+      \foreach \i in {0,...,6} \fill[txt] (0,30-3*\i) rectangle (8,28.2-3*\i);
+      \fill[fl] (10,22) rectangle (18,30);
+      \foreach \i in {0,...,4} \fill[txt] (10,20.5-3*\i) rectangle (18,18.7-3*\i);
+      \foreach \i in {0,...,5} \fill[txt] (20,30-3*\i) rectangle (28,28.2-3*\i);
+      \draw[densely dashed] (-2,9.6) -- (30,9.6);
+      \node[lab,below,align=center] at (14,7) {(c) 縮めても$\beta_T$を\\超える};
+    \end{scope}
+    \draw[->] (106,17) -- (124,17);
+    \node[lab,align=center,anchor=south] at (115,20) {$h$を1ptずつ\\上げて\\分け直す};
+    %% 揃う配分
+    \begin{scope}[xshift=115.2mm]
+      \foreach \i in {0,...,6} {\fill[txt] (0,30-3*\i) rectangle (8,28.2-3*\i);
+        \fill[txt] (10,30-3*\i) rectangle (18,28.2-3*\i);}
+      \foreach \i in {0,...,4} \fill[txt] (20,30-3*\i) rectangle (28,28.2-3*\i);
+      \draw[densely dashed] (-2,9.6) -- (30,9.6);
+      \node[lab,below,align=center] at (14,7) {判定を通る配分};
+    \end{scope}
+  \end{tikzpicture}
+  \caption{揃わない配分（命題\ref{prop:main}の手順4）．破線は，(a)では最右段より前の
+    段の見かけの下端の最大，ほかでは本文だけの段の見かけの下端の最大$\beta_T$である．
+    (a)から(c)のどれかにあたれば，$h$を1ptずつ上げて$\mathrm{Fill}$をやり直し，どれにも
+    あたらなくなった最初の配置を採る}
+  \label{fig:formal-misaligned}
+\end{figure}
 
 \subsection{ほかの場面への適用}
 
@@ -1401,8 +1709,56 @@ $H$を，そのページの残りの高さとして，命題\ref{prop:main}の�
 $\mathrm{Fill}(\sigma^0,h)$を使う．$\Psi$は，ページの脚注の領域の高さである．ここでは
 最後の段にも\cs{vsplit}を使い，入り切らない本文$R$を次のページへ送り返す．$R$の脚注は
 このページに要らないので，$\Psi$を残った本文の脚注だけで求め直し，$h$を上げて
-やり直す．送り返す本文の脚注が戻らない所まで，高々6回くり返す．
+やり直す．送り返す本文の脚注が戻らない所まで，高々6回くり返す
+（図\ref{fig:formal-page}）．
 \end{stmt}
+
+\begin{figure}[tbp]
+  \centering
+  \begin{tikzpicture}[alg,x=.9mm,y=.9mm,
+      txt/.style={fill=black!18},fl/.style={fill=black!45}]
+    %% 1回目
+    \draw (0,0) rectangle (44,56);
+    \foreach \i in {0,...,9} {\fill[txt] (0,55-4*\i) rectangle (20,52.8-4*\i);
+      \fill[txt] (24,55-4*\i) rectangle (44,52.8-4*\i);}
+    \draw (0,13) -- (12,13);
+    \fill[txt] (0,9.4) rectangle (40,11);
+    \fill[txt] (0,6) rectangle (34,7.6);
+    \fill[fl] (0,2.6) rectangle (37,4.2);
+    \draw[<->] (-10,0) -- node[lab,left] {$H$} (-10,56);
+    \draw[|-|] (-3,56) -- node[lab,left] {$h$} (-3,15);
+    \draw[|-|] (-3,15) -- node[lab,left] {$\Psi$} (-3,0);
+    \foreach \i in {0,...,2} \fill[txt] (50,36-4*\i) rectangle (70,33.8-4*\i);
+    \node[lab] at (71.6,29.2) {\textdagger};
+    \node[lab,above] at (60,37) {$R$};
+    \draw[->] (60,25) -- (60,19);
+    \node[lab,below] at (60,19) {次のページへ};
+    \node[lab,right] at (45,3.4) {$R$の脚注};
+    \node[lab,below,align=center] at (22,-1) {$h=H-\Psi$で分け，\\入り切らない本文$R$を送り返す};
+    \draw[->] (72,46) -- (84,46);
+    %% 2回目
+    \begin{scope}[xshift=84.6mm]
+      \draw (0,0) rectangle (44,56);
+      \foreach \i in {0,...,10} \fill[txt] (0,55-4*\i) rectangle (20,52.8-4*\i);
+      \foreach \i in {0,...,10} \fill[txt] (24,55-4*\i) rectangle (44,52.8-4*\i);
+      \draw (0,9.6) -- (12,9.6);
+      \fill[txt] (0,6) rectangle (40,7.6);
+      \fill[txt] (0,2.6) rectangle (34,4.2);
+      \draw[|-|] (-3,56) -- node[lab,left] {$h$} (-3,11.5);
+      \draw[|-|] (-3,11.5) -- node[lab,left] {$\Psi$} (-3,0);
+      \fill[txt] (48,30) rectangle (58,27.8);
+      \node[lab] at (59.6,29.2) {\textdagger};
+      \node[lab,above] at (53,31) {$R$};
+      \node[lab,below,align=center] at (22,-1) {$R$の脚注を除いて$\Psi$を求め直し，\\$h$を上げて分け直す};
+    \end{scope}
+  \end{tikzpicture}
+  \caption{\opt{footnote=page}のページの組み直し（系\ref{cor:page}）．左：ページの
+    脚注の領域$\Psi$を除いた高さ$h$で段を分ける．入り切らない本文$R$に参照（\textdagger）の
+    ある脚注（濃い帯）は，このページに要らない．右：その脚注を除くと$\Psi$が減り，
+    $h$が上がって，$R$の一部がこのページに入る．送り返す本文の脚注が戻らない所まで
+    くり返す}
+  \label{fig:formal-page}
+\end{figure}
 
 \begin{stmt}[実装との対応]{注意}
 この節の手順は，\texttt{evenend.lua}の\texttt{balance}の中の次の関数にあたる．
@@ -1411,6 +1767,155 @@ $\mathrm{Fill}$は\texttt{fill\_once}（段をまたぐフロートの脚注を�
 \texttt{measure}，揃わない配分の判定は\texttt{misaligned}である．箱の中の段組
 （\texttt{boxbalance}）は，フロートと脚注のない場合（$F=\Phi=\emptyset$）の同じ構成である．
 \end{stmt}
+
+\subsection{\TeX{}の概念との対応}\label{sec:formal-tex}
+
+この節の記号が，\TeX{}のどの概念にあたるかをまとめる．\LaTeX{}の段組では，\TeX{}の
+ページビルダが1段ごとに出力ルーチン（\cs{output}）を呼ぶ．ページビルダは，主垂直リストの
+うち改ページの位置までを\cs{box}255に入れ，その中のインサート（\cs{insert}）を種類ごとの
+箱（脚注は\cs{box}\cs{footins}）へ移す．改ページの位置から後ろは，最近の寄与（recent
+contributions）のリストに残る（図\ref{fig:formal-tex}）．
+
+材料$M=(T,F,\Phi)$は，この3つから作る．本文$T$は，各段の\cs{box}255の中身と，最近の寄与の
+先頭にある捨てられる要素の写しを，段の順につないだものである．脚注$\Phi$は，各段の
+\cs{box}\cs{footins}の中身である．フロート$F$だけは\TeX{}の概念ではなく，\LaTeX{}が
+箱レジスタとリストで持つ．
+
+インサートは\cs{box}255から抜かれるので，脚注が本文のどの行にあったか（参照位置
+$a(\varphi)$）は，\TeX{}の側には残らない．そこでevenendは，\cs{@footnotetext}を
+置き換え，脚注ごとに番号を振って，参照のある行の直後に印（whatsit．\LuaTeX{}の
+\texttt{user\_defined}）を\cs{vadjust}で置き，脚注の中身には同じ番号を属性（attribute）で
+付ける．印は\cs{box}255に残り，本文と一緒に段に分かれるので，印の入った段がその脚注の
+段になる．マーク（\cs{mark}）も\cs{box}255に残る要素で，本文と一緒に段に入る．
+
+\begin{figure}[tbp]
+  \centering
+  \begin{tikzpicture}[alg,x=.9mm,y=.9mm,
+      txt/.style={fill=black!18},fl/.style={fill=black!45}]
+    %% 主垂直リスト
+    \node[lab,above] at (43,62) {主垂直リスト};
+    \fill[txt] (30,60) rectangle (56,57.8);
+    \node[lab,left] at (28,58.9) {行};
+    \fill[txt] (30,54) rectangle (56,51.8);
+    \node[lab] at (57.6,52.6) {\textdagger};
+    \node[lab,left] at (28,52.9) {脚注の参照のある行};
+    \fill (30,46.2) rectangle (31.6,47.8);
+    \node[lab,left] at (28,47) {印（whatsit）};
+    \draw (30,37) rectangle (56,42);
+    \fill[txt] (31.5,40.4) rectangle (54.5,39.2);
+    \fill[txt] (31.5,38.8) rectangle (46,37.6);
+    \node[lab,left] at (28,39.5) {\cs{insert}（脚注）};
+    \draw[densely dashed,thick] (30,33) -- (56,33);
+    \node[lab,left] at (28,33) {\cs{mark}};
+    \fill[txt] (30,29) rectangle (56,26.8);
+    \node[lab,left] at (28,27.9) {行};
+    \draw[densely dotted] (24,22.5) -- (60,22.5);
+    \node[lab,left] at (24,22.5) {改ページの位置};
+    \fill[fl] (30,18.5) rectangle (56,17.5);
+    \node[lab,left] at (28,18) {ペナルティ};
+    \draw[densely dotted] (30,14) rectangle (56,11);
+    \node[lab,left] at (28,12.5) {グルー};
+    \fill[txt] (30,8) rectangle (56,5.8);
+    \node[lab,left] at (28,6.9) {続きの行};
+    %% 出力ルーチンに渡るもの
+    \draw[->] (60,50) -- node[lab,above] {ページビルダ} (82,50);
+    \draw[->] (58,39.5) -- (82,25);
+    \draw[->] (60,12) -- (82,8);
+    \draw (84,36) rectangle (110,62);
+    \node[lab,above] at (97,62) {\cs{box}255};
+    \fill[txt] (86,60) rectangle (108,57.8);
+    \fill[txt] (86,55) rectangle (108,52.8);
+    \fill (86,48.2) rectangle (87.6,49.8);
+    \draw[densely dashed,thick] (86,45) -- (108,45);
+    \fill[txt] (86,42) rectangle (108,39.8);
+    \node[lab,right,align=left] at (112,49) {本文$T$の1段分\\印の位置が$a(\varphi)$\\マークも残る};
+    \draw (84,20) rectangle (110,29);
+    \node[lab,above] at (97,29) {\cs{box}\cs{footins}};
+    \fill[txt] (86,26.4) rectangle (108,25.2);
+    \fill[txt] (86,23.8) rectangle (100,22.6);
+    \node[lab,right,align=left] at (112,24.5) {脚注$\Phi$\\属性で番号が分かる};
+    \draw[densely dashed] (84,2) rectangle (110,14);
+    \node[lab,above] at (97,14) {最近の寄与};
+    \fill[fl] (86,12) rectangle (108,11);
+    \draw[densely dotted] (86,9.5) rectangle (108,7.5);
+    \fill[txt] (86,6) rectangle (108,3.8);
+    \node[lab,right,align=left] at (112,8) {先頭の捨てられる\\要素を写して\\$T$につなぐ};
+  \end{tikzpicture}
+  \caption{\TeX{}の概念と材料の対応．ページビルダは，主垂直リストの改ページの位置までを
+    \cs{box}255に入れ，インサートを\cs{box}\cs{footins}へ移し，残りを最近の寄与に残して，
+    出力ルーチンを呼ぶ．印とマークは\cs{box}255に残る．evenendは，\cs{box}255の中身を
+    本文$T$の1段分，\cs{box}\cs{footins}の中身を脚注$\Phi$とし，印の位置から参照位置
+    $a(\varphi)$を知る．改ページの位置のペナルティとグルーは，次の段の先頭で\TeX{}が
+    捨てる前に写しておく}
+  \label{fig:formal-tex}
+\end{figure}
+
+概念ごとの対応を，次の表に示す．
+
+{\small
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{.24\linewidth}>{\raggedright\arraybackslash}p{.2\linewidth}>{\raggedright\arraybackslash}p{.5\linewidth}@{}}
+\hline
+\TeX{}の概念 & この節の記号 & evenendの扱い \\
+\hline
+\endfirsthead
+\hline
+\TeX{}の概念 & この節の記号 & evenendの扱い \\
+\hline
+\endhead
+\hline
+\endfoot
+出力ルーチン（\cs{output}） & 構成を行う場所 &
+  \LaTeX{}の\cs{@makecol}の直前で段を取り込み，\cs{@outputdblcol}を置き換えて，ページの
+  最後の段で揃える． \\\noalign{\vskip 4pt}
+\cs{box}255 & 本文$T$の1段分 &
+  写しを取り，全段の分を1本の垂直リストにつなぐ． \\\noalign{\vskip 4pt}
+最近の寄与の先頭の捨てられる要素（グルー，カーン，ペナルティ） & 改段の位置で捨てたグルー
+  （定義\ref{def:material}） &
+  次の段の先頭で\TeX{}が捨てる前に写す．改ページの位置のペナルティは\TeX{}が10000に
+  書き換えるので，\cs{outputpenalty}から元の値に戻す． \\\noalign{\vskip 4pt}
+\cs{vsize}（\LaTeX{}では\cs{@colht}） & 段の高さ$H$ &
+  積んだ段組と段抜きのフロートの分を減らす． \\\noalign{\vskip 4pt}
+\cs{topskip}，\cs{splittopskip} & $\tau$ &
+  \cs{vsplit}の前に，\cs{splittopskip}を\cs{topskip}と同じにする．分けた段の1行目も，
+  ページの1行目と同じ位置に来る． \\\noalign{\vskip 4pt}
+\cs{baselineskip} & $b$ & 行の位置$\tau+\ell b$の刻み． \\\noalign{\vskip 4pt}
+箱の深さ，\cs{maxdepth}，\cs{splitmaxdepth} & $d$と見かけの下端$v_i$ &
+  \cs{splitmaxdepth}を\cs{maxdepth}と同じにする．段の最後の箱の深さは，\cs{maxdepth}までなら段の高さに数えない． \\\noalign{\vskip 4pt}
+改ページできる位置（ペナルティ，箱の後のグルー，カーン） & 切れ目$k_i$の候補 &
+  \cs{vsplit}が，\TeX{}の改ページと同じ規則で選ぶ． \\\noalign{\vskip 4pt}
+$-10000$以下のペナルティ（\cs{newpage}，\cs{columnbreak}） & 強制の改段 &
+  そこで必ず段を改める．最後の段$T_N$に残れば，$\mathrm{Fill}$は失敗する． \\\noalign{\vskip 4pt}
+\cs{vsplit} & $\mathrm{Fill}$の切り出し（補題\ref{lem:fill}） &
+  Lua側から\texttt{tex.splitbox}で呼ぶ．分けた先頭の捨てられる要素は\TeX{}が捨てる． \\\noalign{\vskip 4pt}
+インサート（\cs{insert}\cs{footins}） & 脚注$\varphi\in\Phi$ &
+  出力ルーチンでは，その段の分が\cs{box}\cs{footins}に集まっている．その中身を，属性の
+  番号で脚注ごとに分ける． \\\noalign{\vskip 4pt}
+印（whatsit）と属性 & 参照位置$a(\varphi)$ &
+  \TeX{}のインサートは位置を残さないので，evenendが加える．印は\cs{vadjust}で，参照の
+  ある行の直後に置く． \\\noalign{\vskip 4pt}
+\cs{count}\cs{footins}，\cs{skip}\cs{footins}，\cs{dimen}\cs{footins} &
+  \LaTeX{}が組むときの脚注の見込み &
+  \opt{footnote=column}では変えない．\opt{footnote=page}では，全幅の脚注が全段の高さを
+  減らすので，\cs{count}\cs{footins}を段数倍にする（\cs{skip}\cs{footins}は，ページの
+  最初の脚注のときだけ段数倍）． \\\noalign{\vskip 4pt}
+送り返す本文$R$のインサート & 系\ref{cor:page}の$R$の脚注 &
+  $R$の脚注を\cs{insert}に作り直して印の直後に付け，$R$を\cs{unvbox}で最近の寄与へ戻す．
+  ページビルダが，次のページの材料としてもう一度扱う． \\\noalign{\vskip 4pt}
+マーク（\cs{mark}） & $T$の要素（高さ0） &
+  本文と一緒に段に入る．ページを出力するときに，ページの本文から読む順に集め，
+  1段組と同じ方法で柱の情報を更新する． \\\noalign{\vskip 4pt}
+\cs{firstmark}，\cs{botmark}，\cs{topmark} & ― &
+  \LaTeX{} 2025-06-01より前の版では，集めたマークを\cs{vsplit}して，\cs{splitfirstmark}と
+  \cs{splitbotmark}から作る． \\\noalign{\vskip 4pt}
+\cs{vadjust} & 行の直後の要素 &
+  脚注の印と，段落の途中の\cs{columnbreak}のペナルティに使う． \\\noalign{\vskip 4pt}
+whatsit（\cs{special}，\cs{write}など） & $T$の要素（高さ0） &
+  本文と一緒に段に入り，位置を保つ．段の末尾では，見かけの下端を測るときに飛ばす． \\\noalign{\vskip 4pt}
+フロート & $F$ &
+  \TeX{}のインサートではない．\LaTeX{}が箱レジスタに入れ，リスト（\cs{@toplist}，
+  \cs{@botlist}，\cs{@deferlist}，\cs{@dbltoplist}）で持つ．evenendは，段を取り込むときに
+  リストから箱の写しを取る． \\\noalign{\vskip 4pt}
+\end{longtable}}
 
 \section{multicol互換の環境}\label{sec:multicol}
 
@@ -1613,7 +2118,7 @@ evenendは\pkg{gyoudori}（行取りのパッケージ）に依存しない．\p
     \texttt{colbottoms.py}，\texttt{fuzz.sh}，\texttt{fuzzswitch.sh}，
     \texttt{blockcheck.py}，\texttt{gridcheck.py}，\texttt{fnfloat.sh}，
     \texttt{fnfloatcheck.py}，\texttt{pagefncheck.py}，\texttt{gridoffset.py}）．
-    \texttt{t11}〜\texttt{t13}はフロートと段数の切り換えの組み合わせ，\texttt{t14}は
+    \texttt{t11}から\texttt{t13}はフロートと段数の切り換えの組み合わせ，\texttt{t14}は
     段組ごとの段間と段間罫．\texttt{test/rand/}は
     乱数で作った文書による網羅テスト（\ref{sec:randtest}節）．\texttt{test/tcb/}は
     \pkg{tcolorbox}との組み合わせ，\texttt{test/box/}は箱の中の段組，\texttt{test/span/}は段をまたぐフロート，
@@ -1662,9 +2167,9 @@ lualatex evenend-ja.tex
   \item \pkg{jlreq}で，evenendが組んだページの本文の行が行送りの位置にあるか
 \end{itemize}
 上の制限事項にあたるものは，問題ではなく限界として別に数える．
-標準の組は，基本の1000件（番号1〜1000）と，追加の要素を入れた各600件（番号100001〜，
-200001〜，300001〜，400001〜）の3400件で，\texttt{std.sh}で流す（前に落ちた番号
-（\texttt{failed.txt}）を先に流す）．番号で入る要素が違うので，1〜3400のように続けて流すと
+標準の組は，基本の1000件（番号1から1000）と，追加の要素を入れた各600件（番号100001から，
+200001から，300001から，400001から）の3400件で，\texttt{std.sh}で流す（前に落ちた番号
+（\texttt{failed.txt}）を先に流す）．番号で入る要素が違うので，1から3400のように続けて流すと
 追加の要素が試されない．
 \begin{verbatim}
 cd test/rand
