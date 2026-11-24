@@ -88,7 +88,7 @@ inductive AllFit : List Nat → List (List Item) → Prop
   | cons {a : Nat} {t : List Item} {as : List Nat} {ts : List (List Item)} :
       Fits S h a t → AllFit as ts → AllFit (a :: as) (t :: ts)
 
-/-- 手順Fill．`As`は各段のフロートの高さ（割り振りσで決まる）．最後の段は残りの本文の
+/-- 手順Fill．`As`は各段のフロートの高さ（定式化の文書の|F_i|．割り振りσで決まる）．最後の段は残りの本文の
 すべてを取る．`c0`は切り出しの初めの高さ（何でもよい）．
 返すのは（各段の本文，`\vsplit`の回数）． -/
 def fill (c0 : Nat → List Item → Nat) :

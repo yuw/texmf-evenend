@@ -1,6 +1,6 @@
 /-
 evenendパッケージの定式化の命題「揃えた配置の構成」の手順1（候補を挙げる）を確かめる．
-割り振りσを，各フロートの置く段の並び`List Nat`で表す．段をまたぐフロートと，候補が多い
+割り振りσ（定式化の文書のs）を，各フロートの置く段の並び`List Nat`で表す．段をまたぐフロートと，候補が多い
 ときの打ち切りは扱わない．
 確かめ方：cd ~/lean/mathlib-ws && lake env lean <このファイルの絶対パス>
 -/
@@ -118,7 +118,7 @@ theorem mem_enumG (N : Nat) (fixed : Bool) :
         · rename_i hn
           exact absurd ⟨h1, h2, h4⟩ hn
 
-/-- 絞った候補も，絞らないときの条件を満たす（Σの元である）． -/
+/-- 絞った候補も，絞らないときの条件を満たす（割り振りの全体Sの元である）． -/
 theorem validG_fixed (N : Nat) :
     ∀ (fs : List Fl) (lo : Nat) (σ : List Nat),
       ValidG N true lo fs σ → ValidG N false lo fs σ := by

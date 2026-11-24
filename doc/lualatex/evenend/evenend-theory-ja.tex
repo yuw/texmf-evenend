@@ -1,4 +1,5 @@
-%% evenend-theory-ja.tex：evenendパッケージの定式化（問題の定義，手順，証明）
+%% evenend-theory-ja.tex：evenendパッケージの定式化（マクロタイポグラフィの要請，問題の定義，
+%% 手順，証明）
 %% LuaLaTeXで2回組む．使い方はマニュアル（evenend-ja.tex）にある
 \documentclass[paper=a4,fontsize=10pt]{jlreq}
 \usepackage{graphicx}
@@ -58,23 +59,66 @@
   \noindent{\gtfamily\sffamily #1}\hspace{1\zw}\ignorespaces}
 
 \title{\pkg{evenend}パッケージの定式化\\[.5\baselineskip]
-  \large 最終ページを揃える問題，手順，証明}
+  \large マクロタイポグラフィの要請，問題，手順，証明}
 \author{木枝祐介}
 \date{v20261124.2}
 
 \begin{document}
 \maketitle
 
-この文書では，evenendパッケージが解く問題を定義から述べ直し，解を作る手順を，実装
-（\texttt{evenend.lua}の\texttt{balance}）に即して，手順とその性質の証明の形で記す．
-マニュアル（\texttt{evenend-ja.pdf}）の「揃え方」と「仕組み」の節と内容は同じで，述べ方だけが
-違う．使い方はマニュアルを，紙面の構成としての判断（マクロタイポグラフィの観点）は\texttt{evenend-typography-ja.pdf}を
-参照されたい．長さはすべて段の上端から下向きに測る．
-記号が\TeX{}のどの概念（\cs{box}255，インサート，マークなど）にあたるかは，
-\ref{sec:formal-tex}節にまとめる．証明の一部は，定理証明支援系Lean 4でも確かめてある
-（\ref{sec:lean}節）．
+evenendパッケージは，段組の紙面の構成を決め直す．行の中の組み（マイクロタイポグラフィ）には
+触れず，組み上がった行，図表，脚注を，段と版面のどこに置くか（マクロタイポグラフィ）
+だけを扱う．この文書では，その判断を定式化する．まず，紙面の構成についての要請を
+言葉で立てる（\ref{sec:f-req}節）．次に，要請を式の条件に置き換えて問題を定義し
+（\ref{sec:f-structure}節から\ref{sec:f-even}節），解を作る手順とその性質の証明を，実装
+（\texttt{evenend.lua}の\texttt{balance}）に即して記す（\ref{sec:f-proc}節）．終わりに，
+要請のそれぞれについて，証明できたことと，できていないことをまとめる
+（\ref{sec:f-summary}節）．
 
-\section{記号と定義}
+要請の意味と，それを選んだ理由は，\texttt{evenend-typography-ja.pdf}（「\pkg{evenend}
+パッケージの組版」）に述べてある．使い方はマニュアル（\texttt{evenend-ja.pdf}）を
+参照されたい．マニュアルの「揃え方」と「仕組み」の節とは，内容は同じで，述べ方だけが違う．
+
+長さはすべて段の上端から下向きに測る．記号が\TeX{}のどの概念（\cs{box}255，インサート，
+マークなど）にあたるかは，\ref{sec:formal-tex}節にまとめる．証明の一部は，定理証明支援系
+Lean 4でも確かめてある（\ref{sec:lean}節）．
+
+\section{マクロタイポグラフィの要請}\label{sec:f-req}
+
+段組の本文がページの途中で終わるとき，\LaTeX{}は左の段から詰めて組む（なりゆき）．
+evenendは，これを，各段の下端の揃った紙面に組み直す．このとき紙面に求めることを，
+観点ごとに挙げる．
+\begin{enumerate}
+  \item[(M1)\hspace{.5\zw}] \kyocho{構造}．紙面の基準を動かさない．横の基準は段（段数，段幅，
+    段間），縦の基準は行の位置（1行目のベースラインから行送りごとの位置）である．
+  \item[(M2)\hspace{.5\zw}] \kyocho{版面}．どの段も，版面の中で段組に使える高さを超えない．
+  \item[(M3)\hspace{.5\zw}] \kyocho{読む順序}．本文の順を変えない．図表の番号の順を変えず，
+    図表を前の段へ動かさない．
+  \item[(M4)\hspace{.5\zw}] \kyocho{配置}．脚注は，参照する箇所と同じ段の下端か，版面の下端に
+    全幅で置く．上の図表は段の上端に，下の図表は段の下端に置く．
+  \item[(M5)\hspace{.5\zw}] \kyocho{釣り合い}．中身のある最後の段を除いて，段の下端を1つの
+    位置に揃える．最後の段は，その位置より下に出ない．
+  \item[(M6)\hspace{.5\zw}] \kyocho{整列}．段の下端は，目に見える下端で測る．下端を揃える
+    ために，本文の行を行の位置から動かさない．
+  \item[(M7)\hspace{.5\zw}] \kyocho{余白}．段組をできるだけ低くして，余白を段組の下に
+    まとめる．高さを合わせるためのアキは，行間に入れず，本文と図表，本文と脚注の境に
+    入れる．
+  \item[(M8)\hspace{.5\zw}] \kyocho{一貫性}．図表は，\LaTeX{}が置いた段からなるべく動かさない．
+    ページの途中で段組を改めるときも，ほかのページを組み直すときも，同じ手順を使う．
+\end{enumerate}
+横の基準は，この文書の式には現れない．段幅と段間は初めに決まり，本文の行と図表は
+その幅で組み上がっているので，決め直すのは縦の方向だけである．以下では，材料の高さと，
+それを段に分ける位置だけを扱う．
+
+要請は，互いにぶつかることがある．行も図表も分けられないので，(M6)を守ると(M5)が
+満たせないことがある．どちらを先に守るかは，問題の条件の立て方（問題\ref{prob:main}）と
+手順の順（命題\ref{prop:main}）に表れる．
+
+\section{構造：段組と材料}\label{sec:f-structure}
+
+紙面の構造（M1）を，段数$N$，行送り$b$，1行目のベースラインの位置$\tau$で表す．行の位置は
+$\tau+\ell b$（$\ell=0,1,\dots$）である．版面（M2）は，段の高さ$H$で表す．段に入れる
+ものは，本文，段内フロート，脚注の3つで，これを材料と呼ぶ．
 
 \begin{stmt}[段組]{定義}\label{def:frame}
 段数を$N\ge 1$，段の高さを$H$，行送りを$b$（\cs{baselineskip}），1行目のベースラインの
@@ -82,6 +126,12 @@
 すでに積んだ段組とその後のアキを除いた高さ（\cs{@colht}）である
 （図\ref{fig:formal-frame}の左）．
 \end{stmt}
+
+図\ref{fig:formal-frame}の左で，段の高さ$H$は，版面の高さから，段抜きのフロート，すでに
+積んだ段組，その後のアキを除いた高さである（ごく薄い地が段）．右は，定義\ref{def:used}で
+定める所要の高さを示す．段$i$の所要の高さ$U_i$は，フロートの高さ$|F_i|$（まわりのアキを
+含む），本文の高さ$|T_i|$，脚注の高さ$G_i$（区切りの罫と上のアキを含む）の和である．
+どの段でも$U_i\le h$なら，配置は$h$に入り切る．
 
 \begin{figure}[H]
   \centering
@@ -115,7 +165,7 @@
       \node[lab,left] at (-1,20) {脚注};
       \draw[densely dashed] (-6,12) -- (60,12);
       \draw (-6,0) -- (68,0);
-      \draw[|-|] (37,70) -- node[lab,right] {$A_i$} (37,57);
+      \draw[|-|] (37,70) -- node[lab,right] {$|F_i|$} (37,57);
       \draw[|-|] (37,57) -- node[lab,right] {$|T_i|$} (37,28.8);
       \draw[|-|] (37,28.8) -- node[lab,right] {$G_i$} (37,17);
       \draw[<->] (48,70) -- node[lab,right] {$U_i$} (48,17);
@@ -123,11 +173,7 @@
       \draw[<->] (64,70) -- node[lab,right,pos=.2] {$H$} (64,0);
     \end{scope}
   \end{tikzpicture}
-  \caption{段組と所要の高さ（定義\ref{def:frame}，\ref{def:used}）．左：段の高さ$H$は，
-    版面の高さから，段抜きのフロート，すでに積んだ段組，その後のアキを除いた高さである
-    （ごく薄い地が段）．右：段$i$の所要の高さ$U_i$は，フロートの高さ$A_i$（まわりのアキを含む），本文の
-    高さ$|T_i|$，脚注の高さ$G_i$（区切りの罫と上のアキを含む）の和である．どの段でも
-    $U_i\le h$なら，配置は$h$に入り切る}
+  \caption{段組と所要の高さ（定義\ref{def:frame}，\ref{def:used}）}
   \label{fig:formal-frame}
 \end{figure}
 
@@ -138,6 +184,9 @@ $238\,\mathrm{pt}$で，上に段抜きのフロートがあり，下のアキ�
 よって，段の高さは$H=238-60=178\,\mathrm{pt}$である．$178=\tau+14b$なので，1つの段に
 本文が15行入る．
 \end{stmt}
+
+図\ref{fig:ex-frame}で，版面から段抜きのフロートとその下のアキを除いた高さが，段の
+高さ$H$である（ごく薄い地が段）．
 
 \begin{figure}[H]
   \centering
@@ -151,8 +200,7 @@ $238\,\mathrm{pt}$で，上に段抜きのフロートがあり，下のアキ�
     \draw[<->] (72,60) -- (72,238) node[midway,right=2pt] {$H=178\,\mathrm{pt}$（15行）};
     \draw[<->] (-4,0) -- (-4,238) node[midway,left=2pt] {版面$238\,\mathrm{pt}$};
   \end{tikzpicture}
-  \caption{例\ref{ex:frame}の段組．版面から段抜きのフロートとその下のアキを除いた
-    高さが，段の高さ$H$である（ごく薄い地が段）}
+  \caption{例\ref{ex:frame}の段組}
   \label{fig:ex-frame}
 \end{figure}
 
@@ -183,6 +231,9 @@ $238\,\mathrm{pt}$で，上に段抜きのフロートがあり，下のアキ�
 本文の行の深さは，どの行も$d=3\,\mathrm{pt}$とする．
 \end{stmt}
 
+図\ref{fig:ex-material}で，本文$T$は23行を1本につないだもの，$f_1$は段内フロート，
+$\varphi$は3行目（\textdagger）に参照位置のある脚注である．
+
 \begin{figure}[H]
   \centering
   \begin{tikzpicture}[alg,x=1mm,y=-.25mm]
@@ -201,26 +252,36 @@ $238\,\mathrm{pt}$で，上に段抜きのフロートがあり，下のアキ�
     \node at (50,134) {脚注$\varphi$（$a(\varphi)=3$）};
     \draw[->,densely dashed] (20,30.5) to[out=0,in=180] (39,112);
   \end{tikzpicture}
-  \caption{例\ref{ex:material}の材料．本文$T$は23行を1本につないだもの，$f_1$は段内
-    フロート，$\varphi$は3行目（\textdagger）に参照位置のある脚注である}
+  \caption{例\ref{ex:material}の材料}
   \label{fig:ex-material}
 \end{figure}
 
+\section{配置と読む順序}\label{sec:f-layout}
+
+材料を段に分けたものを，配置と呼ぶ．読む順序（M3）は，配置の定義の中に組み込む．本文は
+切れ目で分けるだけにして順を変えず，フロートの割り振りには，番号の順を保つことと，前の
+段へ動かさないことを条件として課す．
+
 \begin{stmt}[配置]{定義}\label{def:layout}
-材料$M$の\kyocho{配置}とは，次の組$(k,\sigma)$である（図\ref{fig:formal-layout}）．
+材料$M$の\kyocho{配置}とは，次の組$(k,s)$である（図\ref{fig:formal-layout}）．
 \begin{itemize}
   \item 切れ目$k=(k_0,\dots,k_N)$，$0=k_0\le k_1\le\dots\le k_N=n$．段$i$の本文は
     $T_i=(t_{k_{i-1}+1},\dots,t_{k_i})$である．切れ目は，\TeX{}が改ページできる位置に限る．
     段の先頭に来た捨てられる要素（グルーなど）は，$T_i$から除く．
-  \item フロートの割り振り$\sigma\colon\{1,\dots,m\}\to\{1,\dots,N\}$．次の2つを満たす．
+  \item フロートの割り振り$s\colon\{1,\dots,m\}\to\{1,\dots,N\}$．次の2つを満たす．
     \begin{enumerate}
-      \item 番号順を保つ：$\sigma(j)\le\sigma(j+1)$．
-      \item 前の段へ動かさない：$\sigma(j)\ge o_j$．段をまたぐフロートは$\sigma(j)=o_j$．
+      \item 番号順を保つ：$s(j)\le s(j+1)$．
+      \item 前の段へ動かさない：$s(j)\ge o_j$．段をまたぐフロートは$s(j)=o_j$．
     \end{enumerate}
 \end{itemize}
-割り振りの全体を$\Sigma$と書く．\LaTeX{}が組んだページは，1つの配置$(k^0,\sigma^0)$を
-与える（$\sigma^0(j)=o_j$）．
+割り振りの全体を$S$と書く．\LaTeX{}が組んだページは，1つの配置$(k^0,s^0)$を
+与える（$s^0(j)=o_j$）．
 \end{stmt}
+
+図\ref{fig:formal-layout}の上では，本文$T$を切れ目$k_1$，$k_2$で$T_1$，$T_2$，$T_3$に
+分け，フロートを割り振り$s$で段に置いている．$f_2$は，\LaTeX{}が置いた段2から段3へ
+動かしている．下は，割り振りの全体$S$の例である．2つのフロートをどちらも\LaTeX{}が
+段1に置いたとき，$S$は左の3つからなる．$\mu$は動かす量である（問題\ref{prob:main}）．
 
 \begin{figure}[H]
   \centering
@@ -240,7 +301,7 @@ $238\,\mathrm{pt}$で，上に段抜きのフロートがあり，下のアキ�
     \draw[|-|] (17,60) -- node[lab,right] {$T_1$} (17,40.2);
     \draw[|-|] (17,39) -- node[lab,right] {$T_2$} (17,19.2);
     \draw[|-|] (17,18) -- node[lab,right] {$T_3$} (17,1.2);
-    \draw[->] (28,30) -- node[lab,above,align=center] {配置\\$(k,\sigma)$} (42,30);
+    \draw[->] (28,30) -- node[lab,above,align=center] {配置\\$(k,s)$} (42,30);
     %% 配置
     \begin{scope}[xshift=43.2mm]
       \foreach \c/\t in {0/段1,24/段2,48/段3} \node[lab,above] at (\c+9,61) {\t};
@@ -254,22 +315,22 @@ $238\,\mathrm{pt}$で，上に段抜きのフロートがあり，下のアキ�
       \node[lab,text=white] at (57,56) {$f_2$};
       \foreach \i in {0,...,5} \fill[txt] (48,50-3*\i) rectangle (66,48.2-3*\i);
       \node[lab,below] at (57,32.5) {$T_3$};
-      \node[lab,below,align=center] at (9,22) {$\sigma(1)=1$\\（$=o_1$）};
-      \node[lab,below,align=center] at (57,22) {$\sigma(2)=3$\\（$>o_2$．後ろの段へ）};
+      \node[lab,below,align=center] at (9,22) {$s(1)=1$\\（$=o_1$）};
+      \node[lab,below,align=center] at (57,22) {$s(2)=3$\\（$>o_2$．後ろの段へ）};
     \end{scope}
   \end{tikzpicture}
 
   \vspace{\baselineskip}
   \begin{tikzpicture}[alg,x=.9mm,y=.9mm,
       txt/.style={fill=black!18},fl/.style={fill=black!45}]
-    \node[lab,align=left,anchor=west] at (-38,10) {$N=2$，$m=2$，\\$o=(1,1)$の\\ときの$\Sigma$};
+    \node[lab,align=left,anchor=west] at (-38,10) {$N=2$，$m=2$，\\$o=(1,1)$の\\ときの$S$};
     %% σ=(1,1)
     \begin{scope}
       \fill[fl] (0,16) rectangle (9,21); \node[lab,text=white] at (4.5,18.5) {1};
       \fill[fl] (0,10) rectangle (9,15); \node[lab,text=white] at (4.5,12.5) {2};
       \foreach \i in {0,...,2} \fill[txt] (0,8-3*\i) rectangle (9,6.5-3*\i);
       \foreach \i in {0,...,6} \fill[txt] (11,20-3*\i) rectangle (20,18.5-3*\i);
-      \node[lab,below,align=center] at (10,-1) {$\sigma=(1,1)$\\$\mu=0$};
+      \node[lab,below,align=center] at (10,-1) {$s=(1,1)$\\$\mu=0$};
     \end{scope}
     %% σ=(1,2)
     \begin{scope}[xshift=30.6mm]
@@ -277,7 +338,7 @@ $238\,\mathrm{pt}$で，上に段抜きのフロートがあり，下のアキ�
       \foreach \i in {0,...,4} \fill[txt] (0,14-3*\i) rectangle (9,12.5-3*\i);
       \fill[fl] (11,16) rectangle (20,21); \node[lab,text=white] at (15.5,18.5) {2};
       \foreach \i in {0,...,4} \fill[txt] (11,14-3*\i) rectangle (20,12.5-3*\i);
-      \node[lab,below,align=center] at (10,-1) {$\sigma=(1,2)$\\$\mu=1$};
+      \node[lab,below,align=center] at (10,-1) {$s=(1,2)$\\$\mu=1$};
     \end{scope}
     %% σ=(2,2)
     \begin{scope}[xshift=61.2mm]
@@ -285,7 +346,7 @@ $238\,\mathrm{pt}$で，上に段抜きのフロートがあり，下のアキ�
       \fill[fl] (11,16) rectangle (20,21); \node[lab,text=white] at (15.5,18.5) {1};
       \fill[fl] (11,10) rectangle (20,15); \node[lab,text=white] at (15.5,12.5) {2};
       \foreach \i in {0,...,2} \fill[txt] (11,8-3*\i) rectangle (20,6.5-3*\i);
-      \node[lab,below,align=center] at (10,-1) {$\sigma=(2,2)$\\$\mu=2$};
+      \node[lab,below,align=center] at (10,-1) {$s=(2,2)$\\$\mu=2$};
     \end{scope}
     %% σ=(2,1)：番号順に反する
     \begin{scope}[xshift=91.8mm]
@@ -294,28 +355,27 @@ $238\,\mathrm{pt}$で，上に段抜きのフロートがあり，下のアキ�
       \fill[fl] (11,16) rectangle (20,21); \node[lab,text=white] at (15.5,18.5) {1};
       \foreach \i in {0,...,4} \fill[txt] (11,14-3*\i) rectangle (20,12.5-3*\i);
       \draw[thick] (-2,-1) -- (22,23) (-2,23) -- (22,-1);
-      \node[lab,below,align=center] at (10,-1) {$\sigma=(2,1)$\\番号順に反する};
+      \node[lab,below,align=center] at (10,-1) {$s=(2,1)$\\番号順に反する};
     \end{scope}
   \end{tikzpicture}
-  \caption{材料と配置（定義\ref{def:material}，\ref{def:layout}）．上：本文$T$を切れ目
-    $k_1$，$k_2$で$T_1$，$T_2$，$T_3$に分け，フロートを割り振り$\sigma$で段に置く．
-    $f_2$は，\LaTeX{}が置いた段2から段3へ動かしている．下：割り振りの全体$\Sigma$の例．
-    2つのフロートをどちらも\LaTeX{}が段1に置いたとき，$\Sigma$は左の3つからなる．
-    $\mu$は動かす量である}
+  \caption{材料と配置（定義\ref{def:material}，\ref{def:layout}）}
   \label{fig:formal-layout}
 \end{figure}
 
 \begin{stmt}[配置]{例}\label{ex:layout}
 例\ref{ex:material}の材料の配置を2つ挙げる（図\ref{fig:ex-layout}）．フロートは1つで
-$o_1=1$なので，割り振りは$\sigma(1)=1,2,3$の3つである（$\Sigma$の元は3つ）．
+$o_1=1$なので，割り振りは$s(1)=1,2,3$の3つである（$S$の元は3つ）．
 \begin{itemize}
-  \item \LaTeX{}が組んだ配置$(k^0,\sigma^0)$：$k^0=(0,9,23,23)$，$\sigma^0(1)=1$．段1に
+  \item \LaTeX{}が組んだ配置$(k^0,s^0)$：$k^0=(0,9,23,23)$，$s^0(1)=1$．段1に
     フロートと9行と脚注，段2に14行が入り，段3は空である．
-  \item 揃えた配置$(k,\sigma)$：$k=(0,4,14,23)$，$\sigma(1)=1$．段1にフロートと4行と脚注，
+  \item 揃えた配置$(k,s)$：$k=(0,4,14,23)$，$s(1)=1$．段1にフロートと4行と脚注，
     段2に10行，段3に9行が入る．
 \end{itemize}
 どちらも，脚注の参照位置の3行目は段1にある．
 \end{stmt}
+
+図\ref{fig:ex-layout}の左は，\LaTeX{}が組んだ配置である．前の段から詰めるので，段3が空に
+なる．右は，揃えた配置である．同じ材料を，切れ目だけを変えて3段に分けている．
 
 \begin{figure}[H]
   \centering
@@ -324,25 +384,32 @@ $o_1=1$なので，割り振りは$\sigma(1)=1,2,3$の3つである（$\Sigma$�
     \exfloat{0}{0}\exlines{0}{58}{9}\exfoot{0}{178}
     \exlines{24}{10}{14}
     \node[font=\footnotesize] at (17,78.5) {\textdagger};
-    \node at (34,192) {$k^0=(0,9,23,23)$，$\sigma^0(1)=1$};
+    \node at (34,192) {$k^0=(0,9,23,23)$，$s^0(1)=1$};
     \begin{scope}[xshift=84mm]
       \foreach \x in {0,24,48} {\excol{\x}{0}}
       \exfloat{0}{0}\exlines{0}{58}{4}\exfoot{0}{118}
       \exlines{24}{10}{10}
       \exlines{48}{10}{9}
       \node[font=\footnotesize] at (17,78.5) {\textdagger};
-      \node at (34,192) {$k=(0,4,14,23)$，$\sigma(1)=1$};
+      \node at (34,192) {$k=(0,4,14,23)$，$s(1)=1$};
     \end{scope}
   \end{tikzpicture}
-  \caption{例\ref{ex:layout}の2つの配置．左：\LaTeX{}が組んだ配置．前の段から詰めるので，
-    段3が空になる．右：揃えた配置．同じ材料を，切れ目だけを変えて3段に分けている}
+  \caption{例\ref{ex:layout}の2つの配置}
   \label{fig:ex-layout}
 \end{figure}
 
+\section{高さと下端：版面と整列の量}\label{sec:f-height}
+
+配置を測る量を2つ定める．所要の高さは，段に入れたものが占める高さで，版面に入り切るか
+（M2）を調べるのに使う．見かけの下端は，段の最後にあるものの目に見える下端で，段を
+揃える位置（M5，M6）を測るのに使う．2つは別の量である．所要の高さは最終行のベースライン
+までを数え，見かけの下端はその下に見える分を加える．
+
 \begin{stmt}[所要の高さ]{定義}\label{def:used}
-配置$(k,\sigma)$の段$i$について，次の量を定める（図\ref{fig:formal-frame}の右）．
+配置$(k,s)$の段$i$について，次の量を定める（図\ref{fig:formal-frame}の右）．
 \begin{itemize}
-  \item フロートの高さ$A_i(\sigma)=\sum_{\sigma(j)=i}|f_j|$．
+  \item フロートの高さ$|F_i|$．段$i$に割り振られたフロートの集まりを
+    $F_i=\{f_j : s(j)=i\}$とし，$|F_i|=\sum_{s(j)=i}|f_j|$とする．
   \item 本文の高さ$|T_i|$：$T_i$の自然な高さ（グルーを伸び縮みさせない高さ）．
   \item 脚注の高さ$G_i(k)$．$\Phi_i=\{\varphi\in\Phi : k_{i-1}<a(\varphi)\le k_i\}$を，
     参照位置が段$i$に入る脚注の集合とする．\opt{footnote=column}では，$\Phi_i$の脚注を
@@ -350,7 +417,7 @@ $o_1=1$なので，割り振りは$\sigma(1)=1,2,3$の3つである（$\Sigma$�
     足し，$b$の倍数に切り上げたものとする．\opt{footnote=page}では$G_i=0$とし，かわりに
     $H$から，ページの脚注の領域（全幅で組んだ$\Phi$の高さ）を引いておく．
 \end{itemize}
-段$i$の\kyocho{所要の高さ}を$U_i(k,\sigma)=A_i(\sigma)+|T_i|+G_i(k)$とする．高さ$h\le H$に
+段$i$の\kyocho{所要の高さ}を$U_i(k,s)=|F_i|+|T_i|+G_i(k)$とする．高さ$h\le H$に
 ついて，すべての$i$で$U_i\le h$のとき，配置は\kyocho{$h$に入り切る}という．
 \end{stmt}
 
@@ -359,15 +426,18 @@ $o_1=1$なので，割り振りは$\sigma(1)=1,2,3$の3つである（$\Sigma$�
 （図\ref{fig:ex-used}）．$\ell$行の本文の高さは，1行目のベースラインまでの$\tau$と
 行送り$\ell-1$回分の和$\tau+(\ell-1)b$である．
 \begin{itemize}
-  \item 段1：$A_1=48$，$|T_1|=10+3\cdot12=46$．脚注の塊$20$に行の深さ$d=3$を足すと$23$で，
+  \item 段1：$|F_1|=48$，$|T_1|=10+3\cdot12=46$．脚注の塊$20$に行の深さ$d=3$を足すと$23$で，
     $b=12$の倍数に切り上げて$G_1=24$．よって$U_1=48+46+24=118$．
-  \item 段2：$A_2=0$，$|T_2|=10+9\cdot12=118$，$G_2=0$．よって$U_2=118$．
-  \item 段3：$A_3=0$，$|T_3|=10+8\cdot12=106$，$G_3=0$．よって$U_3=106$．
+  \item 段2：$|F_2|=0$，$|T_2|=10+9\cdot12=118$，$G_2=0$．よって$U_2=118$．
+  \item 段3：$|F_3|=0$，$|T_3|=10+8\cdot12=106$，$G_3=0$．よって$U_3=106$．
 \end{itemize}
 （単位はpt．）どの段も$U_i\le118$なので，この配置は$h=118\,\mathrm{pt}$に入り切る．
 \LaTeX{}の配置$k^0$では$U_1=48+106+24=178$，$U_2=166$，$U_3=0$で，$h=H=178\,\mathrm{pt}$で
 なければ入り切らない．
 \end{stmt}
+
+図\ref{fig:ex-used}で，段1の所要の高さは，フロート，本文4行，脚注の高さの和である．
+本文の高さは最終行のベースラインまでで，行の深さは数えない．
 
 \begin{figure}[H]
   \centering
@@ -377,7 +447,7 @@ $o_1=1$なので，割り振りは$\sigma(1)=1,2,3$の3つである（$\Sigma$�
     \exlines{24}{10}{10}
     \exlines{48}{10}{9}
     \draw[densely dashed] (-2,118) -- (72,118) node[right=1pt] {$h=118$};
-    \draw[<->] (-4,0) -- (-4,48) node[midway,left=2pt] {$A_1=48$};
+    \draw[<->] (-4,0) -- (-4,48) node[midway,left=2pt] {$|F_1|=48$};
     \draw[<->] (-4,48) -- (-4,94) node[midway,left=2pt] {$|T_1|=46$};
     \draw[<->] (-4,94) -- (-4,118) node[midway,left=2pt] {$G_1=24$};
     \draw (-6,0) -- (-2,0) (-6,48) -- (-2,48) (-6,94) -- (-2,94) (-6,118) -- (-2,118);
@@ -386,8 +456,7 @@ $o_1=1$なので，割り振りは$\sigma(1)=1,2,3$の3つである（$\Sigma$�
     \draw[<->] (70,0) -- (70,106) node[midway,right=2pt] {$|T_3|=106$};
     \foreach \x/\u in {10/{U_1=118},34/{U_2=118},58/{U_3=106}} {\node at (\x,192) {$\u$};}
   \end{tikzpicture}
-  \caption{例\ref{ex:used}の所要の高さ（単位はpt）．段1は，フロート，本文4行，脚注の
-    高さの和である．本文の高さは最終行のベースラインまでで，行の深さは数えない}
+  \caption{例\ref{ex:used}の所要の高さ（単位はpt）}
   \label{fig:ex-used}
 \end{figure}
 
@@ -422,6 +491,10 @@ $e_i=0$である．
 $e_i=3$である．
 \end{stmt}
 
+図\ref{fig:ex-bottom}の実線は最後の行のベースライン，破線は見かけの下端で，その差が
+行の深さ$d=3\,\mathrm{pt}$である．段1の脚注は，本文の2行下の行の位置に最終行の
+ベースラインを置く．
+
 \begin{figure}[H]
   \centering
   \begin{tikzpicture}[alg,x=1mm,y=-.25mm]
@@ -436,11 +509,16 @@ $e_i=3$である．
     \draw (48,106) -- (70,106) node[right=2pt,yshift=5pt] {ベースライン$106$};
     \draw[densely dashed] (48,109) -- (70,109) node[right=2pt,yshift=-5pt] {$v_3=109$};
   \end{tikzpicture}
-  \caption{例\ref{ex:bottom}の見かけの下端（単位はpt）．実線は最後の行のベースライン，
-    破線は見かけの下端で，その差が行の深さ$d=3\,\mathrm{pt}$である．段1の脚注は，本文の
-    2行下の行の位置に最終行のベースラインを置く}
+  \caption{例\ref{ex:bottom}の見かけの下端（単位はpt）}
   \label{fig:ex-bottom}
 \end{figure}
+
+\section{釣り合いと整列：揃った配置と問題}\label{sec:f-even}
+
+釣り合い（M5）と整列（M6）を，1つの定義にまとめる．条件の1と2が釣り合いで，途中の段を
+1つの下端に合わせ，最後の段だけを短くてよいとする．条件の3が整列で，本文だけの段の
+行を行の位置から動かさないことを求める．条件の3があるので，本文だけの段の行間を伸ばして
+下端を合わせた配置は，揃った配置とは呼ばない．
 
 \begin{stmt}[揃った配置]{定義}\label{def:even}
 配置の中身のある最後の段を$L$とする（$L$より後の段は空）．配置が\kyocho{下端$\beta$で
@@ -452,6 +530,11 @@ $e_i=3$である．
     行の位置は，\LaTeX{}が組むときの位置のままである．
 \end{enumerate}
 \end{stmt}
+
+図\ref{fig:formal-even}の帯は行で，帯の下辺がベースラインである．段1は本文だけの段で，
+行は$\tau+\ell b$の位置から動かさない．段2は，本文と下のフロートの間のアキを伸び縮み
+させて，フロートの下端を$\beta$に合わせる．段3は中身のある最後の段$L$で，$\beta$より
+高くなければよい．段の脚注の最終行は，行の位置（$\tau+\ell b$）に置く．
 
 \begin{figure}[H]
   \centering
@@ -483,11 +566,7 @@ $e_i=3$である．
     \node[lab,below,align=center] at (63,10) {下のフロートで終わる段\\$v_2=$フロートの下端};
     \node[lab,below,align=center] at (111,10) {脚注で終わる段\\$v_3\le\beta$（最後の段は短くてよい）};
   \end{tikzpicture}
-  \caption{見かけの下端と揃った配置（定義\ref{def:bottom}，\ref{def:even}）．帯は行で，
-    帯の下辺がベースラインである．段1は本文だけの段で，行は$\tau+\ell b$の位置から
-    動かさない．段2は，本文と下のフロートの間のアキを伸び縮みさせて，フロートの下端を
-    $\beta$に合わせる．段3は中身のある最後の段$L$で，$\beta$より高くなければよい．
-    段の脚注の最終行は，行の位置（$\tau+\ell b$）に置く}
+  \caption{見かけの下端と揃った配置（定義\ref{def:bottom}，\ref{def:even}）}
   \label{fig:formal-even}
 \end{figure}
 
@@ -505,6 +584,10 @@ $(v_1,v_2,v_3)=(121,109,121)$になる．段2は本文だけの段なので，3�
 $\beta=109$とするしかない．しかし$v_3=121>109$で，2に反する．よって，この配置は，
 どの$\beta$でも揃っていない．
 \end{stmt}
+
+図\ref{fig:ex-even}の左は，下端$\beta$で揃った配置である．最後の段3は短くてよい．右は，
+途中の段2が1行分短い配置である．段2は本文だけの段で伸ばせないので，揃っていない
+（どちらも，段の下の部分は省いてある）．
 
 \begin{figure}[H]
   \centering
@@ -526,56 +609,76 @@ $\beta=109$とするしかない．しかし$v_3=121>109$で，2に反する．�
       \node at (34,150) {$k'=(0,4,13,23)$：揃っていない};
     \end{scope}
   \end{tikzpicture}
-  \caption{例\ref{ex:even}．左：下端$\beta$で揃った配置．最後の段3は短くてよい．右：
-    途中の段2が1行分短い配置．段2は本文だけの段で伸ばせないので，揃っていない
-    （段の下の部分は省いてある）}
+  \caption{例\ref{ex:even}の2つの配置}
   \label{fig:ex-even}
 \end{figure}
 
-\section{問題}
-
+\komidashi{問題}
+ここまでの定義で，要請を問題の条件に置き換える．
 \begin{stmt}[最終ページを揃える]{問題}\label{prob:main}
 材料$M$，段数$N$，段の高さ$H$が与えられ，$M$は\LaTeX{}が高さ$H$の$N$段に組んだものと
-する．次を満たす配置$(k,\sigma)$と高さ$h\le H$を求めよ．
+する．次を満たす配置$(k,s)$と高さ$h\le H$を求めよ．
 \begin{enumerate}
   \item[(P1)\hspace{.5\zw}] 配置は$h$に入り切る．
   \item[(P2)\hspace{.5\zw}] 順序を保つ．本文は読む順のまま（切れ目$k$で分けるだけ），フロートは
-    $\sigma\in\Sigma$．
+    $s\in S$．
   \item[(P3)\hspace{.5\zw}] 脚注は，\opt{footnote=column}では参照位置と同じ段の下端に，
     \opt{footnote=page}では版面の下端に全幅で置く．
   \item[(P4)\hspace{.5\zw}] 配置は，ある下端$\beta\le h$で揃っている．
   \item[(P5)\hspace{.5\zw}] (P1)から(P4)を満たすもののうちで，$h$が最も小さい．$h$の差が1行未満なら，
-    動かすフロートの少ないものを選ぶ．動かす量は$\mu(\sigma)=\sum_j(\sigma(j)-o_j)$で測る．
+    動かすフロートの少ないものを選ぶ．動かす量は$\mu(s)=\sum_j(s(j)-o_j)$で測る．
 \end{enumerate}
 \end{stmt}
 
 \begin{stmt}{注意}\label{rem:exist}
 行もフロートも分けられないので，(P4)を満たす配置があるとは限らない．また，(P1)は
-\LaTeX{}の配置$(k^0,\sigma^0)$が$h=H$で満たすように見えるが，定義\ref{def:used}の切り上げの
+\LaTeX{}の配置$(k^0,s^0)$が$h=H$で満たすように見えるが，定義\ref{def:used}の切り上げの
 分だけ所要の高さが増えるので，これも保証されない．そこで実装は，問題\ref{prob:main}の
 厳密な解ではなく，次の節の手順が与える配置を解とする．解が得られない場合の扱いも，
 手順の中で定める．手順について証明できることと，証明しないことは，命題\ref{prop:main}と
 注意\ref{rem:noproof}に分けて述べる．
 \end{stmt}
 
-\section{手順と証明}
+\komidashi{要請と条件の対応}
+問題\ref{prob:main}の条件は，要請に次のように対応する．
+\begin{itemize}
+  \item (P1)は版面（M2）．段の高さ$H$を超えない．
+  \item (P2)は読む順序（M3）．
+  \item (P3)は配置（M4）のうち，脚注の置き場所．図表の置き場所（上のフロートは段の上端，
+    下のフロートは段の下端）は，段を組む手順（命題\ref{prop:main}の手順5）で定める．
+  \item (P4)は釣り合い（M5）と整列（M6）．
+  \item (P5)の前半は余白（M7）．$h$を最も小さくすれば，段組の下の余白が最も大きくなる．
+    後半は一貫性（M8）で，図表をなるべく動かさない．
+\end{itemize}
+構造（M1）は，条件としては現れない．$N$，$b$，$\tau$を与えられたものとして変えない
+ことが，それにあたる．(P1)から(P4)は満たすべき条件，(P5)は条件を満たすものの中での
+選び方である．つまり，版面，読む順序，配置，釣り合いと整列を先に守り，余白と一貫性は
+その中で選ぶ．
 
-割り振り$\sigma$と高さ$h$を決めれば，切れ目は貪欲に決まる．
+\section{手順と証明}\label{sec:f-proc}
+
+手順は，3つの層からなる．割り振りと高さを決めて本文を段に分ける貪欲な分割
+（補題\ref{lem:fill}），割り振りごとに段組の最も低い高さを探す手順（補題\ref{lem:minh}），
+候補を選んで段を組む全体の手順（命題\ref{prop:main}）である．版面，読む順序，脚注の
+置き場所（M2からM4）は，最も内側の貪欲な分割が守る．余白（M7）は高さを探す層が，
+一貫性（M8）と釣り合い（M5），整列（M6）は全体の手順が受け持つ．
+
+割り振り$s$と高さ$h$を決めれば，切れ目は貪欲に決まる．
 
 \begin{stmt}[貪欲な分割]{補題}\label{lem:fill}
-$\sigma\in\Sigma$と$h\le H$に対し，次の手順$\mathrm{Fill}(\sigma,h)$は，高々$10(N-1)$回の
-\cs{vsplit}で止まり，配置$(k,\sigma)$を1つ返すか，失敗する．返した配置は(P1)から(P3)を
+$s\in S$と$h\le H$に対し，次の手順$\mathrm{Fill}(s,h)$は，高々$10(N-1)$回の
+\cs{vsplit}で止まり，配置$(k,s)$を1つ返すか，失敗する．返した配置は(P1)から(P3)を
 満たす．
 \end{stmt}
 \begin{tejun}
 $i=1,\dots,N-1$の順に，残りの本文の先頭から段$i$の本文を切り出す
 （図\ref{fig:formal-fill}）．
 \begin{enumerate}
-  \item 本文に使える高さを$c=h-A_i(\sigma)-G$とする．初めは，$G$を，段$i$に必ず入る脚注
+  \item 本文に使える高さを$c=h-|F_i|-G$とする．初めは，$G$を，段$i$に必ず入る脚注
     だけの高さとする．$c<0$なら失敗とする．
   \item 残りの本文から，\TeX{}の\cs{vsplit}で高さ$c$までを切り出す．\cs{vsplit}は，$c$を
     超えない最もよい切れ目を選ぶ．これを$T_i$とする．
-  \item $T_i$に参照位置のある脚注から$G_i$を求め直す．$A_i+|T_i|+G_i\le h$なら，この段を
+  \item $T_i$に参照位置のある脚注から$G_i$を求め直す．$|F_i|+|T_i|+G_i\le h$なら，この段を
     確定する．
   \item 超えていれば，超えた分だけ$c$を小さくして，2からやり直す．10回くり返しても
     収まらなければ失敗とする．
@@ -587,8 +690,8 @@ $i=1,\dots,N-1$の順に，残りの本文の先頭から段$i$の本文を切�
 \kyocho{止まること}．段$1$から$N-1$のそれぞれで，2から4のくり返しは高々10回である．
 1回のくり返しで\cs{vsplit}を1回使うので，\cs{vsplit}は高々$10(N-1)$回である．
 
-\kyocho{(P1)}．$i<N$の段は，3で$A_i+|T_i|+G_i\le h$を確かめたときにだけ確定する．
-段$N$は，最後に$U_N\le h$を確かめる．$A_i$は$\sigma$だけで決まる．後の段の切り出しは残りの
+\kyocho{(P1)}．$i<N$の段は，3で$|F_i|+|T_i|+G_i\le h$を確かめたときにだけ確定する．
+段$N$は，最後に$U_N\le h$を確かめる．$|F_i|$は$s$だけで決まる．後の段の切り出しは残りの
 本文だけを使うので，確定した段の$T_i$は変わらず，$|T_i|$と$G_i$も変わらない．
 したがって，返した配置ではすべての段で$U_i\le h$である．
 
@@ -598,7 +701,7 @@ $i=1,\dots,N-1$の順に，残りの本文の先頭から段$i$の本文を切�
 印など）は残す．残りの先頭には，\cs{splittopskip}のグルーが1つ入る．つまり，捨てられる
 要素のほかは，何も失われず，順も変わらない．段の先頭に来た捨てられる要素を除くのは，
 定義\ref{def:layout}のとおりである．よって，切り出した$T_1,\dots,T_N$は，ある切れ目
-$k_0\le\dots\le k_N$による分割で，本文は読む順のままである．$\sigma$は，初めから$\Sigma$の
+$k_0\le\dots\le k_N$による分割で，本文は読む順のままである．$s$は，初めから$S$の
 元である．
 
 \kyocho{(P3)}．3の$G_i$は，参照位置が$T_i$に入る脚注の集合$\Phi_i$だけから求める．
@@ -608,6 +711,11 @@ $k_0\le\dots\le k_N$による分割で，本文は読む順のままである．
 引いてある（定義\ref{def:used}）．$h\le H$なので，どの段もその領域に掛からず，脚注を
 版面の下端に全幅で置ける．
 \end{shoumei}
+
+図\ref{fig:formal-fill}に，段$i$の切り出しを示す．初めは，脚注を見込まずに高さ$c$まで
+本文を切り出す．切り出した本文に脚注の参照（\textdagger）があると，脚注の分だけ$h$を
+超える．超えた分だけ$c$を小さくして切り直し，$|F_i|+|T_i|+G_i\le h$になれば段を確定する．
+切り出さなかった行は，次の段へ回る．
 
 \begin{figure}[tbp]
   \centering
@@ -620,9 +728,9 @@ $k_0\le\dots\le k_N$による分割で，本文は読む順のままである．
     \node[lab,text=white] at (14,46) {フロート};
     \foreach \i in {0,...,9} \fill[txt] (0,40.8-4*\i) rectangle (28,38.6-4*\i);
     \node[lab] at (29.6,17.2) {\textdagger};
-    \draw[|-|] (34,50) -- node[lab,right] {$A_i$} (34,42);
+    \draw[|-|] (34,50) -- node[lab,right] {$|F_i|$} (34,42);
     \draw[|-|] (34,42) -- node[lab,right] {$c$} (34,0);
-    \node[lab,below,align=center] at (14,-11) {手順1，2：$c=h-A_i-G$\\まで\cs{vsplit}で切り出す};
+    \node[lab,below,align=center] at (14,-11) {手順1，2：$c=h-|F_i|-G$\\まで\cs{vsplit}で切り出す};
     \draw[->] (41,25) -- (49,25);
     %% 手順3
     \begin{scope}[xshift=46.8mm]
@@ -651,40 +759,37 @@ $k_0\le\dots\le k_N$による分割で，本文は読む順のままである．
       \node[lab,below,align=center] at (14,-11) {手順4：$c$を小さくして\\切り直すと入り切る};
     \end{scope}
   \end{tikzpicture}
-  \caption{貪欲な分割$\mathrm{Fill}$の段$i$の切り出し（補題\ref{lem:fill}）．初めは，
-    脚注を見込まずに高さ$c$まで本文を切り出す．切り出した本文に脚注の参照（\textdagger）が
-    あると，脚注の分だけ$h$を超える．超えた分だけ$c$を小さくして切り直し，
-    $A_i+|T_i|+G_i\le h$になれば段を確定する．切り出さなかった行は，次の段へ回る}
+  \caption{貪欲な分割$\mathrm{Fill}$の段$i$の切り出し（補題\ref{lem:fill}）}
   \label{fig:formal-fill}
 \end{figure}
 
 \begin{stmt}{注意}
 $\mathrm{Fill}$は貪欲で，前の段にできるだけ多く入れる．$h$に入り切る配置があっても，
-$\mathrm{Fill}(\sigma,h)$が失敗することはありうる．また，$\mathrm{Fill}(\sigma,h)$が成功
+$\mathrm{Fill}(s,h)$が失敗することはありうる．また，$\mathrm{Fill}(s,h)$が成功
 するかどうかは，$h$について単調とは限らない．切れ目が変わると，脚注の入る段が変わる
 ためである．
 \end{stmt}
 
 \begin{stmt}[割り振りごとの最小の高さ]{補題}\label{lem:minh}
-$\sigma\in\Sigma$に対し，次の手順は，高々
+$s\in S$に対し，次の手順は，高々
 $\max\{0,\lceil\log_2((H-h_0)/1\,\mathrm{pt})\rceil\}+6$回の$\mathrm{Fill}$で止まり，
-$\mathrm{Fill}(\sigma,h)$が成功する高さ$h(\sigma)\le H$を1つ返すか，「入り切らない」と
+$\mathrm{Fill}(s,h)$が成功する高さ$h(s)\le H$を1つ返すか，「入り切らない」と
 答える．$h_0$は，手順の中で定める下界である．
 \end{stmt}
 \begin{tejun}
-$\mathrm{Fill}(\sigma,H)$が失敗すれば，「入り切らない」と答える．成功すれば，下界を
+$\mathrm{Fill}(s,H)$が失敗すれば，「入り切らない」と答える．成功すれば，下界を
 \[ h_0=\Bigl\lfloor\bigl(|T|+\textstyle\sum_j|f_j|\bigr)/N\Bigr\rfloor-2b \]
 とし，区間$[h_0,H]$を二分法で狭める（図\ref{fig:formal-minh}）．中点で$\mathrm{Fill}$が成功すれば上端を，失敗すれば
 下端を中点に移し，幅が1ptになるまで続ける．上端を$h_1$とする．$\mathrm{Fill}$の成否は
 単調とは限らないので，最後に$h_1-4\,\mathrm{pt}$から$h_1$まで1ptずつ調べ，最初に成功した
-高さを$h(\sigma)$とする．ただし，下界$h_0$より下は調べない（$h_1-4\,\mathrm{pt}$が$h_0$より
+高さを$h(s)$とする．ただし，下界$h_0$より下は調べない（$h_1-4\,\mathrm{pt}$が$h_0$より
 下になるときは，$h_0$から調べる）．$h_0$が負になるときは，$h_0=0$とする．
 \end{tejun}
 \begin{shoumei}
 二分法のあいだ，区間の上端では，つねに$\mathrm{Fill}$が成功する．初めの上端$H$では
-$\mathrm{Fill}(\sigma,H)$が成功しており，上端を移すのは，中点で成功したときだけだからで
+$\mathrm{Fill}(s,H)$が成功しており，上端を移すのは，中点で成功したときだけだからで
 ある．よって，$h_1$で$\mathrm{Fill}$は成功する．最後の調べ直しは$h_1$で終わるので
-（調べる範囲が空のときは$h_1$を返す），成功する高さが必ずあり，$h(\sigma)\le h_1\le H$で
+（調べる範囲が空のときは$h_1$を返す），成功する高さが必ずあり，$h(s)\le h_1\le H$で
 ある．
 
 $\mathrm{Fill}$の回数は，初めの1回，二分法の
@@ -693,11 +798,16 @@ $\max\{0,\lceil\log_2((H-h_0)/1\,\mathrm{pt})\rceil\}$回（1回ごとに区間�
 \end{shoumei}
 
 \begin{stmt}{注意}\label{rem:minh}
-$h(\sigma)$は，$\mathrm{Fill}(\sigma,h)$が成功する最小の$h$とは限らない．成否が単調で
+$h(s)$は，$\mathrm{Fill}(s,h)$が成功する最小の$h$とは限らない．成否が単調で
 ないので，二分法が捨てた区間（失敗した中点より下）に，成功する高さが残りうる．
-補題\ref{lem:minh}から言えるのは，$h(\sigma)$で成功することと，調べ直した高さのうち
-$h(\sigma)$より低いものでは失敗することだけである．
+補題\ref{lem:minh}から言えるのは，$h(s)$で成功することと，調べ直した高さのうち
+$h(s)$より低いものでは失敗することだけである．
 \end{stmt}
+
+図\ref{fig:formal-minh}の上では，区間$[h_0,H]$を二分法で狭めている．数字は調べる順
+（3回目まで），○は$\mathrm{Fill}$の成功，×は失敗で，太線は成功する範囲である．幅が
+1ptになったときの上端を$h_1$とする．成否は単調とは限らないので，図の下のように，$h_1$の
+4pt下から1ptずつ調べ，最初に成功した高さを$h(s)$とする．
 
 \begin{figure}[tbp]
   \centering
@@ -725,17 +835,14 @@ $h(\sigma)$より低いものでは失敗することだけである．
        \node[lab,below] at (\x,4) {\t};}
     \node[lab,right] at (91,6) {（pt）};
     \draw[->] (35,-7) -- (35,-1.5);
-    \node[lab,below] at (35,-7) {$h(\sigma)$：最初に成功した高さ};
+    \node[lab,below] at (35,-7) {$h(s)$：最初に成功した高さ};
   \end{tikzpicture}
-  \caption{割り振りごとの最小の高さの探し方（補題\ref{lem:minh}）．上：区間$[h_0,H]$を
-    二分法で狭める．数字は調べる順（3回目まで），○は$\mathrm{Fill}$の成功，×は失敗で，
-    太線は成功する範囲である．幅が1ptになったときの上端を$h_1$とする．下：成否は単調とは限らないので，$h_1$の4pt下から
-    1ptずつ調べ，最初に成功した高さを$h(\sigma)$とする}
+  \caption{割り振りごとの最小の高さの探し方（補題\ref{lem:minh}）}
   \label{fig:formal-minh}
 \end{figure}
 
 \begin{stmt}[揃えた配置の構成]{命題}\label{prop:main}
-次の手順は，有限回の$\mathrm{Fill}$で止まり，配置$(k,\sigma)$と下端$\beta$を返すか，
+次の手順は，有限回の$\mathrm{Fill}$で止まり，配置$(k,s)$と下端$\beta$を返すか，
 「揃えられない」と答える．返した配置と$\beta$について，次が成り立つ．
 \begin{enumerate}
   \item[(i)\hspace{.5\zw}] ある$h\le H$について，配置は(P1)から(P3)を満たす．
@@ -748,19 +855,19 @@ $h(\sigma)$より低いものでは失敗することだけである．
 \end{stmt}
 \begin{tejun}
 \begin{enumerate}
-  \item \kyocho{候補を挙げる}．$\Sigma$の割り振りを列挙する．64個を超えるときは，\LaTeX{}が
-    置いたフロートを動かさず（$\sigma(j)=o_j$），持ち越したフロートだけを動かす候補に限る．
+  \item \kyocho{候補を挙げる}．$S$の割り振りを列挙する．64個を超えるときは，\LaTeX{}が
+    置いたフロートを動かさず（$s(j)=o_j$），持ち越したフロートだけを動かす候補に限る．
     段をまたぐフロートが同じ位置で同じ段に重なる候補は除く．
-  \item \kyocho{高さを求める}．各候補$\sigma$について，補題\ref{lem:minh}で$h(\sigma)$を
+  \item \kyocho{高さを求める}．各候補$s$について，補題\ref{lem:minh}で$h(s)$を
     求める．
-  \item \kyocho{候補を選ぶ}．候補を順に見て，それまでの最良$(\sigma^*,h^*)$を次の規則で
-    置き換える．$\mu(\sigma)<\mu(\sigma^*)$のときは，$h(\sigma)<h^*+b$なら置き換える（動かす
-    フロートが少なければ，1行未満の高さの差は許す）．$\mu(\sigma)=\mu(\sigma^*)$のときは，
-    $h(\sigma)<h^*$なら置き換える．$\mu(\sigma)>\mu(\sigma^*)$のときは，
-    $h(\sigma)\le h^*-b$のときだけ置き換える（フロートを余計に動かすのは，1行以上低く
+  \item \kyocho{候補を選ぶ}．候補を順に見て，それまでの最良$(s^*,h^*)$を次の規則で
+    置き換える．$\mu(s)<\mu(s^*)$のときは，$h(s)<h^*+b$なら置き換える（動かす
+    フロートが少なければ，1行未満の高さの差は許す）．$\mu(s)=\mu(s^*)$のときは，
+    $h(s)<h^*$なら置き換える．$\mu(s)>\mu(s^*)$のときは，
+    $h(s)\le h^*-b$のときだけ置き換える（フロートを余計に動かすのは，1行以上低く
     なるときだけ）．高さの比較には，高さを調べる刻み（1pt）の半分の余裕を持たせる．
     どの候補も入り切らなければ，手順6へ進む．
-  \item \kyocho{揃わない配分を直す}．$\mathrm{Fill}(\sigma^*,h^*)$の配置の$v_1,\dots,v_N$を
+  \item \kyocho{揃わない配分を直す}．$\mathrm{Fill}(s^*,h^*)$の配置の$v_1,\dots,v_N$を
     測る．次のどれかが成り立てば，揃わない配分とみなす
     （図\ref{fig:formal-misaligned}）．
     \begin{enumerate}
@@ -769,7 +876,7 @@ $h(\sigma)$より低いものでは失敗することだけである．
         $v_i<\beta_T-b/2$（途中の段が明らかに短い）．
       \item フロートまわりのグルーを縮めても，$v_i>\beta_T$となる段がある．
     \end{enumerate}
-    揃わない配分なら，$h$を$h^*$から1ptずつ上げて$\mathrm{Fill}(\sigma^*,h)$をやり直し，
+    揃わない配分なら，$h$を$h^*$から1ptずつ上げて$\mathrm{Fill}(s^*,h)$をやり直し，
     揃わない配分でなくなった最初の$h$を採る．$H$まで上げても見つからなければ，元の配置の
     ままとする．
   \item \kyocho{段を組む}．$\beta=\max_i v_i$とする．本文だけの段があり，ほかの段を
@@ -790,7 +897,7 @@ $h(\sigma)$より低いものでは失敗することだけである．
   \item \kyocho{緩める}．どの候補も入り切らないときは，条件を1つ緩めて，手順1から
     やり直す．1回目は，脚注の塊を$b$の倍数に切り上げない（定義\ref{def:used}）．2回目は，
     \opt{floatgrid}もやめる．それでも入り切らなければ，「揃えられない」と答える．このとき
-    \TeX{}側は，\LaTeX{}の配置$(k^0,\sigma^0)$のままページを出力し，警告を出す．
+    \TeX{}側は，\LaTeX{}の配置$(k^0,s^0)$のままページを出力し，警告を出す．
 \end{enumerate}
 \end{tejun}
 \begin{shoumei}
@@ -802,8 +909,8 @@ $\mathrm{Fill}$を使わない．手順6から手順1へ戻るのは高々2回�
 止まる．
 
 \kyocho{(i)}．配置を返すのは，手順3で候補が選ばれたときだけである．このとき返す配置は，
-$\mathrm{Fill}(\sigma^*,h^*)$が返したものか，手順4の$\mathrm{Fill}(\sigma^*,h)$
-（$h^*<h\le H$）が返したものである．$h^*=h(\sigma^*)\le H$は，補題\ref{lem:minh}による．
+$\mathrm{Fill}(s^*,h^*)$が返したものか，手順4の$\mathrm{Fill}(s^*,h)$
+（$h^*<h\le H$）が返したものである．$h^*=h(s^*)\le H$は，補題\ref{lem:minh}による．
 手順5は，切れ目も割り振りも変えない．よって，補題\ref{lem:fill}から，配置はその$h$に
 ついて(P1)から(P3)を満たす．手順6で条件を緩めた後は，緩めた$G_i$で定めた所要の高さに
 ついて同じことが成り立つ．
@@ -812,6 +919,22 @@ $\mathrm{Fill}(\sigma^*,h^*)$が返したものか，手順4の$\mathrm{Fill}(\s
 $\beta=\beta_T$とするのは，すべての段で，$v_i$からフロートまわりのグルーの縮みを引いた
 値が$\beta_T$以下のときだけである．どちらの場合も，主張が成り立つ．
 \end{shoumei}
+
+\komidashi{手順と要請の対応}
+命題\ref{prop:main}の手順のそれぞれが，どの要請のためにあるかを記す．
+\begin{itemize}
+  \item 手順1から3は，余白（M7）と一貫性（M8）の折り合いである．段組が最も低くなる
+    割り振りを探すが，図表を余計に動かすのは，1行以上低くなるときだけにする．
+  \item 手順4は，釣り合い（M5）と整列（M6）の折り合いである．最も低い高さで分けた配置が
+    揃わないとき，行間を伸ばすのではなく，高さを上げて分け直す．余白（M7）を譲って，
+    行の位置を守る．
+  \item 手順5は，整列（M6）と余白（M7）のうち，アキの入れ場所を定める．本文だけの段を
+    基準にして下端を決め，伸び縮みは図表のまわりのグルーに持たせる．無限に伸びるグルーを
+    入れる3つの場所は，どれも本文と脚注，本文と図表の境か，本文の末尾で，行間ではない．
+  \item 手順6は，入り切らないときに譲る順を定める．まず脚注の高さの切り上げを，次に
+    フロートの前後の行の位置合わせをやめる．版面（M2）を守るために，整列（M6）の一部を
+    譲る．
+\end{itemize}
 
 \begin{stmt}[段が揃うための条件]{命題}\label{prop:even}
 命題\ref{prop:main}の手順が返した配置と$\beta$について，次が成り立つ．
@@ -881,9 +1004,9 @@ $\beta=\beta_T$とするのは，すべての段で，$v_i$からフロートま
   \item \kyocho{本文だけの段を動かさないこと}（定義\ref{def:even}の3）．$\beta=\beta_T$の
     とき，基準にした段は動かない．それより短い本文だけの段は，グルーに伸びがあれば
     伸ばすことがある．
-  \item \kyocho{高さが最も小さいこと}（P5）．$h^*$は，調べた候補の$h(\sigma)$から手順3の
+  \item \kyocho{高さが最も小さいこと}（P5）．$h^*$は，調べた候補の$h(s)$から手順3の
     規則で選んだものである．$\mathrm{Fill}$は貪欲なので，$\mathrm{Fill}$が作らない配置は
-    調べていない．候補が64個を超えるときに除いた割り振りも調べていない．$h(\sigma)$
+    調べていない．候補が64個を超えるときに除いた割り振りも調べていない．$h(s)$
     そのものも，最小とは限らない（注意\ref{rem:minh}）．さらに，手順3の規則は，
     動かすフロートの少ない候補を1行未満の差なら優先するので，調べた候補の中でも最小とは
     限らない．たとえば，$(\mu,h)$が$(2,100\,\mathrm{pt})$，$(1,110\,\mathrm{pt})$，
@@ -895,6 +1018,11 @@ $\beta=\beta_T$とするのは，すべての段で，$v_i$からフロートま
 証明のないこれらの性質は，マニュアルの「乱数による網羅テスト」の節に述べる試験で，組んだ結果を
 検査して確かめている．
 \end{stmt}
+
+図\ref{fig:formal-misaligned}に，命題\ref{prop:main}の手順4の揃わない配分を示す．破線は，
+(a)では最右段より前の段の見かけの下端の最大，ほかでは本文だけの段の見かけの下端の最大
+$\beta_T$である．(a)から(c)のどれかにあたれば，$h$を1ptずつ上げて$\mathrm{Fill}$を
+やり直し，どれにもあたらなくなった最初の配置を採る．
 
 \begin{figure}[tbp]
   \centering
@@ -937,19 +1065,19 @@ $\beta=\beta_T$とするのは，すべての段で，$v_i$からフロートま
       \node[lab,below,align=center] at (14,7) {判定を通る配分};
     \end{scope}
   \end{tikzpicture}
-  \caption{揃わない配分（命題\ref{prop:main}の手順4）．破線は，(a)では最右段より前の
-    段の見かけの下端の最大，ほかでは本文だけの段の見かけの下端の最大$\beta_T$である．
-    (a)から(c)のどれかにあたれば，$h$を1ptずつ上げて$\mathrm{Fill}$をやり直し，どれにも
-    あたらなくなった最初の配置を採る}
+  \caption{揃わない配分（命題\ref{prop:main}の手順4）}
   \label{fig:formal-misaligned}
 \end{figure}
 
 \section{ほかの場面への適用}\label{sec:formal-apply}
 
-最終ページのほかにも，同じ手順を2つの場面で使う．どちらも新しい命題ではなく，手順の
-使い方である．補題と命題から言えることは，それぞれの終わりに記す．
+最終ページのほかにも，同じ手順を3つの場面で使う．どの場面にも同じ手順を使うことが，
+一貫性（M8）にあたる．どれも新しい命題ではなく，手順の使い方である．補題と命題から
+言えることは，それぞれの終わりに記す．
 
-\komidashi{ページの途中で段組を改める}
+\komidashi{区切り：ページの途中で段組を改める}
+1ページに，段数の違う段組を上から積める．段組の区切りは，前の段組の下端を揃え，その下に
+決まったアキを置いて示す．
 \cs{evenendcolumns}などで段組を改めるとき，それまでの段組を次のように組む
 （マニュアルの「仕組み」の節の，ページの途中で段組を改めるときの図）．
 \begin{enumerate}
@@ -960,10 +1088,10 @@ $\beta=\beta_T$とするのは，すべての段で，$v_i$からフロートま
     $H'=H-\beta-g$とする．
 \end{enumerate}
 命題\ref{prop:main}は$H$の決め方によらないので，2で得た配置について，命題の(i)と(ii)が
-そのまま成り立つ．持ち越したフロートは，$\sigma(j)\ge o_j=1$のどの段にも置けるので，
+そのまま成り立つ．持ち越したフロートは，$s(j)\ge o_j=1$のどの段にも置けるので，
 この段組の中に置かれる．
 
-\komidashi{箱の中の段組（入れ子の段組）}
+\komidashi{配置：箱の中の段組（入れ子の段組）}
 ページの段の中に箱（\texttt{minipage}，フロート，\pkg{tcolorbox}など）を置き，その箱の中を
 さらに段組にできる（マニュアルの「入れ子の段組」の節）．内側の段組は，出力ルーチンを
 使わずにその場で組み，1つの箱にする．
@@ -973,20 +1101,21 @@ $\beta=\beta_T$とするのは，すべての段で，$v_i$からフロートま
     外側の段組については，命題\ref{prop:main}と命題\ref{prop:even}がそのまま成り立つ．
   \item 内側の段組は，命題\ref{prop:main}の手順ではなく，\pkg{multicol}と同じ方法で
     各段に分けて揃える．箱の中にはフロートが入らず，脚注は箱の脚注として箱の下に置くので，
-    割り振り$\sigma$も脚注の置き方も現れない．この文書の命題は，内側の段組を対象に
+    割り振り$s$も脚注の置き方も現れない．この文書の命題は，内側の段組を対象に
     しない．
   \item 入れ子は2重までである．箱の中の段組の中では，さらに段組を組めない（エラーに
     なる）．内側の段組が外側の手順を呼ぶことはないので，手順が止まることの証明は，
     入れ子があっても変わらない．
 \end{itemize}
 
-\komidashi{\opt{footnote=page}のページ}
+\komidashi{一貫性：\opt{footnote=page}のページ}
+脚注を版面の下端に置く組みでは，脚注の位置をどのページでも同じにする．
 \opt{footnote=page}では，最終ページでないページも，脚注を版面の下端に全幅で置くために
 組み直す．ここでは段を揃えず，本文を前の段から詰める（図\ref{fig:formal-page}）．
 \begin{enumerate}
-  \item 割り振りを$\sigma^0$に固定する（フロートは動かさない）．ページの脚注の領域の
+  \item 割り振りを$s^0$に固定する（フロートは動かさない）．ページの脚注の領域の
     高さを$\Psi$として，$h=H-\Psi$とする．
-  \item $\mathrm{Fill}(\sigma^0,h)$の手順1から4を，最後の段$N$にも使う．段$N$に
+  \item $\mathrm{Fill}(s^0,h)$の手順1から4を，最後の段$N$にも使う．段$N$に
     入り切らない本文を$R$とする．
   \item $R$に参照位置のある脚注は，このページに要らない．残した本文（$R$以外）の脚注
     だけの領域の高さ$\Psi'$を求める．$\Psi'<\Psi$なら，$h'=H-\Psi'$で2をやり直す．
@@ -1003,6 +1132,11 @@ $\beta=\beta_T$とするのは，すべての段で，$v_i$からフロートま
 途中で終えると，$\Psi$が要る高さより大きいままのことがある．そのときは，脚注の領域の
 上に余りが残るだけである．
 
+
+図\ref{fig:formal-page}の左では，ページの脚注の領域$\Psi$を除いた高さ$h$で段を分けて
+いる．入り切らない本文$R$に参照（\textdagger）のある脚注（濃い帯）は，このページに
+要らない．右では，その脚注を除いたので$\Psi$が減り，$h$が上がって，$R$の一部がこの
+ページに入る．送り返す本文の脚注が戻らない所までくり返す．
 
 \begin{figure}[tbp]
   \centering
@@ -1043,11 +1177,7 @@ $\beta=\beta_T$とするのは，すべての段で，$v_i$からフロートま
       \node[lab,below,align=center] at (22,-1) {$R$の脚注を除いて$\Psi$を求め直し，\\$h$を上げて分け直す};
     \end{scope}
   \end{tikzpicture}
-  \caption{\opt{footnote=page}のページの組み直し（\ref{sec:formal-apply}節）．左：ページの
-    脚注の領域$\Psi$を除いた高さ$h$で段を分ける．入り切らない本文$R$に参照（\textdagger）の
-    ある脚注（濃い帯）は，このページに要らない．右：その脚注を除くと$\Psi$が減り，
-    $h$が上がって，$R$の一部がこのページに入る．送り返す本文の脚注が戻らない所まで
-    くり返す}
+  \caption{\opt{footnote=page}のページの組み直し}
   \label{fig:formal-page}
 \end{figure}
 
@@ -1058,6 +1188,62 @@ $\mathrm{Fill}$は\texttt{fill\_once}（段をまたぐフロートの脚注を�
 \texttt{measure}，揃わない配分の判定は\texttt{misaligned}である．箱の中の段組
 （\texttt{boxbalance}）は，フロートと脚注のない場合（$F=\Phi=\emptyset$）の同じ手順である．
 \end{stmt}
+
+\section{要請ごとに言えること}\label{sec:f-summary}
+
+\ref{sec:f-req}節の要請のそれぞれについて，手順が返した配置に言えることと，言えない
+ことをまとめる．
+
+\komidashi{構造（M1）}
+手順は$N$，$b$，$\tau$を変えない．段幅と段間は，手順に現れない．行の位置については，
+整列（M6）の項に述べる．
+
+\komidashi{版面（M2）}
+成り立つ．返した配置は，ある$h\le H$に入り切る（補題\ref{lem:fill}の(P1)，
+命題\ref{prop:main}の(i)）．入り切る配置が見つからないときは，手順は配置を返さず，
+\LaTeX{}の配置のままにする．ただし，手順6で条件を緩めた後は，緩めた所要の高さについての
+主張になる．
+
+\komidashi{読む順序（M3）}
+成り立つ．本文は切れ目で分けるだけで，捨てられる要素のほかは何も失われず，順も変わらない．
+フロートの割り振りは，つねに$S$の元である（補題\ref{lem:fill}の(P2)）．
+
+\komidashi{配置（M4）}
+脚注の置き場所は成り立つ（補題\ref{lem:fill}の(P3)）．\opt{footnote=page}のページでも，
+残した本文の脚注は，版面の下端の領域に収まる（\ref{sec:formal-apply}節）．図表の置き場所は，
+手順5の積み順で定まる．下の図表が段の下端に届くことは，釣り合いの項の条件による．
+
+\komidashi{釣り合い（M5）}
+半分だけ成り立つ．どの段も，下端$\beta$より下に出ないようにできる（命題\ref{prop:main}の
+(ii)）．とくに，最後の段は$\beta$より高くない．途中の段が$\beta$に届くことは，条件付きで
+成り立つ（命題\ref{prop:even}）．不足が半行以下で，段が最後の要素で終わり，伸ばせる所が
+あることが条件である．条件を欠く段は，下が空く（注意\ref{rem:noproof}）．
+
+\komidashi{整列（M6）}
+下端を見かけの下端で測ることは，定義\ref{def:bottom}による．本文だけの段を動かさない
+ことは，基準にした段については成り立つ．それより短い本文だけの段は，グルーに伸びがあれば
+伸ばすことがあり，このとき行は行の位置から動く（注意\ref{rem:noproof}）．
+
+\komidashi{余白（M7）}
+アキの入れ場所は，手順5が定めたとおりである．段組の高さが最も小さいことは，証明して
+いない．貪欲な分割が作らない配置は調べず，高さを探す手順も最小を返すとは限らない
+（注意\ref{rem:minh}，注意\ref{rem:noproof}）．
+
+\komidashi{一貫性（M8）}
+図表を動かす量は，手順3の規則で抑える．余計に動かすのは，段組が1行以上低くなるとき
+だけである．ただし，規則は候補を順に見て置き換えるので，動かす量が最も小さいことは
+主張しない．どの場面にも同じ手順を使うことは，\ref{sec:formal-apply}節のとおりである．
+
+\komidashi{まとめ}
+版面，読む順序，脚注の置き場所は，手順が配置を返すかぎり，つねに成り立つ．釣り合いは，
+下に出ないことはつねに成り立ち，届くことは条件付きで成り立つ．整列と余白は，手順の
+作りとして目指しているが，材料によっては成り立たない．証明のない性質は，マニュアルの
+「乱数による網羅テスト」の節の試験で，組んだ結果を検査して確かめている．この順は，
+要請がぶつかったときに守る順でもある．
+
+以下の3つの節は，定式化と実装のつながりを述べる．記号と\TeX{}の概念の対応
+（\ref{sec:formal-tex}節），Leanによる証明の確認（\ref{sec:lean}節），モデルと実装の
+照らし合わせ（\ref{sec:model-check}節）である．
 
 \section{\TeX{}の概念との対応}\label{sec:formal-tex}
 
@@ -1078,6 +1264,13 @@ $a(\varphi)$）は，\TeX{}の側には残らない．そこでevenendは，\cs{
 \texttt{user\_defined}）を\cs{vadjust}で置き，脚注の中身には同じ番号を属性（attribute）で
 付ける．印は\cs{box}255に残り，本文と一緒に段に分かれるので，印の入った段がその脚注の
 段になる．マーク（\cs{mark}）も\cs{box}255に残る要素で，本文と一緒に段に入る．
+
+図\ref{fig:formal-tex}で，ページビルダは，主垂直リストの改ページの位置までを
+\cs{box}255に入れ，インサートを\cs{box}\cs{footins}へ移し，残りを最近の寄与に残して，
+出力ルーチンを呼ぶ．印とマークは\cs{box}255に残る．evenendは，\cs{box}255の中身を
+本文$T$の1段分，\cs{box}\cs{footins}の中身を脚注$\Phi$とし，印の位置から参照位置
+$a(\varphi)$を知る．改ページの位置のペナルティとグルーは，次の段の先頭で\TeX{}が
+捨てる前に写しておく．
 
 \begin{figure}[tbp]
   \centering
@@ -1132,12 +1325,7 @@ $a(\varphi)$）は，\TeX{}の側には残らない．そこでevenendは，\cs{
     \fill[txt] (86,6) rectangle (108,3.8);
     \node[lab,right,align=left] at (112,8) {先頭の捨てられる\\要素を写して\\$T$につなぐ};
   \end{tikzpicture}
-  \caption{\TeX{}の概念と材料の対応．ページビルダは，主垂直リストの改ページの位置までを
-    \cs{box}255に入れ，インサートを\cs{box}\cs{footins}へ移し，残りを最近の寄与に残して，
-    出力ルーチンを呼ぶ．印とマークは\cs{box}255に残る．evenendは，\cs{box}255の中身を
-    本文$T$の1段分，\cs{box}\cs{footins}の中身を脚注$\Phi$とし，印の位置から参照位置
-    $a(\varphi)$を知る．改ページの位置のペナルティとグルーは，次の段の先頭で\TeX{}が
-    捨てる前に写しておく}
+  \caption{\TeX{}の概念と材料の対応}
   \label{fig:formal-tex}
 \end{figure}
 
@@ -1219,6 +1407,10 @@ Leanで確かめているのは，この文書に書いた手順（モデル）�
 それは，マニュアルの「乱数による網羅テスト」の節に述べる試験と，\ref{sec:model-check}節に
 述べる照らし合わせが受け持つ．
 
+記号は，一部がこの文書と違う．割り振り$s$は，Leanのファイルでは\texttt{σ}と書く
+（その型が\texttt{S}で，この文書の$S$にあたる）．各段のフロートの高さ$|F_i|$の並びは
+\texttt{As}と書く．
+
 文とLeanの定理の対応を，次の表に示す．
 
 {\small
@@ -1277,7 +1469,7 @@ Leanで確かめているのは，この文書に書いた手順（モデル）�
   \texttt{self\_valid} &
   列挙は，定義\ref{def:layout}の条件を満たす割り振りのすべてを，それだけを挙げる．
   段をまたぐフロートは動かさない．64個を超えて絞った候補も条件を満たす．候補は高々
-  257個．\LaTeX{}の割り振り$\sigma^0$は，つねに列挙に入る．\\\noalign{\vskip 4pt}
+  257個．\LaTeX{}の割り振り$s^0$は，つねに列挙に入る．\\\noalign{\vskip 4pt}
 命題\ref{prop:main}の手順1の判定 & \texttt{Span.lean}：\newline
   \texttt{spanOk\_iff}，\newline
   \texttt{spanOk\_right} &
@@ -1311,7 +1503,7 @@ Leanで確かめているのは，この文書に書いた手順（モデル）�
   \texttt{balance\_isSome}，\newline
   \texttt{procedure\_spec}，\newline
   \texttt{procedure\_none} &
-  手順1から6を1つの関数につなぐ．返す配置は，候補のどれかの$\sigma$と$h\le H$での
+  手順1から6を1つの関数につなぐ．返す配置は，候補のどれかの$s$と$h\le H$での
   $\mathrm{Fill}$の結果である．「揃えられない」と答えるのは，3つの緩め方のどれでも，
   どの候補も$H$に入り切らないときだけである．\\\noalign{\vskip 4pt}
 命題\ref{prop:main}の(i) & \texttt{Whole.lean}：\newline
@@ -1349,7 +1541,7 @@ Leanで確かめているのは，この文書に書いた手順（モデル）�
   段をまたぐフロートの判定を候補の列挙に，下端$\beta$を段を組む箱の高さに，行の並びから
   求めた本文の高さを$\mathrm{Fill}$に代入する．$\beta$に届かない段に無限に伸びるグルーか
   有限の伸びがあれば，どの段の中身も高さ$\beta-e_i$ちょうどになる．行だけが並ぶ本文では，
-  $n$行の段が$h$に入り切るのは$A_i+\tau+(n-1)b+G_i\le h$のときである．\\\noalign{\vskip 4pt}
+  $n$行の段が$h$に入り切るのは$|F_i|+\tau+(n-1)b+G_i\le h$のときである．\\\noalign{\vskip 4pt}
 \ref{sec:formal-apply}節 & \texttt{Page.lean}：\newline
   \texttt{block\_height}，\newline
   \texttt{loop\_inv} &

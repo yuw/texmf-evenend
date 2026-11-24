@@ -11,7 +11,7 @@ namespace Evenend.Balance
 open Evenend.MinH Evenend.Select
 
 /-
-`S`は割り振りσの型，`L`は配置．`fillAt σ h`は手順Fill(σ, h)（成功すれば配置を返す），`mu`は動かす量，
+`S`は割り振りσ（定式化の文書のs）の型，`L`は配置．`fillAt σ h`は手順Fill(σ, h)（成功すれば配置を返す），`mu`は動かす量，
 `h0`は二分法の下界，`aligned σ h`は「揃わない配分でない」，`H`は段の高さ，`g`は1行．
 -/
 variable {S L : Type} (fillAt : S → Nat → Option L) (mu : S → Nat) (h0 : S → Nat)

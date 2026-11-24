@@ -83,13 +83,14 @@
 置いた場合（\opt{footnote=page}，既定），右は各段の下端に置いた場合
 （\opt{footnote=column}）である．右では，脚注は参照位置のある段に入っている．
 
+見本は\texttt{evenend-sample.tex}と\texttt{evenend-sample-column.tex}である．この
+マニュアルの見本は，どれもA6判，8ptの\pkg{jlreq}で組み，同じ大きさで示す．
+
 \begin{figure}[tb]
   \centering
   \fbox{\includegraphics[page=2,width=.4\linewidth]{evenend-sample.pdf}}\hspace{2\zw}%
   \fbox{\includegraphics[page=2,width=.4\linewidth]{evenend-sample-column.pdf}}
-  \caption{均した最終ページ．左は\opt{footnote=page}，右は\opt{footnote=column}
-    （\texttt{evenend-sample.tex}，\texttt{evenend-sample-column.tex}）．このマニュアルの
-    見本は，どれもA6判，8ptの\pkg{jlreq}で組み，同じ大きさで示す}
+  \caption{均した最終ページ}
   \label{fig:sample}
 \end{figure}
 
@@ -261,7 +262,7 @@ A6判の2段組で，オプションを\cs{evenendsetup}で換えながら組ん
   \small\opt{footnote=page}（既定）\\[\baselineskip]
   \optpair{footnote-column}{1ページ目}{footnote-column2}{最終ページ}\\[.5\baselineskip]
   \small\opt{footnote=column}
-  \caption{\opt{footnote}：上は脚注を版面の全幅で版面の下端に置く．下は脚注を段の下端に置く}
+  \caption{\opt{footnote}：脚注の置き方}
   \label{fig:opt-footnote}
 \end{figure}
 
@@ -372,7 +373,7 @@ A6判の2段組で，オプションを\cs{evenendsetup}で換えながら組ん
   \centering
   \optpair{floatgrid-true}{\opt{floatgrid=true}（既定）}%
     {floatgrid-false}{\opt{floatgrid=false}}
-  \caption{\opt{floatgrid}：フロートの後の行の位置（薄い線は行送りの位置）}
+  \caption{\opt{floatgrid}：フロートの後の行の位置}
   \label{fig:opt-floatgrid}
 \end{figure}
 
@@ -423,12 +424,15 @@ Package evenend Info: Page 1: lines after floats are off the
 切り換えの位置までのそのページの段組（ブロック）は，最終ページと同じ方法で下端を揃えて
 確定し，その下に新しい段数で段組を続ける（図\ref{fig:switch}）．1つのページに
 いくつでもブロックを積める．仕組みは図\ref{fig:alg-block}に示す．
+図\ref{fig:switch}は，2段，3段，1段，2段と切り換えたページである
+（\texttt{evenend-sample-switch.tex}）．左は\opt{headingskip=column}（既定），右は
+\opt{headingskip=block}で組んだ．
+
 \begin{figure}[tb]
   \centering
   \fbox{\includegraphics[page=1,width=.4\linewidth]{evenend-sample-switch.pdf}}\hspace{2\zw}%
   \fbox{\includegraphics[page=2,width=.4\linewidth]{evenend-sample-switch.pdf}}
-  \caption{2段→3段→1段→2段と切り換えたページ（\texttt{evenend-sample-switch.tex}）．
-    左は\opt{headingskip=column}（既定），右は\opt{headingskip=block}}
+  \caption{段数を切り換えたページ}
   \label{fig:switch}
 \end{figure}
 \begin{itemize}
@@ -466,13 +470,14 @@ Package evenend Info: Page 1: lines after floats are off the
 \section{C節}
 ...
 \end{verbatim}
+図\ref{fig:same}の見本（\texttt{evenend-sample-same.tex}）は，左が\opt{footnote=page}
+（既定），右が\opt{footnote=column}である．B節に脚注と上のフロート（\texttt{[t]}）がある．
+
 \begin{figure}[tb]
   \centering
   \fbox{\includegraphics[page=1,width=.4\linewidth]{evenend-sample-same.pdf}}\hspace{2\zw}%
   \fbox{\includegraphics[page=2,width=.4\linewidth]{evenend-sample-same.pdf}}
-  \caption{2段のまま節ごとに段組を改めたページ（\texttt{evenend-sample-same.tex}）．
-    左は\opt{footnote=page}（既定），右は\opt{footnote=column}．B節に脚注と
-    上のフロート（\texttt{[t]}）がある}
+  \caption{2段のまま節ごとに段組を改めたページ}
   \label{fig:same}
 \end{figure}
 
@@ -526,12 +531,12 @@ Package evenend Info: Page 1: lines after floats are off the
 \begin{figure}[tb]
   \centering
   \fbox{\includegraphics[page=1,width=.4\linewidth]{evenend-sample-colsep.pdf}}
-  \caption{段組ごとに段間と段間罫を変えたページ（\texttt{evenend-sample-colsep.tex}）}
+  \caption{段組ごとに段間と段間罫を変えたページ}
   \label{fig:colsep}
 \end{figure}
 
 段間（\cs{columnsep}）と段間罫の太さ（\cs{columnseprule}）は，段組ごとに決まる．
-図\ref{fig:colsep}は，上から次のように指定した．
+図\ref{fig:colsep}（\texttt{evenend-sample-colsep.tex}）は，上から次のように指定した．
 \begin{enumerate}
   \item 指定なし（既定の段間2字，罫0.4pt）
   \item \verb|\evenendcolumns[columnsep=1\zw,columnseprule=0pt]{3}|
@@ -661,12 +666,14 @@ Package evenend Info: Page 1: lines after floats are off the
 \caption{2段にまたがる図}
 \end{spanfigure}
 \end{verbatim}
+図\ref{fig:span}の左は上に置いたもの，右は下に置いたもの（最終ページ）である
+（\texttt{evenend-sample-span.tex}）．
+
 \begin{figure}[tb]
   \centering
   \fbox{\includegraphics[page=1,width=.4\linewidth]{evenend-sample-span.pdf}}\hspace{2\zw}%
   \fbox{\includegraphics[page=2,width=.4\linewidth]{evenend-sample-span.pdf}}
-  \caption{3段組で2段にまたがる図（\texttt{evenend-sample-span.tex}）．左は上に置いたもの，
-    右は下に置いたもの（最終ページ）}
+  \caption{3段組で2段にまたがる図}
   \label{fig:span}
 \end{figure}
 \begin{itemize}
@@ -755,6 +762,9 @@ Package evenend Info: Page 1: lines after floats are off the
 そのたびに段の材料をとっておき，ページの最後の段で，そのページをどう出力するかを決める
 （図\ref{fig:alg-flow}）．
 
+図\ref{fig:alg-flow}の揃える場面は，文書末，\cs{evenendclearpage}，\cs{onecolumn}の
+直前，段数の切り換え（\cs{evenendcolumns}）である．
+
 \begin{figure}[tbp]
   \centering
   \begin{tikzpicture}[alg,x=1mm,y=1mm]
@@ -783,14 +793,18 @@ Package evenend Info: Page 1: lines after floats are off the
     \draw[->] (fnpage.east) -- node[lab,above] {はい} (fnpage.east -| rebuild.west);
     \draw[->] (rebuild.east |- ship.west) -- (ship.west);
   \end{tikzpicture}
-  \caption{段が組み上がるたびの処理．揃える場面は，文書末，\cs{evenendclearpage}，
-    \cs{onecolumn}の直前，段数の切り換え（\cs{evenendcolumns}）}
+  \caption{段が組み上がるたびの処理}
   \label{fig:alg-flow}
 \end{figure}
 
 揃えるときは，\LaTeX{}が上から詰めて組んだ段を1本の材料に戻し，各段に同じ高さで分け直す
 （図\ref{fig:alg-picture}）．手順は図\ref{fig:alg-balance}のとおり．
 図\ref{fig:alg-picture}は上のフロートの場合で，下のフロートの場合は図\ref{fig:alg-bottom}に示す．
+
+図\ref{fig:alg-picture}では，\LaTeX{}が組んだ全段の材料をLua側に渡す．Lua側は，本文を
+1本につなぎ，フロートと脚注の高さを差し引いて，入り切る最小の段の高さ$h$で分け直して
+段の箱を組む（破線の枠の中）．\TeX{}側は，返された段の箱を並べ，段間罫と脚注を付けて
+ページを出力する．
 
 \begin{figure}[tbp]
   \centering
@@ -837,10 +851,7 @@ Package evenend Info: Page 1: lines after floats are off the
       \node[lab,above] at (15,41) {\textgt{\TeX{}側}};
     \end{scope}
   \end{tikzpicture}
-  \caption{揃え方の考え方と，\TeX{}側とLua側の分担．\LaTeX{}が組んだ全段の材料をLua側に渡し，
-    Lua側で本文を1本につなぎ，フロートと脚注の高さを差し引いて，入り切る最小の段の高さ$h$で
-    分け直して段の箱を組む（破線の枠の中）．\TeX{}側は，返された段の箱を並べ，段間罫と脚注を
-    付けてページを出力する}
+  \caption{揃え方の考え方と，\TeX{}側とLua側の分担}
   \label{fig:alg-picture}
 \end{figure}
 
@@ -862,6 +873,13 @@ Package evenend Info: Page 1: lines after floats are off the
   \item どの段に置くかは，上のフロートと同じく，段の高さが最も小さくなるように選ぶ
     （\ref{sec:floats}節）．
 \end{itemize}
+
+図\ref{fig:alg-bottom}に，下のフロートの揃え方を示す．上の図で，\LaTeX{}は下のフロートを
+版面の下端に置く．Lua側は，フロートを外して本文を1本につなぎ，フロートの高さを差し引いて
+段の高さ$h$を探し，フロートを段の下端（上端から$h$の位置）に付け直す．フロートは版面の
+下端から，揃えた段組の下端まで上がる．下の図は，揃えた段組の下端の拡大である（薄い帯は行，
+濃い箱はフロート）．本文とフロートの間のアキで高さを合わせる．\opt{footnote=page}では
+脚注は版面の下端に離れて置き，\opt{footnote=column}では段の脚注をフロートの下に置く．
 
 \begin{figure}[tbp]
   \centering
@@ -945,12 +963,7 @@ Package evenend Info: Page 1: lines after floats are off the
       \node[lab,anchor=north west,align=left] at (-4,-34.8) {脚注の最終行と本文の最終行の\\ベースラインをそろえる};
     \end{scope}
   \end{tikzpicture}
-  \caption{下のフロートの揃え方．上：\LaTeX{}は下のフロートを版面の下端に置く．Lua側は，
-    フロートを外して本文を1本につなぎ，フロートの高さを差し引いて段の高さ$h$を探し，
-    フロートを段の下端（上端から$h$の位置）に付け直す．フロートは版面の下端から，揃えた
-    段組の下端まで上がる．下：揃えた段組の下端の拡大（薄い帯は行，濃い箱はフロート）．
-    本文とフロートの間のアキで高さを合わせる．\opt{footnote=page}では脚注は版面の下端に
-    離れて置き，\opt{footnote=column}では段の脚注をフロートの下に置く}
+  \caption{下のフロートの揃え方}
   \label{fig:alg-bottom}
 \end{figure}
 
@@ -986,6 +999,14 @@ Package evenend Info: Page 1: lines after floats are off the
     フロートは次のページの上に元の段数の段組として置いてから，段数を変える．
 \end{itemize}
 こうして，段数を変えた後の段組に，前の段幅のフロートが入ることはない．
+
+図\ref{fig:alg-block}の上は，2段から3段へ改める流れである（\opt{footnote=page}）．
+(1) 切り換えの位置までに\LaTeX{}が組んだ段を，(2) 揃えて（濃い帯）ページの上部に積み，
+その段組の脚注を版面の下端に移す．段組の間のアキと脚注の領域を除いた残りの高さ
+（破線の枠）が，次の段組の段の高さになる．(3) \LaTeX{}が残りの高さの段を新しい段数で
+組み，(4) ページの最後の段で，積んだ段組とまとめて出力する．図の下は，フロート（最も
+濃い箱）の扱いである．上のフロートと下のフロートは揃えた段組の段の上端と下端に置き，
+持ち越した段抜きのフロートはその段組の下に全幅で置く．
 
 \begin{figure}[tbp]
   \centering
@@ -1088,13 +1109,7 @@ Package evenend Info: Page 1: lines after floats are off the
       \node[lab,below,align=center] at (15,-1) {フロートは，書いた\\段組の中で完結する};
     \end{scope}
   \end{tikzpicture}
-  \caption{ページの途中で段組を改めるとき．上：2段から3段へ改める流れ（\opt{footnote=page}）．
-    (1) 切り換えの位置までに\LaTeX{}が組んだ段を，(2) 揃えて（濃い帯）ページの上部に積み，
-    その段組の脚注を版面の下端に移す．段組の間のアキと脚注の領域を除いた残りの高さ
-    （破線の枠）が，次の段組の段の高さになる．(3) \LaTeX{}が残りの高さの段を新しい段数で
-    組み，(4) ページの最後の段で，積んだ段組とまとめて出力する．下：フロート（最も濃い箱）の
-    扱い．上のフロートと下のフロートは揃えた段組の段の上端と下端に置き，持ち越した段抜きの
-    フロートはその段組の下に全幅で置く}
+  \caption{ページの途中で段組を改めるとき}
   \label{fig:alg-block}
 \end{figure}
 
@@ -1105,6 +1120,10 @@ Package evenend Info: Page 1: lines after floats are off the
 （\TeX{}のマクロでは，組み上がった箱の中身をたどれない）．箱の中の段組（\pkg{tcolorbox}の中の
 \texttt{multicols}環境など）は，出力ルーチンを使わず，その場でLua側（\texttt{boxbalance}）が
 分けて1つの箱にする．
+
+図\ref{fig:alg-lua}は，上から時間の順に並べてある．灰色の箱がLua側の処理で，括弧の中は
+\texttt{evenend.lua}の関数である．(2)は段ごと，(3)は揃えないページ，(4)から(6)は揃える
+場面と\opt{footnote=page}の各ページで起きる．
 
 \begin{figure}[p]
   \centering
@@ -1144,9 +1163,7 @@ Package evenend Info: Page 1: lines after floats are off the
     \draw[<-] (t7.east |- l7.north) ++(0,-5mm) coordinate (a) -- node[lab,above] {マーク} (a -| l7.west);
     \foreach \a/\b in {t1/t2,t2/t3,t3/t4,t4/t5,t5/t6,t6/t7} \draw[->,black!50] (\a.south) -- (\b.north);
   \end{tikzpicture}
-  \caption{\TeX{}側とLua側のやりとり（上から時間の順．灰色の箱がLua側の処理，括弧の中は
-    \texttt{evenend.lua}の関数）．(2)は段ごと，(3)は揃えないページ，(4)から(6)は揃える場面と
-    \opt{footnote=page}の各ページで起きる}
+  \caption{\TeX{}側とLua側のやりとり}
   \label{fig:alg-lua}
 \end{figure}
 
@@ -1273,10 +1290,13 @@ evenendが解く問題の定義，解を作る手順の定式化，その性質�
 では，\texttt{multicols}環境と\texttt{evenendmulticols}環境は，出力ルーチンを使わずに
 その場で段組を組み，1つの箱にする（段組のモードでない文書でも使える．
 図\ref{fig:box}）．
+図\ref{fig:box}の見本は，\texttt{evenend-sample-box.tex}と\texttt{evenend-sample-span.tex}
+である．
+
 \begin{figure}[tb]
   \centering
   \fbox{\includegraphics[page=1,width=.4\linewidth]{evenend-sample-box.pdf}}
-  \caption{\pkg{tcolorbox}の中の段組（\texttt{evenend-sample-box.tex}，\texttt{evenend-sample-span.tex}）}
+  \caption{\pkg{tcolorbox}の中の段組}
   \label{fig:box}
 \end{figure}
 \begin{verbatim}
@@ -1311,13 +1331,15 @@ evenendが解く問題の定義，解を作る手順の定式化，その性質�
 （\texttt{figure}環境など），\pkg{tcolorbox}の箱など，中身を内部垂直モードで組むもので
 あればよい．追加のパッケージは要らない．ページの段組は，クラスの段組，\cs{evenendcolumns}で
 改めた段組，本文の\texttt{multicols}環境のどれでもよい．
+図\ref{fig:nest}（\texttt{evenend-sample-nest.tex}）では，2段組のページの段の中に，
+枠を付けた\texttt{minipage}，フロート，\pkg{tcolorbox}を置き，それぞれの中を2段に組んで
+いる．右は最終ページで，外側の段が揃う．
+
 \begin{figure}[tb]
   \centering
   \fbox{\includegraphics[page=1,width=.4\linewidth]{evenend-sample-nest.pdf}}\hspace{2\zw}%
   \fbox{\includegraphics[page=2,width=.4\linewidth]{evenend-sample-nest.pdf}}
-  \caption{入れ子の段組（\texttt{evenend-sample-nest.tex}）．2段組のページの段の中に，
-    枠を付けた\texttt{minipage}，フロート，\pkg{tcolorbox}を置き，それぞれの中を2段に組む．
-    右は最終ページで，外側の段が揃う}
+  \caption{入れ子の段組}
   \label{fig:nest}
 \end{figure}
 \texttt{minipage}の中に組む（枠が要らなければ，\cs{fbox}を除いて幅を\cs{linewidth}に
