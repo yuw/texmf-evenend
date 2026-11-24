@@ -1,0 +1,9 @@
+% \vsplitの性質を確かめる（vsplit.lua）．欧文のクラス
+\documentclass{article}
+\usepackage[debug]{evenend}
+\newbox\evboxno
+\newcount\evbox \evbox=\evboxno
+\begin{document}
+x
+\directlua{dofile(os.getenv('MODELDIR') .. '/vsplit.lua')}
+\end{document}

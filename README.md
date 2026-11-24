@@ -325,12 +325,14 @@ lualatex evenend-theory-ja.tex
 test/run.sh test/t1-basic.tex
 ```
 
-回帰試験の全部は`test/all.sh`で流す（乱数試験の標準の組，`suite.sh`，`fixed.sh`）．直している
+回帰試験の全部は`test/all.sh`で流す（乱数試験の標準の組，`suite.sh`，`fixed.sh`，`model/`）．直している
 途中は`QUICK=1 test/all.sh`（乱数試験を1割に減らす）．並列の数は`JOBS`（既定6）．速く確実に
 流すための覚え書きは`test/NOTES.md`．
 
 - `run.sh`：リポジトリをTEXMFHOMEにしてLuaLaTeXを走らせる
-- `all.sh`：回帰試験の全部（`rand/std.sh`，`suite.sh`，`fixed.sh`）を順に流し，結果を`test/results/`に書く
+- `all.sh`：回帰試験の全部（`rand/std.sh`，`suite.sh`，`fixed.sh`，`model/`）を順に流し，結果を`test/results/`に書く
+- `model/run.sh`：定式化のモデル（`lean/`）を，TeXの原始機能（箱のグルーの割り振り，行送り，`\vsplit`）と
+  格子状の入力のすべてで比べる．`model/replay.sh`：`debug`のログの判断の記録を，Leanの関数で再生して比べる
 - `fixed.sh`：固定のテスト文書（`t*.tex`，`fb*.tex`，`tcb/`，`span/`，`split/`，`mc/`，`box/`）を並列に組み，
   Overfull，エラー，`blockcheck.py`の結果と，`mc/mkcheck.py`による柱を調べる
 - `samplecheck.sh`：マニュアルの見本を今の版で組み，コミット済みのPDFと語の位置を比べる

@@ -56,6 +56,38 @@ evenendの回帰試験を速く確実に流すための覚え書き．使い方�
 - 並列に動いているスクリプトの本体を書き換えると，そのとき読み込み中の処理が書きかけの
   ファイルを読んで文法エラーになる．結果の抜けた番号を調べて組み直す．
 
+## モデルとの照らし合わせ
+
+定式化（`doc/lualatex/evenend/evenend-theory-ja`）のモデルが，実装とTeXの動作に合っているかを
+確かめる仕組みが3つある．どれも乱数に頼らない．`all.sh`の最後に流れる．
+
+- **仮定の検査**：`debug`のとき，`evenend.lua`（`MC`）が，`\vsplit`の性質，配置の(P2)，箱のグルーの
+  割り振りを，組むたびに確かめる．合わなければログに`evenend: model violation: …`と書き，文書の
+  終わりに`evenend: model checks: vsplit=… layout=… vpack=… (skipped …) violations=…`と書く．
+  `rand/check.py`と`fixed.sh`は，違反を不合格にする．
+- **原始機能の格子の試験**：`model/run.sh`．evenendの揃えを通さずに，箱のグルーの割り振り，行送り，
+  `\vsplit`を，小さな範囲の入力のすべてで確かめる．期待値は`lean/expect/`（`lean/check.sh`が作り直す）．
+- **判断の記録の再生**：`model/replay.sh`．`debug`のログの`evenend: decision …;`の行（候補を選ぶ，
+  揃わない配分の判定，下端を決める）を集め，Leanの関数で同じ入力から結果を求めて比べる．
+  Leanの作業場所（`~/lean/mathlib-ws`）が要る．
+
+気をつけること：
+
+- 検査の中のLuaの誤りは，`MC.try`が受けて違反として数える（検査の誤りで組版を止めない）．
+  検査を直したら，`model checks`の行の回数が0でないことを確かめる（検査が動いていないのに
+  違反0と読み違えない）．
+- ノードの種類の番号を決め打ちしない（`\splittopskip`のグルーの番号を10と書いて，検査が
+  空振りした）．`node.subtypes`や`node.whatsits`の名前で引く．
+- `\vsplit`の後，新しいグルーが捨てたグルーのノードの番号を使い回すことがある．番号で
+  同じノードかを見る検査は，これを見込む．
+- LuaTeX-jaは，箱を組むたびに組方向の印（whatsit）を出し入れする．並びを比べる検査は，これを除く．
+- 文書の終わりにログへ書くのに`stop_run`を使わない．登録すると，TeXの終わりの知らせ
+  （「Output written on …」「No pages of output.」）が出なくなる（`debug`でない文書でも）．
+  回数は`finish_pdffile`で書いている．乱数試験の空の文書（「No pages of output」で見分ける）が
+  「PDFができない」と不合格になって気づいた．
+- 実装のモデルにかかわる部分（候補を選ぶ規則，判定，下端）を変えたら，`lean/`の関数と，判断の
+  記録の形（`decisions.py`，`lean/grid/RunReplay.lean`）も合わせて変える．
+
 ## 見本での確かめ
 
 - `test/samplecheck.sh`は，マニュアルの見本を今の版で組み，コミット済みのPDFと語の位置を

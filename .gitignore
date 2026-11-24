@@ -10,3 +10,4 @@ test/rand/d/
 test/gy/out/
 test/results*/
 test/fixed.res
+test/model/out/

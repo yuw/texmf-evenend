@@ -1,0 +1,5 @@
+% plain LuaTeX：箱のグルーの割り振りをモデルと比べる（glue.lua）
+% 入り切らない箱，足りない箱を作るので，その知らせを止める
+\vfuzz=\maxdimen \vbadness=10000
+\directlua{dofile(os.getenv('MODELDIR') .. '/glue.lua')}
+\bye

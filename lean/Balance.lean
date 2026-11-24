@@ -91,15 +91,15 @@ def procedure (fillK : Nat → S → Nat → Option L) (σs : List S) : Option (
   relax fun k => balance (fillK k) mu h0 aligned H g σs
 
 /-- 手順の全体が返す配置は，ある緩め方`k < 3`でのFill(σ, h)が返したもので，σは候補のどれか，
-`h ≤ H`である．`P k h l`が「配置`l`が（緩め方`k`の所要の高さで）高さ`h`について(P1)から(P3)を
+`h ≤ H`である．`P k σ h l`が「配置`l`が（緩め方`k`の所要の高さで）割り振り`σ`と高さ`h`について(P1)から(P3)を
 満たす」を表し，Fillが返す配置がつねに`P`を満たす（補題）なら，手順の全体が返す配置も`P`を
 満たす． -/
 theorem procedure_spec (fillK : Nat → S → Nat → Option L) (σs : List S)
-    (P : Nat → Nat → L → Prop)
-    (hfill : ∀ k σ h l, fillK k σ h = some l → P k h l)
+    (P : Nat → S → Nat → L → Prop)
+    (hfill : ∀ k σ h l, fillK k σ h = some l → P k σ h l)
     (σ : S) (h : Nat) (l : L)
     (hp : procedure mu h0 aligned H g fillK σs = some (σ, h, l)) :
-    σ ∈ σs ∧ h ≤ H ∧ ∃ k, k < 3 ∧ P k h l := by
+    σ ∈ σs ∧ h ≤ H ∧ ∃ k, k < 3 ∧ P k σ h l := by
   obtain ⟨k, hk, hb⟩ := relax_spec _ _ hp
   have := balance_spec (fillK k) mu h0 aligned H g σs σ h l hb
   exact ⟨this.1, this.2.1, k, hk, hfill k σ h l this.2.2⟩

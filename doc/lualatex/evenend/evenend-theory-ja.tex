@@ -60,7 +60,7 @@
 \title{\pkg{evenend}パッケージの定式化\\[.5\baselineskip]
   \large 最終ページを揃える問題，手順，証明}
 \author{木枝祐介}
-\date{v20261122.1}
+\date{v20261124.0}
 
 \begin{document}
 \maketitle
@@ -592,9 +592,13 @@ $i=1,\dots,N-1$の順に，残りの本文の先頭から段$i$の本文を切�
 したがって，返した配置ではすべての段で$U_i\le h$である．
 
 \kyocho{(P2)}．\cs{vsplit}は，残りの本文の先頭から，改ページできる位置までを，要素の順を
-変えずに切り出す．段の先頭に来た捨てられる要素を除くのも，定義\ref{def:layout}の
-とおりである．よって，切り出した$T_1,\dots,T_N$は，ある切れ目$k_0\le\dots\le k_N$による
-分割で，本文は読む順のままである．$\sigma$は，初めから$\Sigma$の元である．
+変えずに切り出す．このとき，切れ目から残りの最初の箱までにある捨てられる要素（グルー，
+カーン，ペナルティ）を捨てる．その間にある捨てられない要素（\cs{special}や\cs{mark}の
+印など）は残す．残りの先頭には，\cs{splittopskip}のグルーが1つ入る．つまり，捨てられる
+要素のほかは，何も失われず，順も変わらない．段の先頭に来た捨てられる要素を除くのは，
+定義\ref{def:layout}のとおりである．よって，切り出した$T_1,\dots,T_N$は，ある切れ目
+$k_0\le\dots\le k_N$による分割で，本文は読む順のままである．$\sigma$は，初めから$\Sigma$の
+元である．
 
 \kyocho{(P3)}．3の$G_i$は，参照位置が$T_i$に入る脚注の集合$\Phi_i$だけから求める．
 参照位置は，行の直後に置いた印（番号を持つ）でわかる．\opt{footnote=column}では，
@@ -771,7 +775,8 @@ $h(\sigma)$より低いものでは失敗することだけである．
     高さ$\beta-e_i$の箱に組む（定義\ref{def:bottom}の$e_i$）．このとき，次の所に，無限に
     伸びるグルーを入れる．
     \begin{enumerate}
-      \item 段の脚注のある段：本文と脚注の間（脚注を箱の下端に付ける）．
+      \item 段の脚注のある段：本文の後（下のフロートがあれば，その前）．脚注と下の
+        フロートを箱の下端に付ける．
       \item 下のフロートのある段で，段のグルーの伸びの和が不足$\beta-v_i$に足りない
         とき：本文と下のフロートの間（フロートを箱の下端に付ける）．
       \item 段$L$と，次の段に中身のある途中の段で，不足$\beta-v_i$が半行（$b/2$）を
@@ -1191,8 +1196,9 @@ whatsit（\cs{special}，\cs{write}など） & $T$の要素（高さ0） &
 すべてをまとめて確かめられる．
 
 Leanで確かめているのは，この文書に書いた手順（モデル）が，書いた性質を持つことである．
-モデルが\texttt{evenend.lua}や\TeX{}の動作に合っていることは，Leanでは確かめられない．
-それは，マニュアルの「乱数による網羅テスト」の節に述べる試験が受け持つ．
+モデルが\texttt{evenend.lua}や\TeX{}の動作に合っていることは，Leanの証明では確かめられない．
+それは，マニュアルの「乱数による網羅テスト」の節に述べる試験と，\ref{sec:model-check}節に
+述べる照らし合わせが受け持つ．
 
 文とLeanの定理の対応を，次の表に示す．
 
@@ -1217,12 +1223,10 @@ Leanで確かめているのは，この文書に書いた手順（モデル）�
   成否が「3と，50以上で成功」のとき，手順は50を返す．最小でない例である．\\\noalign{\vskip 4pt}
 補題\ref{lem:fill}（止まること，(P1)，(P2)） & \texttt{Fill.lean}：
   \texttt{fillCol\_spec}，\texttt{fill\_spec} &
-  \cs{vsplit}を，「本文を前と後ろに分け，順を変えず，何も失わない」任意の関数とする．
-  高さ$c$以下に切ることは仮定しない（切った後で高さを確かめるので，要らない）．
-  \\\noalign{\vskip 4pt}
-補題\ref{lem:fill}（捨てられる要素） & \texttt{Fill.lean}：\texttt{fill\_spec} &
-  \cs{vsplit}が切れ目で捨てるのは，捨てられる要素だけとする．各段の本文と捨てた要素を
-  順につなぐと，元の本文になる．\\\noalign{\vskip 4pt}
+  \cs{vsplit}を，「本文を前と後ろに分け，捨てられる要素のほかは，順を変えず，何も
+  失わない」任意の関数とする．各段の本文を順につなぐと，捨てられる要素のほかは，元の
+  本文と同じ並びになる．高さ$c$以下に切ることは仮定しない（切った後で高さを確かめるので，
+  要らない）．\\\noalign{\vskip 4pt}
 補題\ref{lem:fill}の(P3) & \texttt{Fill.lean}：\texttt{fill\_notes}，\texttt{page\_region} &
   \opt{footnote=column}：どの脚注も，参照位置と同じ段に，ちょうど1回，読む順に置かれる．
   \opt{footnote=page}：入り切る段は，ページの脚注の領域に掛からない．\\\noalign{\vskip 4pt}
@@ -1230,12 +1234,23 @@ Leanで確かめているのは，この文書に書いた手順（モデル）�
   \texttt{foot\_grid} &
   見かけの下端を，段の終わり方ごとに定義する．段の脚注を置く位置は，脚注が収まる最初の
   行の位置である．\\\noalign{\vskip 4pt}
+定義\ref{def:used}，定義\ref{def:bottom} & \texttt{Layout.lean}：
+  \texttt{lastBaseline\_regular}，\texttt{v\_eq\_used} &
+  \TeX{}が行を積む規則（\cs{topskip}と\cs{baselineskip}）から，本文の高さを求める．行の
+  高さが$\tau$以下で，高さと深さの和が$b$以下なら，$n$行の本文の高さは$\tau+(n-1)b$で
+  ある．本文か段の脚注で終わる段では，見かけの下端は所要の高さに$d$を足した位置である．
+  \\\noalign{\vskip 4pt}
 命題\ref{prop:main}の手順1 & \texttt{Enum.lean}：\texttt{mem\_enumFrom}，
   \texttt{mem\_enumG}，\texttt{candidates\_valid}，\texttt{candidates\_length}，
   \texttt{self\_valid} &
   列挙は，定義\ref{def:layout}の条件を満たす割り振りのすべてを，それだけを挙げる．
   段をまたぐフロートは動かさない．64個を超えて絞った候補も条件を満たす．候補は高々
   257個．\LaTeX{}の割り振り$\sigma^0$は，つねに列挙に入る．\\\noalign{\vskip 4pt}
+命題\ref{prop:main}の手順1の判定 & \texttt{Span.lean}：\texttt{spanOk\_iff}，
+  \texttt{spanOk\_right} &
+  段をまたぐフロートを順に置き，段ごとに重なりを調べる判定を定義する．判定を通るのは，
+  どのフロートも段$N$を越えず，同じ位置（上どうし，下どうし）で同じ段にかかる2つが，
+  同じ段から同じ段数にまたがるものだけのとき，そのときだけである．\\\noalign{\vskip 4pt}
 命題\ref{prop:main}の手順3 & \texttt{Select.lean}：\texttt{select\_mem}，
   \texttt{select\_isSome} &
   選ぶのは候補のどれかで，候補があれば必ず選ぶ．最後の\texttt{example}は，
@@ -1258,6 +1273,16 @@ Leanで確かめているのは，この文書に書いた手順（モデル）�
   手順1から6を1つの関数につなぐ．返す配置は，候補のどれかの$\sigma$と$h\le H$での
   $\mathrm{Fill}$の結果である．「揃えられない」と答えるのは，3つの緩め方のどれでも，
   どの候補も$H$に入り切らないときだけである．\\\noalign{\vskip 4pt}
+命題\ref{prop:main}の(i) & \texttt{Whole.lean}：\texttt{whole\_spec}，
+  \texttt{whole\_none} &
+  手順の全体の$\mathrm{Fill}$に，\texttt{Fill.lean}の手順を代入する．返す配置は，ある
+  緩め方での所要の高さについて，(P1)から(P3)を満たす．仮定は，\cs{vsplit}の性質だけで
+  ある．\\\noalign{\vskip 4pt}
+命題\ref{prop:main}の手順5 & \texttt{Column.lean}：\texttt{build\_fil}，
+  \texttt{build\_plain}，\texttt{chooseA\_foot}，\texttt{choose\_none} &
+  上のフロート，本文，下のフロート，脚注から段の並びを作り，無限に伸びるグルーを入れる所を
+  決める．入れた段では，中身は箱の高さちょうどになり，本文の行は動かず，下のフロートと
+  脚注は箱の下端に付く．\\\noalign{\vskip 4pt}
 命題\ref{prop:main}の(ii) & \texttt{Beta.lean}：\texttt{le\_chooseBeta} &
   段を，見かけの下端とフロートまわりのグルーの縮みの組で表す．\\\noalign{\vskip 4pt}
 命題\ref{prop:even}の(i) & \texttt{Glue.lean}：\texttt{packed\_shrink} &
@@ -1267,6 +1292,12 @@ Leanで確かめているのは，この文書に書いた手順（モデル）�
   \texttt{stretch\_finite}，\texttt{ragged} &
   脚注や下のフロートを\cs{vfil}で箱の下端に付ける場合，有限の伸びで届く場合，本文の
   末尾に\cs{vfil}を入れて下を空ける場合（本文が動かないこと）．\\\noalign{\vskip 4pt}
+ファイルどうしのつなぎ & \texttt{Link.lean}：\texttt{candidates\_span}，
+  \texttt{column\_packed}，\texttt{fits\_lines}，\texttt{fill\_lines} &
+  段をまたぐフロートの判定を候補の列挙に，下端$\beta$を段を組む箱の高さに，行の並びから
+  求めた本文の高さを$\mathrm{Fill}$に代入する．$\beta$に届かない段に無限に伸びるグルーか
+  有限の伸びがあれば，どの段の中身も高さ$\beta-e_i$ちょうどになる．行だけが並ぶ本文では，
+  $n$行の段が$h$に入り切るのは$A_i+\tau+(n-1)b+G_i\le h$のときである．\\\noalign{\vskip 4pt}
 \ref{sec:formal-apply}節 & \texttt{Page.lean}：\texttt{block\_height}，\texttt{loop\_inv} &
   段組を改めるときの高さの勘定．\opt{footnote=page}のくり返しでは，採った結果の脚注が
   つねに領域$\Psi$に収まる（何回で打ち切っても成り立つ）．\\
@@ -1277,14 +1308,91 @@ Leanで確かめているのは，この文書に書いた手順（モデル）�
 
 次のものは，Leanに書いていない．
 \begin{itemize}
-  \item 段をまたぐフロートが重なる候補を除く判定の中身．Leanでは，任意の述語として扱う．
-  \item 手順の全体（\texttt{Balance.lean}）の$\mathrm{Fill}$に，\texttt{Fill.lean}の関数を
-    代入すること．手順の全体は，「$\mathrm{Fill}$が返す配置は(P1)から(P3)を満たす」を
-    仮定として受け取り，その仮定を\texttt{Fill.lean}が別に証明している．
-  \item 手順5で各段の並び（上のフロート，本文，下のフロート，脚注）を作る部分．
-    \texttt{Glue.lean}は，できた並びを箱に組むところから扱う．
-  \item 所要の高さ（定義\ref{def:used}）と見かけの下端（定義\ref{def:bottom}）を，本文の
-    要素の並びから求める計算．Leanでは，高さを与えられた値として扱う．
+  \item 行のほかの要素（見出しの前後のアキ，段落の間のグルー，行取りした要素）を含む
+    本文の高さの計算．\texttt{Layout.lean}は，行だけが並ぶ本文を扱う．
+  \item 脚注の塊の高さ（区切りの罫と上のアキを含む）を，脚注の中身から求める計算．
+  \item \cs{vsplit}そのもの（どこで切るか）．\texttt{Fill.lean}は，性質だけを仮定する．
+\end{itemize}
+
+\section{モデルと実装の照らし合わせ}\label{sec:model-check}
+
+Leanの証明は，モデルについてのものである．モデルが\texttt{evenend.lua}と\TeX{}の動作に
+合っているかは，別に確かめる．乱数による試験は，組んだ結果が性質を満たすかを見る．
+ここでは，それとは別の3つの方法を述べる．どれも，回帰試験の全部（\texttt{test/all.sh}）に
+入っている．
+
+\komidashi{仮定を，組むたびに確かめる}
+\opt{debug}を指定すると，\texttt{evenend.lua}は，Leanの証明が仮定していることを，組む
+たびに確かめる．合わないときは，ログに「\texttt{evenend: model violation:}」で始まる行を
+書く．文書の終わりには，確かめた回数を書く．組版の結果は変えない．
+\begin{itemize}
+  \item \cs{vsplit}（\texttt{Fill.lean}の仮定）．切り出した分は，元の並びの先頭の部分で
+    ある．残りは，元の並びの続きから捨てられる要素を除いたもので，順は変わらない．
+    捨てるのは，グルー，カーン，ペナルティだけである．新しく入るのは\cs{splittopskip}の
+    グルー1つだけで，その幅は，最初の箱の基準線が\cs{splittopskip}の位置に来る幅である．
+  \item 配置の(P2)（\texttt{Fill.lean}の\texttt{fill\_spec}）．$\mathrm{Fill}$が返した
+    各段の本文と残りをつなぐと，元の本文の箱が，同じ順にすべて並ぶ（見えない行を除く）．
+  \item 箱のグルーの割り振り（\texttt{Glue.lean}の割り振り方）．段を組んだ箱のグルーの
+    伸び縮みの和が，モデルの値と一致する．無限に伸びるグルーが2種類以上ある箱と，無限に
+    縮むグルーのある箱は，モデルの範囲の外なので，数だけを数える．
+\end{itemize}
+乱数による試験と固定のテスト文書は\opt{debug}で組むので，これらの試験のすべてが，仮定の
+検査を兼ねる．
+
+\komidashi{\TeX{}の原始機能を，格子状の入力で比べる}
+\texttt{test/model/run.sh}は，\pkg{evenend}の揃えを通さずに，\TeX{}の原始機能そのものを
+モデルと比べる．入力は乱数ではなく，小さな範囲の組み合わせのすべてである．期待値は，Leanの
+関数が書き出す（\texttt{lean/expect/}）．
+\begin{itemize}
+  \item 箱のグルーの割り振り．箱，伸び縮みしないグルー，有限に伸び縮みするグルー2種，
+    無限に伸びるグルー2種の，長さ4までの並びのすべてを，7通りの高さの箱に組む
+    （10878件）．組んだ後の各要素の長さを，\texttt{Glue.lean}の値と比べる．
+  \item 行送り．高さ5通り，深さ3通りの行の，3行までの並びのすべてを積む（3615件）．
+    最終行のベースラインを，\texttt{Layout.lean}の値と比べる．
+  \item \cs{vsplit}．行，グルー，ペナルティ，強制の改ページ，カーン，\cs{special}，
+    \cs{mark}の，長さ4までの並びのすべてを，5通りの高さで分ける（14000件）．上の
+    \cs{vsplit}の検査を通す．欧文のクラスと，\LuaTeX-jaを読み込むクラスの両方で行う．
+\end{itemize}
+
+\komidashi{判断の記録を，モデルで再生する}
+\opt{debug}のとき，\texttt{evenend.lua}は，次の3つの判断について，入力と結果をログに
+書く（「\texttt{evenend: decision}」で始まる行）．\texttt{test/model/replay.sh}は，試験で
+組んだすべてのログからこの記録を集め，Leanの関数に同じ入力を与えて，結果が実装と同じかを
+確かめる．
+\begin{itemize}
+  \item 候補を選ぶ（命題\ref{prop:main}の手順3）．入力は，候補ごとの動かす量と高さ．
+  \item 揃わない配分の判定（手順4）．入力は，段ごとの見かけの下端，グルーの縮み，本文や
+    フロートの有無．
+  \item 下端を決める（手順5）．入力は，段ごとの見かけの下端とグルーの縮み，本文だけの段の
+    下端．
+\end{itemize}
+実装は，長さをsp（$1/65536\,\mathrm{pt}$）の整数で持ち，比較に小さな余裕（0.01pt）を
+持たせている．再生には，刻みの半分と余裕を引数に加えた関数を使う．刻みの半分を1，余裕を
+0としたときに，\texttt{Select.lean}と\texttt{Misaligned.lean}の関数と一致することは，
+\texttt{Replay.lean}（\texttt{selectS\_one}，\texttt{misE\_zero}）で証明してある．
+
+\komidashi{照らし合わせでわかったこと}
+\begin{itemize}
+  \item \cs{vsplit}は，切れ目の所の要素だけでなく，残りの最初の箱までにある捨てられる
+    要素をすべて捨て，その間の捨てられない要素は残す．初めのモデルは，「切り出した分，
+    捨てた要素，残りをつなぐと元の並びになる」と仮定していたが，これは成り立たない．
+    仮定を「捨てられる要素のほかは，順を変えず，何も失わない」に改め，補題\ref{lem:fill}の
+    証明とLeanの定理を直した．
+  \item \LuaTeX-jaは，箱を組むたびに，組方向の印（whatsit）を並びの先頭に入れたり，
+    先頭へ移したりする．本文の中身ではないので，\cs{vsplit}の検査では，whatsitの位置と，
+    この印の出し入れを問わない．
+  \item \LuaTeX{}は，\cs{vsplit}の残りの箱の深さを\cs{maxdepth}で抑え，超えた分を高さに
+    移す．\texttt{evenend.lua}は，残りの並びを組み直して測るので，これに影響されない．
+\end{itemize}
+
+\komidashi{確かめていないこと}
+次のものは，照らし合わせの対象にしていない．これらは，乱数による試験が，組んだ結果で
+確かめる．
+\begin{itemize}
+  \item 所要の高さと見かけの下端の測り方（\texttt{evenend.lua}が段の並びから求める値が，
+    定義\ref{def:used}と定義\ref{def:bottom}の値であること）．
+  \item 候補の列挙と，高さを探す手順の全体（Leanの関数と同じ候補を，同じ順に調べること）．
+  \item 脚注の置き方（(P3)）．
 \end{itemize}
 
 \end{document}

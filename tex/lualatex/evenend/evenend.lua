@@ -182,6 +182,204 @@ local function is_blank_line(n)
   return true
 end
 
+-- 定式化（doc/lualatex/evenend/evenend-theory-ja）のモデルが仮定することを，組むときに
+-- 確かめる（debugのときだけ．組版の結果は変えない）．合わないときは，ログに
+-- 「evenend: model violation: …」と書く．文書の終わりに，確かめた回数を書く
+--   MC.split   \vsplit：切り出した分は元の並びの先頭の部分，残りは続きから捨てた要素を
+--              除いたもの（whatsitの位置と，LuaTeX-jaの組方向の印の出し入れは問わない）．
+--              捨てるのは捨てられる要素（グルー，カーン，ペナルティ）だけ．残りの先頭には
+--              \splittopskipのグルーだけが入り，最初の箱の基準線が\splittopskipの位置に来る
+--              （lean/Fill.leanのSpec，lean/Layout.leanの最初の行）
+--   MC.layout  配置の(P2)：各段の本文と残りをつなぐと，元の本文の箱（見えない行のほか）が
+--              同じ順にすべて並ぶ（lean/Fill.leanのfill_spec）
+--   MC.vpack   高さを指定して組む箱のグルーの割り振り（lean/Glue.leanのmode）
+local MC = { n = { vsplit = 0, layout = 0, vpack = 0, skipped = 0, bad = 0 } }
+function MC.bad(fmt, ...)
+  MC.n.bad = MC.n.bad + 1
+  texio.write_nl('log', 'evenend: model violation: ' .. string.format(fmt, ...))
+end
+for k, v in pairs(node.subtypes('glue')) do if v == 'splittopskip' then MC.sts = k end end
+-- 検査そのものの誤りで組版を止めない
+function MC.try(f, ...)
+  local ok, a, b = pcall(f, ...)
+  if not ok then MC.bad('the check failed: %s', tostring(a)) return nil end
+  return a, b
+end
+function MC.name(q)
+  if q.id == WHATSIT then
+    local name = tostring(node.whatsits()[q.subtype])
+    if name == 'user_defined' then
+      local dir = luatexja and luatexja.userid_table and luatexja.userid_table.DIR
+      name = name .. ' ' .. tostring(q.user_id) .. (dir == q.user_id and ' (luatexja DIR)' or '')
+    end
+    return 'whatsit ' .. name
+  end
+  if q.id == GLUE then
+    return 'glue ' .. tostring(node.subtypes('glue')[q.subtype]) .. ' ' .. pt(q.width)
+  end
+  return node.type(q.id)
+end
+-- LuaTeX-jaの組方向の印（箱を組むたびに，LuaTeX-jaが並びの先頭に入れたり除いたりする）
+function MC.isdir(q)
+  local dir = luatexja and luatexja.userid_table and luatexja.userid_table.DIR
+  return q.id == WHATSIT and dir ~= nil and node.whatsits()[q.subtype] == 'user_defined'
+    and q.user_id == dir
+end
+function MC.before(boxno)
+  local todirect = node.direct.todirect
+  local b = tex.getbox(boxno)
+  local before = {}
+  for q in node.traverse(b and b.list) do
+    before[#before + 1] = { d = todirect(q), disc = is_discardable(q) or MC.isdir(q),
+      name = MC.name(q) }
+  end
+  return before, (tex.getglue('splittopskip'))
+end
+function MC.after(boxno, chunk, before, sts)
+  local todirect = node.direct.todirect
+  MC.n.vsplit = MC.n.vsplit + 1
+  -- 切り出した分は，元の並びの先頭の部分
+  local nc = 0
+  for q in node.traverse(chunk and chunk.list) do
+    if not before[nc + 1] or before[nc + 1].d ~= todirect(q) then
+      MC.bad('vsplit: node %d of the chunk (%s) is not node %d of the material',
+        nc + 1, MC.name(q), nc + 1)
+      break
+    end
+    nc = nc + 1
+  end
+  -- 残りは，元の並びの続きから，捨てた要素を除いたもの．順は変わらない．ただし，whatsitの
+  -- 位置は問わない（LuaTeX-jaは，組方向の印のwhatsitを並びの先頭へ移す）．新しく入るのは
+  -- \splittopskipのグルーだけ（捨てたグルーのノードの番号を使い回すことがある．そのときは
+  -- 元の並びの捨てた要素と見分けられないので，幅は確かめない）
+  local pos = {}
+  for k = nc + 1, #before do pos[before[k].d] = k end
+  local rest = tex.getbox(boxno)
+  local seen, last, added = {}, nc, 0
+  for q in node.traverse(rest and rest.list) do
+    local k = pos[todirect(q)]
+    if k and not seen[k] then
+      seen[k] = true
+      if q.id ~= WHATSIT then
+        if k < last then MC.bad('vsplit: the rest is out of order at a %s', MC.name(q)) end
+        last = k
+      end
+    elseif not MC.isdir(q) then
+      added = added + 1
+      local nx = q.next
+      if q.id ~= GLUE or q.subtype ~= MC.sts then
+        MC.bad('vsplit: the rest has a new node (%s) that is not the \\splittopskip glue',
+          MC.name(q))
+      elseif not (nx and (nx.id == HLIST or nx.id == VLIST or nx.id == RULE)) then
+        MC.bad('vsplit: the \\splittopskip glue is not followed by a box')
+      elseif q.width ~= math.max(0, sts - nx.height) then
+        MC.bad('vsplit: the \\splittopskip glue is %s, expected %s',
+          pt(q.width), pt(math.max(0, sts - nx.height)))
+      end
+    end
+  end
+  for k = nc + 1, #before do
+    if not seen[k] and not before[k].disc then
+      MC.bad('vsplit: dropped a non-discardable node (%s)', before[k].name)
+    end
+  end
+  if added > 1 then MC.bad('vsplit: the rest has %d new nodes', added) end
+end
+function MC.split(boxno, t)
+  if not M.debug then return tex.splitbox(boxno, t, 'exactly') end
+  local before, sts = MC.try(MC.before, boxno)
+  local chunk = tex.splitbox(boxno, t, 'exactly')
+  if before then MC.try(MC.after, boxno, chunk, before, sts) end
+  return chunk
+end
+function MC.sig(head, out)
+  for q in node.traverse(head) do
+    local id = q.id
+    if (id == HLIST and not is_blank_line(q)) or id == VLIST or id == RULE then
+      out[#out + 1] = id .. ':' .. q.width .. ':' .. q.height .. ':' .. q.depth
+    end
+  end
+  return out
+end
+function MC.layout1(text, res, N)
+  MC.n.layout = MC.n.layout + 1
+  local a, b = MC.sig(text, {}), {}
+  for i = 1, N do if res[i] then MC.sig(res[i].list, b) end end
+  MC.sig(res.rest, b)
+  if #a ~= #b then
+    MC.bad('layout: the material has %d boxes, the columns have %d', #a, #b)
+    return
+  end
+  for k = 1, #a do
+    if a[k] ~= b[k] then
+      MC.bad('layout: box %d of the material (%s) is (%s) in the columns', k, a[k], b[k])
+      return
+    end
+  end
+end
+function MC.layout(text, res, N)
+  if M.debug then MC.try(MC.layout1, text, res, N) end
+end
+function MC.vpack1(b, target)
+  -- 自然な高さ（最後の箱の深さは箱の深さになる），伸びと縮みの和（次数ごと）
+  local h, d = 0, 0
+  local st, sh = { [0] = 0, 0, 0, 0, 0 }, { [0] = 0, 0, 0, 0, 0 }
+  for q in node.traverse(b.list) do
+    local id = q.id
+    if id == HLIST or id == VLIST or id == RULE then
+      h = h + d + q.height; d = q.depth
+    elseif id == GLUE then
+      h = h + d + q.width; d = 0
+      st[q.stretch_order] = st[q.stretch_order] + q.stretch
+      sh[q.shrink_order] = sh[q.shrink_order] + q.shrink
+    elseif id == KERN then
+      h = h + d + q.kern; d = 0
+    end
+  end
+  -- モデルは，無限に伸びるグルーを1種類とし，無限に縮むグルーを扱わない
+  local o, kinds = 0, 0
+  for k = 1, 4 do if st[k] ~= 0 then o = k; kinds = kinds + 1 end end
+  if kinds > 1 or sh[1] ~= 0 or sh[2] ~= 0 or sh[3] ~= 0 or sh[4] ~= 0 then
+    MC.n.skipped = MC.n.skipped + 1
+    return
+  end
+  MC.n.vpack = MC.n.vpack + 1
+  local x = target - h
+  -- モデルの割り振り：グルーの長さの変化の和と，伸ばすグルーの次数
+  local want, order = 0, 0
+  if x > 0 then
+    if o > 0 then want, order = x, o
+    elseif st[0] > 0 then want = x end
+  elseif x < 0 then
+    want = (sh[0] >= -x) and x or -sh[0]
+  end
+  local got = 0
+  if b.glue_sign == 1 then got = b.glue_set * st[b.glue_order]
+  elseif b.glue_sign == 2 then got = -b.glue_set * sh[b.glue_order] end
+  if math.abs(got - want) > 64 then
+    MC.bad('vpack: the glue changes by %s, the model says %s (natural %s, target %s)',
+      pt(got), pt(want), pt(h), pt(target))
+  elseif want > 0 and b.glue_order ~= order then
+    MC.bad('vpack: glue order %d, the model says %d', b.glue_order, order)
+  end
+end
+function MC.vpack(head, target)
+  local b, badness = vpack(head, target, 'exactly')
+  if M.debug then MC.try(MC.vpack1, b, target) end
+  return b, badness
+end
+M.modelcheck = MC  -- 試験（test/model）から使う
+-- 確かめた回数は，PDFを閉じる直前に書く（stop_runに登録すると，TeXの終わりの知らせ
+-- 「Output written on …」を置き換えてしまう）
+luatexbase.add_to_callback('finish_pdffile', function()
+  if M.debug then
+    texio.write_nl('log', string.format(
+      'evenend: model checks: vsplit=%d layout=%d vpack=%d (skipped %d) violations=%d',
+      MC.n.vsplit, MC.n.layout, MC.n.vpack, MC.n.skipped, MC.n.bad))
+    texio.write_nl('log', '')  -- この後に続く埋め込んだフォントの一覧と行を分ける
+  end
+end, 'evenend.modelcheck')
+
 -- 段の末尾の見えない行を取り除く．行の中のwhatsit（マークやリンクの印など）は
 -- 捨てずに垂直リストへ移し，行の前の行間のグルーも取り除く．見えない行が段の
 -- 下端にあると，段がその行の分だけ高いとみなされ，ほかの段（脚注の下端など）が
@@ -1817,7 +2015,7 @@ function M.balance(p)
         for iter = 1, 10 do
           local chunk
           if t > 0 and saved then
-            chunk = tex.splitbox(SCR, t, 'exactly')
+            chunk = MC.split(SCR, t)
           end
           local list = chunk and chunk.list
           if chunk then chunk.list = nil; node.free(chunk) end
@@ -1856,7 +2054,7 @@ function M.balance(p)
               end
               tex.setbox(SCR, (vpack(head)))
               if fb then
-                local chunk = tex.splitbox(SCR, need, 'exactly')
+                local chunk = MC.split(SCR, need)
                 list = chunk and chunk.list
                 if chunk then chunk.list = nil; node.free(chunk) end
                 ids = list and collect_ids(list, {}) or {}
@@ -1938,6 +2136,7 @@ function M.balance(p)
       if rest then rest.list = nil end
       tex.setbox(SCR, nil)
     end
+    MC.layout(text.head, res, N)
     return res
   end
 
@@ -2078,6 +2277,9 @@ function M.balance(p)
     assigns = ok
   end
   local best, besth, bestmoves
+  -- 判断の記録（debugのとき，ログに「evenend: decision …;」と書く．test/model/replay.shが，
+  -- lean/のモデルの関数で同じ入力から結果を求めて比べる）
+  local dec, decbest = {}, 0
   for _, a in ipairs(assigns) do
     set_assign(a)
     local hh = min_h()
@@ -2094,8 +2296,15 @@ function M.balance(p)
          or (moves <= bestmoves and hh < besth + gain - step / 2 and (hh < besth - step / 2 or moves < bestmoves))
          or (moves > bestmoves and hh < besth - gain + step / 2) then
         best, besth, bestmoves = a, hh, moves
+        decbest = #dec + 1
       end
+      dec[#dec + 1] = string.format('%.0f:%.0f', moves, hh)
     end
+  end
+  -- 候補を選ぶ：1行，刻みの半分，選んだ候補の番号，候補ごとの「動かす量:高さ」
+  if #dec > 0 then
+    info('decision select %.0f %.0f %d %s;', math.max(p.blskip, step), step / 2, decbest,
+      table.concat(dec, ' '))
   end
   local h, res = besth, nil
   if best then
@@ -2283,7 +2492,7 @@ function M.balance(p)
   end
   -- 下端がそろわない配分か：最右段が他のどの段よりも高い，または，本文だけの
   -- 満杯の段より高い段があって，フロートまわりのグルーの縮みでも吸収できない
-  local function misaligned(res, nat, over)
+  local function misaligned0(res, nat, over)
     if N < 2 then return false end
     local m, textvis = 0, nil
     for i = 1, N - 1 do
@@ -2310,6 +2519,22 @@ function M.balance(p)
       end
     end
     return false
+  end
+  local function misaligned(res, nat, over)
+    local r = misaligned0(res, nat, over)
+    -- 揃わない配分の判定：行送り，比較の余裕，判定，段ごとの「見かけの下端:グルーの縮み:
+    -- 本文だけの段か:本文があるか:中身があるか」（最後が最右段）
+    if M.debug and N >= 2 then
+      local t = {}
+      for i = 1, N do
+        t[i] = string.format('%.0f:%.0f:%d:%d:%d', nat[i] + over[i], fl_shrink[i] or 0,
+          (i < N and fl_top[i] + fl_bot[i] == 0 and res[i].list) and 1 or 0,
+          res[i].ht > 0 and 1 or 0,
+          (res[i].ht > 0 or #tops[i] + #bots[i] > 0) and 1 or 0)
+      end
+      info('decision mis %.0f 655 %d %s;', p.blskip, r and 1 or 0, table.concat(t, ' '))
+    end
+    return r
   end
   local function free_res(res)
     for _, r in ipairs(res) do if r.list then flush_list(r.list) end end
@@ -2354,6 +2579,14 @@ function M.balance(p)
       if nat[i] + over[i] - fl_shrink[i] > textvis then ok = false end
     end
     if ok then bottom = textvis end
+  end
+  -- 下端を決める：本文だけの段の下端（なければ-），決めた下端，段ごとの「見かけの下端:
+  -- グルーの縮み」
+  if M.debug then
+    local t = {}
+    for i = 1, N do t[i] = string.format('%.0f:%.0f', nat[i] + over[i], fl_shrink[i] or 0) end
+    info('decision beta %s %.0f %s;', textvis and string.format('%.0f', textvis) or '-', bottom,
+      table.concat(t, ' '))
   end
   if not p.fixed then h = bottom end
   -- footnote=page：揃えた段組の見かけの下端は，最終行のベースラインが版面からページの
@@ -2549,10 +2782,10 @@ function M.balance(p)
         if gallow - own > 0 then gapadd = gallow - own; append(l, mkglue(gapadd)) end
       end
       append(l, fl.head)
-      body = vpack(l.head or node.new(GLUE), target, 'exactly')  -- 空の段もある
+      body = MC.vpack(l.head or node.new(GLUE), target)  -- 空の段もある
     else
       if fl.head then usefnpage = true end
-      body = vpack(l.head or node.new(GLUE), target, 'exactly')
+      body = MC.vpack(l.head or node.new(GLUE), target)
       if fl.head then
         local o = newlist()
         append(o, body)

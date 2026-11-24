@@ -55,7 +55,7 @@
 \title{\pkg{evenend}パッケージ\\[.5\baselineskip]
   \large 多段組の最終ページで各段の下端を揃える}
 \author{木枝祐介}
-\date{v20261122.1}
+\date{v20261124.0}
 
 \begin{document}
 \maketitle
@@ -176,6 +176,9 @@ export TEXMFHOME=/path/to/texmf-evenend
   \item[\opt{gridreport}] \opt{floatgrid}が効かないページ（evenendが組まないページ）で，
     フロートの後の行が行送りの位置からずれたときの報告の仕方（\ref{sec:opt-gridreport}節）．
   \item[\opt{debug}] 揃えた段の高さ，段ごとの本文・フロート・脚注の高さをログに書く．
+    あわせて，定式化のモデルが仮定することを組むたびに確かめ，合わない動作があれば
+    「\texttt{evenend: model violation:}」で始まる行をログに書く（別冊の「モデルと実装の
+    照らし合わせ」の節）．組版の結果は変えない．
 \end{description}
 
 \opt{columns}以外のキーは，文書中でも\cs{evenendsetup}で変えられる．

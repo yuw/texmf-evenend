@@ -16,6 +16,10 @@ if re.search(r'^! ', log, re.M):
     prob.append('tex-error:' + re.search(r'^! (.*)$', log, re.M).group(1)[:40])
 if 'Float(s) lost' in log:
     prob.append('float-lost')
+# 定式化のモデルの仮定に合わない動作（evenend.luaのMC．debugのときに確かめる）
+mv = Counter(re.findall(r'evenend: model violation: ([a-z ]+?):', log.replace('\n', '')))
+for k, n in mv.items():
+    prob.append(f'model-violation-{k.replace(" ", "-")}:{n}')
 ov = re.findall(r'Overfull \\vbox \(([\d.]+)pt too high\)', log)
 # LaTeXが通常どおり組んだ段（\@makecol）のはみ出し：evenendが印を付けて出す．
 # jlreqで脚注と上下のフロート・段抜きのフロートが入ると，evenendがなくても起きる
