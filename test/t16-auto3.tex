@@ -1,0 +1,16 @@
+%% クラスのオプションにtwocolumnを付けない文書（jlreq）：columns=3で3段になる．
+%% 途中で\evenendcolumnsと\onecolumnを使う
+\documentclass[fontsize=10pt]{jlreq}
+\usepackage[debug,columns=3]{evenend}
+\setlength\columnseprule{0.4pt}
+\newcommand\para{吾輩は猫である．名前はまだ無い．どこで生れたかとんと見当がつかぬ．何でも薄暗いじめじめした所でニャーニャー泣いていた事だけは記憶している．\par}
+\begin{document}
+\section{3段}
+\para\para\para\para\para\para\para 脚注\footnote{脚注の文．}\para\para\para\para\para
+\evenendcolumns{2}
+\section{2段}
+\para\para\para\para\para\para
+\onecolumn
+\section{1段}
+\para\para
+\end{document}

@@ -60,7 +60,7 @@
 \title{\pkg{evenend}パッケージの定式化\\[.5\baselineskip]
   \large 最終ページを揃える問題，手順，証明}
 \author{木枝祐介}
-\date{v20261124.1}
+\date{v20261124.2}
 
 \begin{document}
 \maketitle
@@ -68,7 +68,8 @@
 この文書では，evenendパッケージが解く問題を定義から述べ直し，解を作る手順を，実装
 （\texttt{evenend.lua}の\texttt{balance}）に即して，手順とその性質の証明の形で記す．
 マニュアル（\texttt{evenend-ja.pdf}）の「揃え方」と「仕組み」の節と内容は同じで，述べ方だけが
-違う．使い方はマニュアルを参照されたい．長さはすべて段の上端から下向きに測る．
+違う．使い方はマニュアルを，紙面の構成としての判断（マクロタイポグラフィの観点）は\texttt{evenend-typography-ja.pdf}を
+参照されたい．長さはすべて段の上端から下向きに測る．
 記号が\TeX{}のどの概念（\cs{box}255，インサート，マークなど）にあたるかは，
 \ref{sec:formal-tex}節にまとめる．証明の一部は，定理証明支援系Lean 4でも確かめてある
 （\ref{sec:lean}節）．
@@ -962,6 +963,22 @@ $\beta=\beta_T$とするのは，すべての段で，$v_i$からフロートま
 そのまま成り立つ．持ち越したフロートは，$\sigma(j)\ge o_j=1$のどの段にも置けるので，
 この段組の中に置かれる．
 
+\komidashi{箱の中の段組（入れ子の段組）}
+ページの段の中に箱（\texttt{minipage}，フロート，\pkg{tcolorbox}など）を置き，その箱の中を
+さらに段組にできる（マニュアルの「入れ子の段組」の節）．内側の段組は，出力ルーチンを
+使わずにその場で組み，1つの箱にする．
+\begin{itemize}
+  \item 外側の段組にとって，この箱は本文$T$の要素の1つである．高さが決まっていて，途中で
+    分けられない．$T$の要素が何であるかは命題\ref{prop:main}の手順にかかわらないので，
+    外側の段組については，命題\ref{prop:main}と命題\ref{prop:even}がそのまま成り立つ．
+  \item 内側の段組は，命題\ref{prop:main}の手順ではなく，\pkg{multicol}と同じ方法で
+    各段に分けて揃える．箱の中にはフロートが入らず，脚注は箱の脚注として箱の下に置くので，
+    割り振り$\sigma$も脚注の置き方も現れない．この文書の命題は，内側の段組を対象に
+    しない．
+  \item 入れ子は2重までである．箱の中の段組の中では，さらに段組を組めない（エラーに
+    なる）．内側の段組が外側の手順を呼ぶことはないので，手順が止まることの証明は，
+    入れ子があっても変わらない．
+\end{itemize}
 
 \komidashi{\opt{footnote=page}のページ}
 \opt{footnote=page}では，最終ページでないページも，脚注を版面の下端に全幅で置くために
@@ -1127,7 +1144,7 @@ $a(\varphi)$）は，\TeX{}の側には残らない．そこでevenendは，\cs{
 概念ごとの対応を，次の表に示す．
 
 {\small
-\begin{longtable}{@{}>{\raggedright\arraybackslash}p{.24\linewidth}>{\raggedright\arraybackslash}p{.2\linewidth}>{\raggedright\arraybackslash}p{.5\linewidth}@{}}
+\begin{longtable}{@{}p{.24\linewidth}p{.2\linewidth}p{.5\linewidth}@{}}
 \hline
 \TeX{}の概念 & この文書の記号 & evenendの扱い \\
 \hline
@@ -1139,29 +1156,29 @@ $a(\varphi)$）は，\TeX{}の側には残らない．そこでevenendは，\cs{
 \hline
 \endfoot
 出力ルーチン（\cs{output}） & 手順を行う場所 &
-  \LaTeX{}の\cs{@makecol}の直前で段を取り込み，\cs{@outputdblcol}を置き換えて，ページの
-  最後の段で揃える． \\\noalign{\vskip 4pt}
+  段を取り込むのは，\LaTeX{}の\cs{@makecol}の直前である．ページの最後の段で揃える
+  ために，\cs{@outputdblcol}を置き換える． \\\noalign{\vskip 4pt}
 \cs{box}255 & 本文$T$の1段分 &
   写しを取り，全段の分を1本の垂直リストにつなぐ． \\\noalign{\vskip 4pt}
 最近の寄与の先頭の捨てられる要素（グルー，カーン，ペナルティ） & 改段の位置で捨てたグルー
   （定義\ref{def:material}） &
   次の段の先頭で\TeX{}が捨てる前に写す．改ページの位置のペナルティは\TeX{}が10000に
   書き換えるので，\cs{outputpenalty}から元の値に戻す． \\\noalign{\vskip 4pt}
-\cs{vsize}（\LaTeX{}では\cs{@colht}） & 段の高さ$H$ &
+\cs{vsize}\newline（\LaTeX{}では\cs{@colht}） & 段の高さ$H$ &
   積んだ段組と段抜きのフロートの分を減らす． \\\noalign{\vskip 4pt}
 \cs{topskip}，\cs{splittopskip} & $\tau$ &
   \cs{vsplit}の前に，\cs{splittopskip}を\cs{topskip}と同じにする．分けた段の1行目も，
   ページの1行目と同じ位置に来る． \\\noalign{\vskip 4pt}
 \cs{baselineskip} & $b$ & 行の位置$\tau+\ell b$の刻み． \\\noalign{\vskip 4pt}
-箱の深さ，\cs{maxdepth}，\cs{splitmaxdepth} & $d$と見かけの下端$v_i$ &
+箱の深さ，\newline\cs{maxdepth}，\newline\cs{splitmaxdepth} & $d$と見かけの下端$v_i$ &
   \cs{splitmaxdepth}を\cs{maxdepth}と同じにする．段の最後の箱の深さは，\cs{maxdepth}までなら段の高さに数えない． \\\noalign{\vskip 4pt}
 改ページできる位置（ペナルティ，箱の後のグルー，カーン） & 切れ目$k_i$の候補 &
   \cs{vsplit}が，\TeX{}の改ページと同じ規則で選ぶ． \\\noalign{\vskip 4pt}
-$-10000$以下のペナルティ（\cs{newpage}，\cs{columnbreak}） & 強制の改段 &
+$-10000$以下のペナルティ\newline（\cs{newpage}，\newline\cs{columnbreak}） & 強制の改段 &
   そこで必ず段を改める．最後の段$T_N$に残れば，$\mathrm{Fill}$は失敗する． \\\noalign{\vskip 4pt}
 \cs{vsplit} & $\mathrm{Fill}$の切り出し（補題\ref{lem:fill}） &
   Lua側から\texttt{tex.splitbox}で呼ぶ．分けた先頭の捨てられる要素は\TeX{}が捨てる． \\\noalign{\vskip 4pt}
-インサート（\cs{insert}\cs{footins}） & 脚注$\varphi\in\Phi$ &
+インサート\newline（\cs{insert}\cs{footins}） & 脚注$\varphi\in\Phi$ &
   出力ルーチンでは，その段の分が\cs{box}\cs{footins}に集まっている．その中身を，属性の
   番号で脚注ごとに分ける． \\\noalign{\vskip 4pt}
 印（whatsit）と属性 & 参照位置$a(\varphi)$ &
@@ -1170,8 +1187,8 @@ $-10000$以下のペナルティ（\cs{newpage}，\cs{columnbreak}） & 強制�
 \cs{count}\cs{footins}，\cs{skip}\cs{footins}，\cs{dimen}\cs{footins} &
   \LaTeX{}が組むときの脚注の見込み &
   \opt{footnote=column}では変えない．\opt{footnote=page}では，全幅の脚注が全段の高さを
-  減らすので，\cs{count}\cs{footins}を段数倍にする（\cs{skip}\cs{footins}は，ページの
-  最初の脚注のときだけ段数倍）． \\\noalign{\vskip 4pt}
+  減らすので，見込みを段数倍にする（\cs{count}\cs{footins}．\cs{skip}\cs{footins}は，
+  ページの最初の脚注のときだけ）． \\\noalign{\vskip 4pt}
 送り返す本文$R$のインサート & \ref{sec:formal-apply}節の$R$の脚注 &
   $R$の脚注を\cs{insert}に作り直して印の直後に付け，$R$を\cs{unvbox}で最近の寄与へ戻す．
   ページビルダが，次のページの材料としてもう一度扱う． \\\noalign{\vskip 4pt}
@@ -1205,9 +1222,9 @@ Leanで確かめているのは，この文書に書いた手順（モデル）�
 文とLeanの定理の対応を，次の表に示す．
 
 {\small
-\begin{longtable}{@{}>{\raggedright\arraybackslash}p{.22\linewidth}
-    >{\raggedright\arraybackslash}p{.3\linewidth}
-    >{\raggedright\arraybackslash}p{.42\linewidth}@{}}
+\begin{longtable}{@{}p{.22\linewidth}
+    p{.3\linewidth}
+    p{.42\linewidth}@{}}
 \hline
 この文書の文 & Leanのファイルと定理 & モデルでの扱い \\
 \hline
@@ -1217,90 +1234,125 @@ Leanで確かめているのは，この文書に書いた手順（モデル）�
 例\ref{ex:frame}から例\ref{ex:even} & \texttt{Example.lean} &
   例の数値（所要の高さ，見かけの下端，揃う配置と揃わない配置）を，定義のとおりに計算して
   確かめる．\\\noalign{\vskip 4pt}
-補題\ref{lem:minh} & \texttt{MinH.lean}：\texttt{bisect\_ok}，\texttt{bisect\_steps}，
-  \texttt{scan\_ok}，\texttt{minH\_spec}，\texttt{minH\_isSome} &
+補題\ref{lem:minh} & \texttt{MinH.lean}：\newline
+  \texttt{bisect\_ok}，\newline
+  \texttt{bisect\_steps}，\newline
+  \texttt{scan\_ok}，\newline
+  \texttt{minH\_spec}，\newline
+  \texttt{minH\_isSome} &
   $\mathrm{Fill}$の成否を，任意の述語とする（単調とは仮定しない）．二分法の回数は，区間の
   幅が$2^k$以下なら$k$回以下，の形で示す．\\\noalign{\vskip 4pt}
 注意\ref{rem:minh} & \texttt{MinH.lean}の最後の\texttt{example} &
   成否が「3と，50以上で成功」のとき，手順は50を返す．最小でない例である．\\\noalign{\vskip 4pt}
-補題\ref{lem:fill}（止まること，(P1)，(P2)） & \texttt{Fill.lean}：
-  \texttt{fillCol\_spec}，\texttt{fill\_spec} &
+補題\ref{lem:fill}（止まること，(P1)，(P2)） & \texttt{Fill.lean}：\newline
+  \texttt{fillCol\_spec}，\newline
+  \texttt{fill\_spec} &
   \cs{vsplit}を，「本文を前と後ろに分け，捨てられる要素のほかは，順を変えず，何も
   失わない」任意の関数とする．各段の本文を順につなぐと，捨てられる要素のほかは，元の
   本文と同じ並びになる．高さ$c$以下に切ることは仮定しない（切った後で高さを確かめるので，
   要らない）．\\\noalign{\vskip 4pt}
-補題\ref{lem:fill}の(P3) & \texttt{Fill.lean}：\texttt{fill\_notes}，\texttt{page\_region} &
+補題\ref{lem:fill}の(P3) & \texttt{Fill.lean}：\newline
+  \texttt{fill\_notes}，\newline
+  \texttt{page\_region} &
   \opt{footnote=column}：どの脚注も，参照位置と同じ段に，ちょうど1回，読む順に置かれる．
   \opt{footnote=page}：入り切る段は，ページの脚注の領域に掛からない．\\\noalign{\vskip 4pt}
-定義\ref{def:bottom} & \texttt{Bottom.lean}：\texttt{foot\_fits}，\texttt{foot\_first}，
+定義\ref{def:bottom} & \texttt{Bottom.lean}：\newline
+  \texttt{foot\_fits}，\newline
+  \texttt{foot\_first}，\newline
   \texttt{foot\_grid} &
   見かけの下端を，段の終わり方ごとに定義する．段の脚注を置く位置は，脚注が収まる最初の
   行の位置である．\\\noalign{\vskip 4pt}
-定義\ref{def:used}，定義\ref{def:bottom} & \texttt{Layout.lean}：
-  \texttt{lastBaseline\_regular}，\texttt{v\_eq\_used} &
-  \TeX{}が行を積む規則（\cs{topskip}と\cs{baselineskip}）から，本文の高さを求める．行の
+定義\ref{def:used}，定義\ref{def:bottom} & \texttt{Layout.lean}：\newline
+  \texttt{lastBaseline\_regular}，\newline
+  \texttt{v\_eq\_used} &
+  \cs{topskip}と\cs{baselineskip}による，\TeX{}が行を積む規則から，本文の高さを求める．行の
   高さが$\tau$以下で，高さと深さの和が$b$以下なら，$n$行の本文の高さは$\tau+(n-1)b$で
   ある．本文か段の脚注で終わる段では，見かけの下端は所要の高さに$d$を足した位置である．
   \\\noalign{\vskip 4pt}
-命題\ref{prop:main}の手順1 & \texttt{Enum.lean}：\texttt{mem\_enumFrom}，
-  \texttt{mem\_enumG}，\texttt{candidates\_valid}，\texttt{candidates\_length}，
+命題\ref{prop:main}の手順1 & \texttt{Enum.lean}：\newline
+  \texttt{mem\_enumFrom}，\newline
+  \texttt{mem\_enumG}，\newline
+  \texttt{candidates\_valid}，\newline
+  \texttt{candidates\_length}，\newline
   \texttt{self\_valid} &
   列挙は，定義\ref{def:layout}の条件を満たす割り振りのすべてを，それだけを挙げる．
   段をまたぐフロートは動かさない．64個を超えて絞った候補も条件を満たす．候補は高々
   257個．\LaTeX{}の割り振り$\sigma^0$は，つねに列挙に入る．\\\noalign{\vskip 4pt}
-命題\ref{prop:main}の手順1の判定 & \texttt{Span.lean}：\texttt{spanOk\_iff}，
+命題\ref{prop:main}の手順1の判定 & \texttt{Span.lean}：\newline
+  \texttt{spanOk\_iff}，\newline
   \texttt{spanOk\_right} &
   段をまたぐフロートを順に置き，段ごとに重なりを調べる判定を定義する．判定を通るのは，
   どのフロートも段$N$を越えず，同じ位置（上どうし，下どうし）で同じ段にかかる2つが，
   同じ段から同じ段数にまたがるものだけのとき，そのときだけである．\\\noalign{\vskip 4pt}
-命題\ref{prop:main}の手順3 & \texttt{Select.lean}：\texttt{select\_mem}，
+命題\ref{prop:main}の手順3 & \texttt{Select.lean}：\newline
+  \texttt{select\_mem}，\newline
   \texttt{select\_isSome} &
   選ぶのは候補のどれかで，候補があれば必ず選ぶ．最後の\texttt{example}は，
   注意\ref{rem:noproof}の「調べた候補の中でも最小とは限らない」例．\\\noalign{\vskip 4pt}
-命題\ref{prop:main}の手順4 & \texttt{Select.lean}：\texttt{raise\_spec}，
+命題\ref{prop:main}の手順4 & \texttt{Select.lean}：\newline
+  \texttt{raise\_spec}，\newline
   \texttt{step4\_spec} &
   「$\mathrm{Fill}$が成功し，揃わない配分でない」を任意の述語とする．結果は，元の$h^*$か，
   $h^*$より高く$H$以下で，その述語を満たす高さである．\\\noalign{\vskip 4pt}
-命題\ref{prop:main}の手順4の判定 & \texttt{Misaligned.lean}：\texttt{last\_le}，
-  \texttt{shrinks\_to}，\texttt{deficit\_le} &
+命題\ref{prop:main}の手順4の判定 & \texttt{Misaligned.lean}：\newline
+  \texttt{last\_le}，\newline
+  \texttt{shrinks\_to}，\newline
+  \texttt{deficit\_le} &
   判定(a)から(c)を定義する．判定を通れば，最右段はほかの段より高くない．本文だけの
   段があれば，どの段も縮めて$\beta_T$に収まり，途中の段の不足は半行以下である．
   \\\noalign{\vskip 4pt}
-命題\ref{prop:main}の手順6 & \texttt{Select.lean}：\texttt{relax\_spec}，
+命題\ref{prop:main}の手順6 & \texttt{Select.lean}：\newline
+  \texttt{relax\_spec}，\newline
   \texttt{relax\_none} &
   結果は，3回の試みのどれかの結果である．3回とも失敗したときだけ「揃えられない」．
   \\\noalign{\vskip 4pt}
-命題\ref{prop:main}の手順の全体と(i) & \texttt{Balance.lean}：\texttt{balance\_spec}，
-  \texttt{balance\_isSome}，\texttt{procedure\_spec}，\texttt{procedure\_none} &
+命題\ref{prop:main}の手順の全体と(i) & \texttt{Balance.lean}：\newline
+  \texttt{balance\_spec}，\newline
+  \texttt{balance\_isSome}，\newline
+  \texttt{procedure\_spec}，\newline
+  \texttt{procedure\_none} &
   手順1から6を1つの関数につなぐ．返す配置は，候補のどれかの$\sigma$と$h\le H$での
   $\mathrm{Fill}$の結果である．「揃えられない」と答えるのは，3つの緩め方のどれでも，
   どの候補も$H$に入り切らないときだけである．\\\noalign{\vskip 4pt}
-命題\ref{prop:main}の(i) & \texttt{Whole.lean}：\texttt{whole\_spec}，
+命題\ref{prop:main}の(i) & \texttt{Whole.lean}：\newline
+  \texttt{whole\_spec}，\newline
   \texttt{whole\_none} &
   手順の全体の$\mathrm{Fill}$に，\texttt{Fill.lean}の手順を代入する．返す配置は，ある
   緩め方での所要の高さについて，(P1)から(P3)を満たす．仮定は，\cs{vsplit}の性質だけで
   ある．\\\noalign{\vskip 4pt}
-命題\ref{prop:main}の手順5 & \texttt{Column.lean}：\texttt{build\_fil}，
-  \texttt{build\_plain}，\texttt{chooseA\_foot}，\texttt{choose\_none} &
+命題\ref{prop:main}の手順5 & \texttt{Column.lean}：\newline
+  \texttt{build\_fil}，\newline
+  \texttt{build\_plain}，\newline
+  \texttt{chooseA\_foot}，\newline
+  \texttt{choose\_none} &
   上のフロート，本文，下のフロート，脚注から段の並びを作り，無限に伸びるグルーを入れる所を
   決める．入れた段では，中身は箱の高さちょうどになり，本文の行は動かず，下のフロートと
   脚注は箱の下端に付く．\\\noalign{\vskip 4pt}
-命題\ref{prop:main}の(ii) & \texttt{Beta.lean}：\texttt{le\_chooseBeta} &
+命題\ref{prop:main}の(ii) & \texttt{Beta.lean}：\newline
+  \texttt{le\_chooseBeta} &
   段を，見かけの下端とフロートまわりのグルーの縮みの組で表す．\\\noalign{\vskip 4pt}
-命題\ref{prop:even}の(i) & \texttt{Glue.lean}：\texttt{packed\_shrink} &
+命題\ref{prop:even}の(i) & \texttt{Glue.lean}：\newline
+  \texttt{packed\_shrink} &
   垂直の並びを，箱とグルー（自然な長さ，伸び，縮み，無限に伸びるか）の並びとし，高さを
   指定して組むときの\TeX{}の割り振りを定義する．長さは有理数．\\\noalign{\vskip 4pt}
-命題\ref{prop:even}の(ii) & \texttt{Glue.lean}：\texttt{attach\_bottom}，
-  \texttt{stretch\_finite}，\texttt{ragged} &
+命題\ref{prop:even}の(ii) & \texttt{Glue.lean}：\newline
+  \texttt{attach\_bottom}，\newline
+  \texttt{stretch\_finite}，\newline
+  \texttt{ragged} &
   脚注や下のフロートを\cs{vfil}で箱の下端に付ける場合，有限の伸びで届く場合，本文の
   末尾に\cs{vfil}を入れて下を空ける場合（本文が動かないこと）．\\\noalign{\vskip 4pt}
-ファイルどうしのつなぎ & \texttt{Link.lean}：\texttt{candidates\_span}，
-  \texttt{column\_packed}，\texttt{fits\_lines}，\texttt{fill\_lines} &
+ファイルどうしのつなぎ & \texttt{Link.lean}：\newline
+  \texttt{candidates\_span}，\newline
+  \texttt{column\_packed}，\newline
+  \texttt{fits\_lines}，\newline
+  \texttt{fill\_lines} &
   段をまたぐフロートの判定を候補の列挙に，下端$\beta$を段を組む箱の高さに，行の並びから
   求めた本文の高さを$\mathrm{Fill}$に代入する．$\beta$に届かない段に無限に伸びるグルーか
   有限の伸びがあれば，どの段の中身も高さ$\beta-e_i$ちょうどになる．行だけが並ぶ本文では，
   $n$行の段が$h$に入り切るのは$A_i+\tau+(n-1)b+G_i\le h$のときである．\\\noalign{\vskip 4pt}
-\ref{sec:formal-apply}節 & \texttt{Page.lean}：\texttt{block\_height}，\texttt{loop\_inv} &
+\ref{sec:formal-apply}節 & \texttt{Page.lean}：\newline
+  \texttt{block\_height}，\newline
+  \texttt{loop\_inv} &
   段組を改めるときの高さの勘定．\opt{footnote=page}のくり返しでは，採った結果の脚注が
   つねに領域$\Psi$に収まる（何回で打ち切っても成り立つ）．\\
 \end{longtable}}

@@ -1,0 +1,16 @@
+%% クラスのオプションにtwocolumnを付けない1段組の文書（columns=1）で，本文のmulticols環境を使う
+\documentclass[fontsize=10pt]{jlreq}
+\usepackage[debug,columns=1]{evenend}
+\setlength\columnseprule{0.4pt}
+\newcommand\para{吾輩は猫である．名前はまだ無い．どこで生れたかとんと見当がつかぬ．何でも薄暗いじめじめした所でニャーニャー泣いていた事だけは記憶している．\par}
+\begin{document}
+\para\para
+\begin{multicols}{2}
+\para\para\para\para\para
+\end{multicols}
+\para
+\begin{multicols}{3}
+\para\para\para\para\para\para
+\end{multicols}
+\para
+\end{document}

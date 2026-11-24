@@ -20,7 +20,8 @@ flushendと同じ目的のものだが，次の点を扱う．
 - LuaLaTeX（LaTeX 2024-11-01以降）．TeX Live 2025（LaTeX 2024-11-01）とTeX Live 2026
   （LaTeX 2026-06-01）で動作を確認している．テストは環境変数`TLYEAR`（既定は2026）で
   TeX Liveの版を選べる（例：`TLYEAR=2025 test/run.sh …`）
-- LaTeX標準の段組（クラスオプション`twocolumn`または`\twocolumn`）．multicolの
+- LaTeX標準の段組（段組のモード）．クラスオプション`twocolumn`を付けなくても，読み込むと段組の
+  モードに入る（下の「段組のモードとクラスのオプション」）．multicolの
   `multicols`環境は対象外．
 - jlreq，LuaTeX-jaのクラスで動作を確認している（横組のみ）．
 
@@ -41,6 +42,25 @@ export TEXMFHOME=/path/to/texmf-evenend
 ```
 
 読み込むだけで，文書末（`\end{document}`）と`\onecolumn`の直前のページが揃う．
+
+### 段組のモードとクラスのオプション
+
+evenendは，LaTeXの段組のモード（`\twocolumn`で入るモード）で動く．クラスオプション`twocolumn`を
+付けていない文書でも，evenendを読み込むと段組のモードに入る（`twocolumn`のオプションを持たない
+クラスでも使える）．ただし，クラスにこのオプションがあるときは，付けるほうがよい（理由は下）．
+
+```latex
+\documentclass{jlreq}
+\usepackage[columns=3]{evenend}
+```
+
+- 段数は`columns`で決まる（既定は2）．1段のまま組む文書では`columns=1`と書く．
+- 1段で始めて途中から段組にする文書では，始めに`\onecolumn`と書く．
+- クラスに`twocolumn`のオプションがあるときは，付けるほうがよい．クラスが読み込むときに段組向けの
+  版面を決めることがある（articleとltjsclassesは版面の幅などを変える．jlreqは同じ組版になる）．
+  付けないときは，クラスの1段組の版面のまま，行長を段数と段間で分ける．
+- v20261124.2より前の版は，自動的には入らなかった．`twocolumn`も`columns`も付けずに読み込んで
+  いた文書（1段で組まれていた）は，2段になる．1段のままにするには`columns=1`と書く．
 
 ### オプション
 
@@ -122,8 +142,9 @@ multicolを読み込んでいても使える`evenendmulticols`環境
 `\raggedcolumns`では段を伸ばさない（環境の途中の満ページと，終わりの揃えるページ）．1段に戻るときの最後の1段の
 段組は揃えずに中身のまま積む（脚注や段内フロートがあるとき，`floatgrid`で本文中のフロートや
 高い箱があるときを除く）．
-入れ子やリストの中では使えない．ページの本文では段組のモードで使うので，1段組の文書では
-`\documentclass[twocolumn]{…}`と`\usepackage[columns=1]{evenend}`で読み込む．
+`multicols`環境の中に，箱を挟まずに`multicols`環境を入れることはできない（箱を挟めばできる．
+下の「入れ子の段組」）．リストの中でも使えない．ページの本文では段組のモードで使うので，1段組の文書では
+`\usepackage[columns=1]{evenend}`で読み込む（クラスオプション`twocolumn`は付けても付けなくてもよい）．
 
 ### 箱の中の段組
 
@@ -137,7 +158,28 @@ tcolorboxの箱，`minipage`，`\parbox`，フロートの中など（内部垂�
   倍数の位置に置く．箱の先頭では1行目の上端を箱の上端に合わせる．
 - 箱の中の脚注は，その箱の脚注として箱の下に置く（`minipage`と同じ）．
 - 段組は1つの箱になるので，分割できるtcolorbox（`breakable`）でも段組の途中では分けない．
-- 入れ子はできない．`\evenendcolumns`は箱の中では使えない．
+- `\evenendcolumns`は箱の中では使えない．
+
+### 入れ子の段組
+
+段組は，2重まで入れ子にできる．ページの段組（クラスの段組，`\evenendcolumns`で改めた段組，本文の
+`multicols`環境）の段の中に箱を置き，その箱の中をさらに段組にする．箱は，`minipage`，`\parbox`，
+フロート，tcolorboxの箱など，中身を内部垂直モードで組むものであればよい（追加のパッケージは
+要らない．見本は`evenend-sample-nest.tex`）．
+
+```latex
+\noindent\begin{minipage}{\linewidth}
+\begin{multicols}{2}
+...
+\end{multicols}
+\end{minipage}
+```
+
+- 内側の段組は，箱の中の段組としてその場で組んで1つの箱にする．外側の段組から見ると高さの決まった
+  1つの箱で，本文のほかの要素と同じく段に分けられ，最終ページでは外側の段が揃う．
+- 箱を重ねてもよい（tcolorboxの中の`minipage`の中の段組など）．
+- 3重にはできない．箱の中の段組の中では，間に箱を挟んでも，さらに段組を組めない
+  （`Nested multicols is not supported`のエラーになり，内側の環境の中身は段組にせずに組む）．
 
 ### 柱
 
@@ -187,7 +229,7 @@ LaTeX 2025-06-01より前の版（`\leftmark`，`\rightmark`がTeXの`\firstmark
   それも組めなければ，LaTeXのフロート段として元の段数のまま出してページを終え，残った
   フロート（`p`の指定がなくフロート段に置けないものなど）は次のページでもう一度ブロックに組む．
 - 切り換えの直後に文書が終わっても，積んだブロックを出力する．
-- 段組のモード（`twocolumn`）で使う．1段のブロックも`\evenendcolumns{1}`で作る．
+- 段組のモードで使う（`\onecolumn`の後では使えない）．1段のブロックも`\evenendcolumns{1}`で作る．
   `\twocolumn`は読み込み時の段数で段組を始め直す．
 - 段間（`\columnsep`）と段間罫の太さ（`\columnseprule`）は段組ごとに決まる．段組を始める
   ときの値をその段組で使い（ページをまたいでも同じ），途中で変えても次の段組から効く．
@@ -287,10 +329,12 @@ evenendはgyoudori（行取りのパッケージ）に依存しない．gyoudori
 ## マニュアル
 
 `doc/lualatex/evenend/`にマニュアル（`evenend-ja.tex`），定式化と証明（`evenend-theory-ja.tex`．
-問題の定義，手順，証明，TeXの概念との対応）と見本（`evenend-sample.tex`，
+問題の定義，手順，証明，TeXの概念との対応），組版の体裁（`evenend-typography-ja.tex`．
+マクロタイポグラフィの観点から，紙面の構成として何を揃え，何を優先するか）と見本（`evenend-sample.tex`，
 `evenend-sample-column.tex`，`evenend-sample-switch.tex`，`evenend-sample-same.tex`，
 `evenend-sample-colsep.tex`，
-`evenend-sample-box.tex`，`evenend-sample-span.tex`，`evenend-sample-options.tex`）がある．
+`evenend-sample-box.tex`，`evenend-sample-nest.tex`，`evenend-sample-span.tex`，
+`evenend-sample-options.tex`）がある．
 マニュアルは見本のページを貼り込むので，
 見本を先に組む．
 
@@ -302,6 +346,7 @@ lualatex evenend-sample-switch.tex
 lualatex evenend-sample-same.tex
 lualatex evenend-sample-colsep.tex
 lualatex evenend-sample-box.tex
+lualatex evenend-sample-nest.tex
 lualatex evenend-sample-span.tex
 lualatex evenend-sample-options.tex
 lualatex evenend-ja.tex
@@ -313,6 +358,13 @@ lualatex evenend-ja.tex
 ```bash
 lualatex evenend-theory-ja.tex
 lualatex evenend-theory-ja.tex
+```
+
+組版の体裁の文書は，見本を貼り込むので，見本の後に組む．
+
+```bash
+lualatex evenend-typography-ja.tex
+lualatex evenend-typography-ja.tex
 ```
 
 定式化の例，補題，命題の一部は，Lean 4でも確かめてある（`lean/`．確かめ方は`lean/README.md`）．

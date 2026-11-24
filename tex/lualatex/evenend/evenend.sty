@@ -1,5 +1,5 @@
 \NeedsTeXFormat{LaTeX2e}[2024-11-01]
-\ProvidesPackage{evenend}[2026/11/24 v20261124.1 Balance the last page of multi-column text (LuaLaTeX) by Yuwsuke Kieda]
+\ProvidesPackage{evenend}[2026/11/24 v20261124.2 Balance the last page of multi-column text (LuaLaTeX) by Yuwsuke Kieda]
 
 \ifdefined\directlua\else
   \PackageError{evenend}{LuaLaTeX is required}{}
@@ -151,6 +151,14 @@
 \newdimen\evenend@lastgap
 \ProcessKeyOptions[evenend]
 \evenend@initN=\evenend@N
+%% 段組のモードでなければ，段組のモードに入る．クラスにtwocolumnのオプションがなくても，
+%% 付け忘れても使えるようにする（段数はcolumns．1段のまま組むならcolumns=1）．
+%% クラスが読み込むときにtwocolumnで決めること（版面など）は変わらない．段幅などは，
+%% 文書の始まりで\evenend@setwidthが決める．
+%% ここではフラグを立てるだけなので，この後でクラスやほかのパッケージが段組のモードを
+%% 決め直せば（クラスの中から読み込まれ，その後でクラスがオプションを処理するときなど），
+%% そのとおりになる．その場合もあるので，ログには何も書かない
+\if@twocolumn\else \@twocolumntrue \fi
 
 \newcommand\evenendsetup[1]{\SetKeys[evenend]{#1}\evenend@setsfb\evenend@fnreserve}
 \def\evenend@setsfb{%

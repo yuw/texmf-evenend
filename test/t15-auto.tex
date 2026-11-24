@@ -1,0 +1,14 @@
+%% クラスのオプションにtwocolumnを付けない文書：evenendが段組のモードに入る（2段）．
+%% 表題は1段，本文は2段．脚注とフロートを含む
+\documentclass{article}
+\usepackage[debug]{evenend}
+\usepackage{lipsum}
+\setlength\columnseprule{0.4pt}
+\title{No class option}\author{A}\date{}
+\begin{document}
+\maketitle
+\section{First}
+\lipsum[1-3]\footnote{\lipsum[4][1-3]}
+\begin{figure}[t]\centering\fbox{\rule{0pt}{40pt}\hspace{.8\linewidth}}\caption{Top}\end{figure}
+\lipsum[5-9]
+\end{document}

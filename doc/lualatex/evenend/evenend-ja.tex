@@ -55,7 +55,7 @@
 \title{\pkg{evenend}パッケージ\\[.5\baselineskip]
   \large 多段組の最終ページで各段の下端を揃える}
 \author{木枝祐介}
-\date{v20261124.1}
+\date{v20261124.2}
 
 \begin{document}
 \maketitle
@@ -101,7 +101,8 @@
     \LuaTeX{} 1.24）で動作を確かめている．
   \item 柱の扱いは，\LaTeX{} 2025-06-01で変わったマークの仕組みに合わせ，それより前の版
     では，ページ全体のマークから\cs{firstmark}，\cs{botmark}を補う（\ref{sec:marks}節）．
-  \item \LaTeX{}標準の段組（クラスオプション\opt{twocolumn}または\cs{twocolumn}）．
+  \item \LaTeX{}標準の段組（段組のモード）．クラスオプション\opt{twocolumn}を付けなくても，
+    読み込むと段組のモードに入る（\ref{sec:twocolumn}節）．
     \pkg{multicol}の\texttt{multicols}環境は対象外である．
   \item \pkg{jlreq}，\pkg{ltjsclasses}，\pkg{article}で動作を確かめている（横組のみ）．
 \end{itemize}
@@ -123,6 +124,8 @@ export TEXMFHOME=/path/to/texmf-evenend
 \documentclass[twocolumn]{jlreq}
 \usepackage[footnote=column]{evenend}
 \end{verbatim}
+クラスオプション\opt{twocolumn}を付けていない文書でも，読み込むと段組のモードに入る．
+ただし，クラスにこのオプションがあるときは，付けるほうがよい（\ref{sec:twocolumn}節）．
 
 \subsection{オプション}
 
@@ -208,6 +211,35 @@ export TEXMFHOME=/path/to/texmf-evenend
     オプションを変える．
 \end{description}
 
+
+\subsection{段組のモードとクラスのオプション}\label{sec:twocolumn}
+
+\pkg{evenend}は，\LaTeX{}の段組のモード（\cs{twocolumn}で入るモード）で動く．クラス
+オプション\opt{twocolumn}を付けていない文書でも，\pkg{evenend}を読み込むと，段組の
+モードに入る．\opt{twocolumn}のオプションを持たないクラスでも使える．
+\begin{verbatim}
+\documentclass{jlreq}
+\usepackage[columns=3]{evenend}
+\end{verbatim}
+\begin{itemize}
+  \item 段数は\opt{columns}で決まる（既定は2）．クラスオプションの\opt{twocolumn}は
+    「段組のモードにする」という意味で，段数が2でなくても同じに書く．
+  \item 1段のまま組む文書（箱の中の段組だけを使う文書や，本文の途中で\texttt{multicols}
+    環境を使う文書）では，\opt{columns=1}で読み込む（\ref{sec:multicol}節）．
+  \item 1段で始めて途中から段組にする文書では，始めに\cs{onecolumn}と書く（段組に
+    するところで\cs{twocolumn}と書く）．
+  \item クラスに\opt{twocolumn}のオプションがあるときは，付けるほうがよい．クラスが，
+    読み込むときに段組向けの版面を決めることがあるからである（\pkg{article}と
+    \pkg{ltjsclasses}は，版面の幅などを変える．\pkg{jlreq}は同じ組版になる）．付けない
+    ときは，クラスの1段組の版面のまま，行長を段数と段間で分ける．
+  \item \pkg{evenend}を読み込んだ後で，クラスやほかのパッケージが1段か段組かを決め直す
+    ときは，そのとおりになる（クラスの中から\pkg{evenend}を読み込み，その後でクラスが
+    オプションを処理するときなど）．
+  \item v20261124.2より前の版は，自動的には入らなかった．\opt{twocolumn}も
+    \opt{columns}も付けずに読み込んでいた文書（1段で組まれていた）は，2段になる．
+    1段のままにするには，\opt{columns=1}と書く．
+\end{itemize}
+
 \section{オプションの詳細}\label{sec:options}
 
 各オプションによる組み方の違いを，同じ材料を組んだ見本で示す（\texttt{evenend-sample-options.tex}．
@@ -225,9 +257,9 @@ A6判の2段組で，オプションを\cs{evenendsetup}で換えながら組ん
 
 \begin{figure}[tbp]
   \centering
-  \optpair[.36\linewidth]{footnote-page}{1ページ目}{footnote-page2}{最終ページ}\\[.5\baselineskip]
+  \optpair{footnote-page}{1ページ目}{footnote-page2}{最終ページ}\\[.5\baselineskip]
   \small\opt{footnote=page}（既定）\\[\baselineskip]
-  \optpair[.36\linewidth]{footnote-column}{1ページ目}{footnote-column2}{最終ページ}\\[.5\baselineskip]
+  \optpair{footnote-column}{1ページ目}{footnote-column2}{最終ページ}\\[.5\baselineskip]
   \small\opt{footnote=column}
   \caption{\opt{footnote}：上は脚注を版面の全幅で版面の下端に置く．下は脚注を段の下端に置く}
   \label{fig:opt-footnote}
@@ -338,7 +370,7 @@ A6判の2段組で，オプションを\cs{evenendsetup}で換えながら組ん
 
 \begin{figure}[tbp]
   \centering
-  \optpair[.45\linewidth]{floatgrid-true}{\opt{floatgrid=true}（既定）}%
+  \optpair{floatgrid-true}{\opt{floatgrid=true}（既定）}%
     {floatgrid-false}{\opt{floatgrid=false}}
   \caption{\opt{floatgrid}：フロートの後の行の位置（薄い線は行送りの位置）}
   \label{fig:opt-floatgrid}
@@ -486,8 +518,7 @@ Package evenend Info: Page 1: lines after floats are off the
     見出しの前のグルーが捨てられるので，上アキはなく，何もしない．
 \end{itemize}
 
-\cs{evenendcolumns}は段組のモード（クラスオプション\opt{twocolumn}または\cs{twocolumn}）で
-使う．1段のブロックも，段組のモードのまま\cs{evenendcolumns}\texttt{\{1\}}で作る．
+\cs{evenendcolumns}は段組のモードで使う（\cs{onecolumn}の後では使えない）．1段のブロックも，段組のモードのまま\cs{evenendcolumns}\texttt{\{1\}}で作る．
 \cs{twocolumn}は，読み込み時の段数（\opt{columns}）で段組を始め直す．
 
 \subsection{段組ごとの段間と段間罫}\label{sec:colsep}
@@ -1177,6 +1208,12 @@ evenendが解く問題の定義，解を作る手順の定式化，その性質�
 （\cs{box}255，インサート，マークなど）との対応は，別の文書\texttt{evenend-theory-ja.pdf}
 （「\pkg{evenend}パッケージの定式化」）にまとめてある．
 
+\subsection{組版の体裁}
+
+紙面の構成として何を揃え，何を揃えないか，揃えきれないときに何を優先するかを，
+マクロタイポグラフィの観点から述べたものは，別の文書\texttt{evenend-typography-ja.pdf}（「\pkg{evenend}パッケージの
+組版」）にまとめてある．
+
 \section{multicol互換の環境}\label{sec:multicol}
 
 \pkg{multicol}を読み込んでいなければ，同じ書き方の\texttt{multicols}環境，
@@ -1218,12 +1255,15 @@ evenendが解く問題の定義，解を作る手順の定式化，その性質�
   \item 1段に戻るとき，最後の1段の段組は揃えずに中身のまま積む（\cs{vfill}などが
     ページのグルーとして伸びる）．ただし，脚注や段内フロートがあるとき，\opt{floatgrid}で
     本文中のフロートや高い箱があるときは，ほかの段組と同じく組む．
-  \item 入れ子やリストの中での使用はできない．前置きの前のアキ（第3引数）は使わない．
+  \item \texttt{multicols}環境の中に，箱を挟まずに\texttt{multicols}環境を入れることは
+    できない（箱を挟めばできる．\ref{sec:nest}節）．リストの中での使用もできない．前置きの
+    前のアキ（第3引数）は使わない．
 \end{itemize}
-ページの本文で使うときは段組のモードで使うので，1段組の文書では，クラスオプション
-\opt{twocolumn}と\opt{columns=1}で読み込む（読み込み時の段数が1になり，全体を1段で組む）．
+ページの本文で使うときは段組のモードで使うので，1段組の文書では，\opt{columns=1}で
+読み込む（段組のモードのまま，読み込み時の段数が1になり，全体を1段で組む．クラス
+オプション\opt{twocolumn}は，付けても付けなくてもよい．\ref{sec:twocolumn}節）．
 \begin{verbatim}
-\documentclass[twocolumn]{jlreq}
+\documentclass{jlreq}
 \usepackage[columns=1]{evenend}
 \end{verbatim}
 
@@ -1260,8 +1300,72 @@ evenendが解く問題の定義，解を作る手順の定式化，その性質�
   \item 箱の中の脚注は，その箱の脚注として箱の下に置く（\texttt{minipage}と同じ）．
   \item 段組は1つの箱になるので，分割できる\pkg{tcolorbox}（\texttt{breakable}）でも，
     段組の途中ではページを分けない（前後の段落の間では分けられる）．
-  \item 入れ子（箱の中の段組の中の段組）はできない．\cs{evenendcolumns}は箱の中では
-    使えない．
+  \item \cs{evenendcolumns}は箱の中では使えない．箱の中の段組の中に，さらに段組を組む
+    ことはできない（\ref{sec:nest}節）．
+\end{itemize}
+
+\subsection{入れ子の段組}\label{sec:nest}
+
+段組は，2重まで入れ子にできる．ページの段組の段の中に箱を置き，その箱の中をさらに段組に
+する形である（図\ref{fig:nest}）．箱は，\texttt{minipage}，\cs{parbox}，フロート
+（\texttt{figure}環境など），\pkg{tcolorbox}の箱など，中身を内部垂直モードで組むもので
+あればよい．追加のパッケージは要らない．ページの段組は，クラスの段組，\cs{evenendcolumns}で
+改めた段組，本文の\texttt{multicols}環境のどれでもよい．
+\begin{figure}[tb]
+  \centering
+  \fbox{\includegraphics[page=1,width=.4\linewidth]{evenend-sample-nest.pdf}}\hspace{2\zw}%
+  \fbox{\includegraphics[page=2,width=.4\linewidth]{evenend-sample-nest.pdf}}
+  \caption{入れ子の段組（\texttt{evenend-sample-nest.tex}）．2段組のページの段の中に，
+    枠を付けた\texttt{minipage}，フロート，\pkg{tcolorbox}を置き，それぞれの中を2段に組む．
+    右は最終ページで，外側の段が揃う}
+  \label{fig:nest}
+\end{figure}
+\texttt{minipage}の中に組む（枠が要らなければ，\cs{fbox}を除いて幅を\cs{linewidth}に
+する）：
+\begin{verbatim}
+\documentclass[twocolumn]{jlreq}
+\usepackage{evenend}
+...
+本文．
+
+\noindent\fbox{\begin{minipage}{\dimexpr\linewidth-2\fboxsep-2\fboxrule\relax}
+\begin{multicols}{2}
+...
+\end{multicols}
+\end{minipage}}
+
+本文．
+\end{verbatim}
+フロートの中に組む（段間と段間罫を変えるときは，\texttt{evenendmulticols}環境を使う）：
+\begin{verbatim}
+\begin{figure}[t]
+\begin{evenendmulticols}[columnsep=1\zw,columnseprule=0pt]{2}
+...
+\end{evenendmulticols}
+\caption{フロートの中の2段}
+\end{figure}
+\end{verbatim}
+\pkg{tcolorbox}の中に組む：
+\begin{verbatim}
+\begin{tcolorbox}[title=tcolorboxの中の2段]
+\begin{multicols}{2}
+...
+\end{multicols}
+\end{tcolorbox}
+\end{verbatim}
+\begin{itemize}
+  \item 内側の段組は，箱の中の段組（\ref{sec:boxcols}節）として，その場で組んで1つの
+    箱にする．段幅は，箱の中の行長と段数と段間で決まる．
+  \item 外側の段組から見ると，内側の段組を入れた箱は，高さの決まった1つの箱である．
+    本文のほかの要素と同じく段に分けられ，最終ページでは外側の段が揃う．箱の途中では
+    段を改めない（分割できる\pkg{tcolorbox}でも，段組の途中では分けない）．
+  \item 箱を重ねてもよい（フロートや\pkg{tcolorbox}の中の\texttt{minipage}の中の段組など）．
+  \item 3重にはできない．箱の中の段組の中では，間に箱を挟んでも，さらに段組を組めない．
+    また，本文の\texttt{multicols}環境の中に，箱を挟まずに\texttt{multicols}環境を入れる
+    こともできない．どちらもエラー（\texttt{Nested multicols is not supported}）になり，
+    内側の環境の中身は段組にせずに組む．
+  \item 段の中の箱は行長が短いので，箱の中をさらに段に分けるときは，字を小さくするなど
+    して，1行の字数を確かめる．
 \end{itemize}
 
 \section{柱}\label{sec:marks}
@@ -1368,12 +1472,13 @@ evenendは\pkg{gyoudori}（行取りのパッケージ）に依存しない．\p
 \begin{description}
   \item[\texttt{tex/lualatex/evenend/}] \texttt{evenend.sty}，\texttt{evenend.lua}
   \item[\texttt{doc/lualatex/evenend/}] このマニュアル（\texttt{evenend-ja.tex}），
-    定式化と証明（\texttt{evenend-theory-ja.tex}）と
+    定式化と証明（\texttt{evenend-theory-ja.tex}），
+    組版の体裁（\texttt{evenend-typography-ja.tex}）と
     見本（\texttt{evenend-sample.tex}，\texttt{evenend-sample-column.tex}，
     \texttt{evenend-sample-switch.tex}，\texttt{evenend-sample-same.tex}，
     \texttt{evenend-sample-colsep.tex}，
-    \texttt{evenend-sample-box.tex}，\texttt{evenend-sample-span.tex}，
-    \texttt{evenend-sample-options.tex}）
+    \texttt{evenend-sample-box.tex}，\texttt{evenend-sample-nest.tex}，
+    \texttt{evenend-sample-span.tex}，\texttt{evenend-sample-options.tex}）
   \item[\texttt{lean/}] 定式化の例，補題，命題の一部を，定理証明支援系Lean 4で確かめる
     ファイル（\texttt{check.sh}でまとめて確かめる）
   \item[\texttt{LICENSE}] ライセンス（MIT）
@@ -1398,6 +1503,7 @@ lualatex evenend-sample-switch.tex
 lualatex evenend-sample-same.tex
 lualatex evenend-sample-colsep.tex
 lualatex evenend-sample-box.tex
+lualatex evenend-sample-nest.tex
 lualatex evenend-sample-span.tex
 lualatex evenend-sample-options.tex
 lualatex evenend-ja.tex
@@ -1407,6 +1513,11 @@ lualatex evenend-ja.tex
 \begin{verbatim}
 lualatex evenend-theory-ja.tex
 lualatex evenend-theory-ja.tex
+\end{verbatim}
+組版の体裁の文書は，見本を貼り込むので，見本の後に組む．
+\begin{verbatim}
+lualatex evenend-typography-ja.tex
+lualatex evenend-typography-ja.tex
 \end{verbatim}
 
 \section{乱数による網羅テスト}\label{sec:randtest}

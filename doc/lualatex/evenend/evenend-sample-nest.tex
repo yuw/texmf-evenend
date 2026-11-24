@@ -1,0 +1,39 @@
+%% evenend-sample-nest.tex：evenendの見本（入れ子の段組：ページの段の中の箱の中の段組）
+%% 箱は，minipage，フロート，tcolorboxの3通り
+%% マニュアル（evenend-ja.tex）が貼り込む
+\documentclass[twocolumn,paper=a6,fontsize=8pt]{jlreq}
+\usepackage{evenend}
+\usepackage[most]{tcolorbox}
+\setlength\columnseprule{0.4pt}
+\newcommand\para{吾輩は猫である．名前はまだ無い．どこで生れたかとんと見当がつかぬ．何でも薄暗いじめじめした所でニャーニャー泣いていた事だけは記憶している．\par}
+\newcommand\short{吾輩は猫である．名前はまだ無い．どこで生れたかとんと見当がつかぬ．\par}
+\begin{document}
+%% 箱の中は字を小さくする（A6判の段の中をさらに2段に分けるので，行長が短い）
+\tcbset{left=1mm,right=1mm,top=0mm,bottom=0mm,boxsep=1mm,before skip=1mm,after skip=1mm,
+  fontupper=\footnotesize}
+\section{入れ子の段組}
+\para
+%% 1. minipageの中の2段（枠は\fbox．tcolorboxは使わない）
+\noindent\fbox{\begin{minipage}{\dimexpr\linewidth-2\fboxsep-2\fboxrule\relax}\footnotesize
+\begin{multicols}{2}
+\short\short\short
+\end{multicols}
+\end{minipage}}\par
+\para
+%% 2. フロートの中の2段（段間1字，段間罫なし）
+\begin{figure}[t]
+\footnotesize
+\begin{evenendmulticols}[columnsep=1\zw,columnseprule=0pt]{2}
+\short\short
+\end{evenendmulticols}
+\caption{フロートの中の2段}
+\end{figure}
+\para
+%% 3. tcolorboxの中の2段
+\begin{tcolorbox}[title=tcolorboxの中の2段]
+\begin{multicols}{2}
+\short\short
+\end{multicols}
+\end{tcolorbox}
+\para\para\para\para
+\end{document}
