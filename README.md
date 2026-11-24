@@ -332,7 +332,8 @@ test/run.sh test/t1-basic.tex
 - `run.sh`：リポジトリをTEXMFHOMEにしてLuaLaTeXを走らせる
 - `all.sh`：回帰試験の全部（`rand/std.sh`，`suite.sh`，`fixed.sh`，`model/`）を順に流し，結果を`test/results/`に書く
 - `model/run.sh`：定式化のモデル（`lean/`）を，TeXの原始機能（箱のグルーの割り振り，行送り，`\vsplit`）と
-  格子状の入力のすべてで比べる．`model/replay.sh`：`debug`のログの判断の記録を，Leanの関数で再生して比べる
+  格子状の入力のすべてで比べる．`model/replay.sh`：`debug`のログの判断の記録を，Leanの関数で再生して比べる．
+  `model/pure.sh`：`evenend.lua`の純粋な計算（`M.pure`）を，Leanの関数と小さな範囲の入力のすべてで比べる
 - `fixed.sh`：固定のテスト文書（`t*.tex`，`fb*.tex`，`tcb/`，`span/`，`split/`，`mc/`，`box/`）を並列に組み，
   Overfull，エラー，`blockcheck.py`の結果と，`mc/mkcheck.py`による柱を調べる
 - `samplecheck.sh`：マニュアルの見本を今の版で組み，コミット済みのPDFと語の位置を比べる

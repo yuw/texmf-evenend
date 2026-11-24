@@ -63,31 +63,39 @@ theorem bisect_steps (ok : Nat → Bool) (fuel : Nat) :
           omega
     · simp [hw]
 
-/-- 調べ直し：`h1`の4下から`h1`まで，最初に`ok`が成り立つ高さ． -/
-def scan (ok : Nat → Bool) (h1 : Nat) : Nat :=
-  if ok (h1 - 4) then h1 - 4
-  else if ok (h1 - 3) then h1 - 3
-  else if ok (h1 - 2) then h1 - 2
-  else if ok (h1 - 1) then h1 - 1
-  else h1
+/-- `h`から1ずつ上げて`n`個の高さを調べ，最初に`ok`が成り立つ高さを返す．なければ`h1`． -/
+def scanFrom (ok : Nat → Bool) (h1 : Nat) : Nat → Nat → Nat
+  | 0, _ => h1
+  | n + 1, h => if ok h then h else scanFrom ok h1 n (h + 1)
 
-theorem scan_ok (ok : Nat → Bool) (h1 : Nat) (h : ok h1 = true) :
-    ok (scan ok h1) = true ∧ scan ok h1 ≤ h1 := by
-  unfold scan
-  split
-  · exact ⟨by assumption, by omega⟩
-  · split
+/-- 調べ直し：`h1`の4下（下界`h0`より下になるなら`h0`）から`h1`まで，最初に`ok`が成り立つ高さ．
+下界より下は調べない． -/
+def scan (ok : Nat → Bool) (h0 h1 : Nat) : Nat :=
+  scanFrom ok h1 (h1 + 1 - max h0 (h1 - 4)) (max h0 (h1 - 4))
+
+theorem scanFrom_ok (ok : Nat → Bool) (h1 : Nat) (hh : ok h1 = true) :
+    ∀ (n h : Nat), (n ≠ 0 → h + n ≤ h1 + 1) →
+      ok (scanFrom ok h1 n h) = true ∧ scanFrom ok h1 n h ≤ h1 := by
+  intro n
+  induction n with
+  | zero => intro h _; exact ⟨hh, Nat.le_refl _⟩
+  | succ n ih =>
+    intro h hb
+    have hb' := hb (by omega)
+    unfold scanFrom
+    split
     · exact ⟨by assumption, by omega⟩
-    · split
-      · exact ⟨by assumption, by omega⟩
-      · split
-        · exact ⟨by assumption, by omega⟩
-        · exact ⟨h, Nat.le_refl _⟩
+    · exact ih (h + 1) (fun _ => by omega)
+
+theorem scan_ok (ok : Nat → Bool) (h0 h1 : Nat) (h : ok h1 = true) :
+    ok (scan ok h0 h1) = true ∧ scan ok h0 h1 ≤ h1 := by
+  unfold scan
+  exact scanFrom_ok ok h1 h _ _ (fun _ => by omega)
 
 /-- 補題の手順：`Fill(σ, H)`が失敗すれば「入り切らない」（`none`）．成功すれば，下界`h0`から
 二分法で狭め，調べ直して`h(σ)`を返す． -/
 def minH (ok : Nat → Bool) (h0 H : Nat) : Option Nat :=
-  if ok H then some (scan ok (bisect ok (H - h0) h0 H).1) else none
+  if ok H then some (scan ok h0 (bisect ok (H - h0) h0 H).1) else none
 
 /-- 補題：返した高さでは`Fill`が成功し，`H`以下である． -/
 theorem minH_spec (ok : Nat → Bool) (h0 H r : Nat) (h : minH ok h0 H = some r) :
@@ -96,7 +104,7 @@ theorem minH_spec (ok : Nat → Bool) (h0 H r : Nat) (h : minH ok h0 H = some r)
   by_cases hH : ok H = true
   · simp only [hH, ite_true, Option.some.injEq] at h
     have hb := bisect_ok ok (H - h0) h0 H hH
-    have hs := scan_ok ok _ hb.1
+    have hs := scan_ok ok h0 _ hb.1
     subst h
     exact ⟨hs.1, by omega⟩
   · simp [hH] at h

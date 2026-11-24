@@ -113,4 +113,12 @@ example : spanOk 3 [⟨true, 1, 2⟩, ⟨true, 2, 2⟩] = false ∧
     spanOk 3 [⟨true, 1, 2⟩, ⟨true, 1, 2⟩] = true ∧
     spanOk 3 [⟨true, 2, 3⟩] = false := by decide
 
+/-- 割り振り`σ`から，段をまたぐフロートの置き方の並びを作る．`geom`は，各フロートについて，
+段をまたぐものなら（上か，またがる段数）を，そうでなければ`none`を与える．左端の段は，
+割り振りが決める． -/
+def placements : List (Option (Bool × Nat)) → List Nat → List Sp
+  | some (top, w) :: gs, c :: σ => ⟨top, c, w⟩ :: placements gs σ
+  | none :: gs, _ :: σ => placements gs σ
+  | _, _ => []
+
 end Evenend.Span

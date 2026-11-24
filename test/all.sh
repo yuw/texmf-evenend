@@ -14,10 +14,11 @@ echo "== suite"
 echo "== fixed"
 ./fixed.sh > "$r/fixed.txt" 2>&1; grep -v 'of=0 err=0 blocks: [0-9]*, problems: 0$' "$r/fixed.txt"
 # モデル（lean/）と実装・TeXの照らし合わせ：原始機能の格子の試験と，上で組んだログの
-# 判断の記録の再生（Leanの作業場所があるときだけ）
+# 判断の記録の再生，実装の純粋な計算の格子の試験（後の2つはLeanの作業場所があるときだけ）
 echo "== model"
 model/run.sh > "$r/model.txt" 2>&1; cat "$r/model.txt"
 if [ -d "${LEAN_WS:-$HOME/lean/mathlib-ws}" ]; then
   model/replay.sh > "$r/replay.txt" 2>&1; cat "$r/replay.txt"
-else echo "replay: Leanの作業場所がないので省いた"; fi
+  model/pure.sh > "$r/pure.txt" 2>&1; cat "$r/pure.txt"
+else echo "replay，pure: Leanの作業場所がないので省いた"; fi
 echo "所要 $(( ($(date +%s) - start) / 60 ))分"

@@ -17,15 +17,6 @@ namespace Evenend.Link
 /-! ### 1. 段をまたぐフロートの判定を，候補の列挙に代入する -/
 
 open Evenend.Enum Evenend.Span in
-/-- 割り振り`σ`から，段をまたぐフロートの置き方の並びを作る．`geom`は，各フロートについて，
-段をまたぐものなら（上か，またがる段数）を，そうでなければ`none`を与える．左端の段は，
-割り振りが決める． -/
-def placements : List (Option (Bool × Nat)) → List Nat → List Sp
-  | some (top, w) :: gs, c :: σ => ⟨top, c, w⟩ :: placements gs σ
-  | none :: gs, _ :: σ => placements gs σ
-  | _, _ => []
-
-open Evenend.Enum Evenend.Span in
 /-- 手順1の候補（判定を代入したもの）：どれも割り振りの条件を満たし，段をまたぐフロートは
 どれも段`N`を越えず，どの2つも両立する（同じ位置で同じ段にかかるなら，同じ段から同じ段数に
 またがる）． -/

@@ -43,9 +43,11 @@ lean/check.sh
 | `grid/GridGlue.lean` | `Glue.lean`のモデルの期待値を，格子状の入力（箱とグルーの並び，箱の高さ）について書き出す |
 | `grid/GridLines.lean` | `Layout.lean`のモデルの期待値を，格子状の入力（行の高さと深さの並び）について書き出す |
 | `grid/RunReplay.lean` | 実装がログに書いた判断の記録を読み，モデルの関数の結果と比べる |
+| `grid/GridPure.lean` | 候補の列挙，候補を選ぶ規則，揃わない配分の判定，下端の決め方，高さを探す手順の結果を，小さな範囲の入力のすべてについて書き出す |
 
 `check.sh`は，`grid/GridGlue.lean`と`grid/GridLines.lean`を動かして，期待値を`expect/`に書き直す．
-TeXの実測と比べるのは`test/model/run.sh`，判断の記録を再生するのは`test/model/replay.sh`．
+TeXの実測と比べるのは`test/model/run.sh`，判断の記録を再生するのは`test/model/replay.sh`，
+実装の純粋な計算（`evenend.lua`の`M.pure`）と比べるのは`test/model/pure.sh`．
 モデルを変えて期待値が変わったら，`expect/`の差分に出る．
 
 ## 確かめていること，いないこと

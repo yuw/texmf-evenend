@@ -182,6 +182,151 @@ local function is_blank_line(n)
   return true
 end
 
+-- TeXの状態に触れない計算．定式化のモデル（lean/）の関数と，小さな入力のすべてで比べられる
+-- ように，ここに分けて置く（test/model/pure.lua）．M.pureとして外からも呼べる
+local P = {}
+M.pure = P
+
+-- 割り振りごとの高さを探す：feasible(h)は「段の高さhで入り切るか」．段の高さcolhtで
+-- 入り切らなければnil．入り切れば，下界loから二分法で狭め，少し下から探し直す
+-- （入り切るかどうかは高さについて単調とは限らない）
+function P.min_h(feasible, lo, colht, step)
+  if not feasible(colht) then return nil end
+  local a, b = lo, colht  -- bでは入り切る
+  while b - a > step do
+    local m = math.floor((a + b) / 2)
+    if feasible(m) then b = m else a = m end
+  end
+  for h = math.max(lo, b - 4 * step), b, step do
+    if feasible(h) then return h end
+  end
+  return b
+end
+
+-- フロートの割り振りの候補を挙げる．F[j]は，置かれていた段orig，またがる段数span（段を
+-- またがなければnil），持ち越されたものかdeferred，置ける位置cantop，canbot，位置pos．
+-- pfixedはページを組み直すとき（候補を挙げない）
+function P.assigns(F, N, pfixed)
+  local assigns = {}
+  local function enum(j, minc, cur, fixed)
+    if #assigns > 256 then return end
+    if j > #F then
+      assigns[#assigns + 1] = { table.unpack(cur, 1, #F) }
+      return
+    end
+    local f = F[j]
+    local from = math.max(minc, math.min(f.orig, N))
+    local to = (fixed and not f.deferred) and from or N
+    if fixed and not f.deferred and math.min(f.orig, N) < minc then return end
+    -- 段をまたぐフロート：置かれた段に固定する（持ち越されたものは，右端を越えない段）
+    if f.span then
+      if f.deferred then
+        -- 持ち越されたもの：上（正）か下（負）．右端を越えない段
+        from, to = math.max(minc, 1), N - f.span + 1
+        for c = from, to do
+          if f.cantop or not f.canbot then cur[j] = c enum(j + 1, c, cur, fixed) end
+          if f.canbot then cur[j] = -c enum(j + 1, c, cur, fixed) end
+        end
+        return
+      else
+        if f.orig < minc then return end
+        from, to = f.orig, f.orig
+      end
+    end
+    for c = from, to do
+      cur[j] = c
+      enum(j + 1, c, cur, fixed)
+    end
+  end
+  if not pfixed then enum(1, 1, {}, false) end
+  if #assigns > 64 then
+    assigns = {}
+    enum(1, 1, {}, true)
+  end
+  -- 段をまたぐフロートが，同じ位置（上か下）で同じ段にかからないか
+  local function span_ok(a)
+    local cover = { top = {}, bot = {} }
+    for j, f in ipairs(F) do
+      if f.span then
+        -- 同じ段から同じ段数にまたがるものどうしは積み重ねてよい（またがる段の
+        -- あいだで並びが同じになる）
+        local pos = f.pos
+        if f.deferred then pos = a[j] < 0 and 'bot' or 'top' end
+        local c0 = math.abs(a[j])
+        local key = c0 .. ':' .. f.span
+        for c = c0, c0 + f.span - 1 do
+          if c > N or (cover[pos][c] and cover[pos][c] ~= key) then return false end
+          cover[pos][c] = key
+        end
+      end
+    end
+    return true
+  end
+  do
+    local ok = {}
+    for _, a in ipairs(assigns) do if span_ok(a) then ok[#ok + 1] = a end end
+    assigns = ok
+  end
+  return assigns
+end
+
+-- 候補を選ぶ：今の最良（高さbesth，動かす量bestmoves）を，候補（hh，moves）で置き換えるか．
+-- フロートを元の段から動かすのは，段の高さが1行（gain）以上低くなるときだけにする
+-- （差が1行未満なら，動かすフロートの少ない割り振りを選ぶ）
+function P.better(besth, bestmoves, hh, moves, gain, step)
+  return (moves <= bestmoves and hh < besth + gain - step / 2
+          and (hh < besth - step / 2 or moves < bestmoves))
+    or (moves > bestmoves and hh < besth - gain + step / 2)
+end
+
+-- 下端がそろわない配分か：最右段が他のどの段よりも高い，または，本文だけの満杯の段より
+-- 高い段があって，フロートまわりのグルーの縮みでも吸収できない．
+-- v[i]は見かけの下端，shr[i]はグルーの縮み，textonly[i]は本文だけの段か（最右段のほか），
+-- hastext[i]は本文があるか，content[i]は中身があるか．blskipは行送り，epsは比較の余裕
+function P.misaligned(N, v, shr, textonly, hastext, content, blskip, eps)
+  if N < 2 then return false end
+  local m, textvis = 0, nil
+  for i = 1, N - 1 do
+    m = math.max(m, v[i])
+    if textonly[i] then textvis = math.max(textvis or 0, v[i]) end
+  end
+  if v[N] > m + eps then return true end
+  -- 途中の段（後ろに中身のある段がある）が本文だけの満杯の段より明らかに短い
+  if textvis then
+    for i = 1, N - 1 do
+      local later = false
+      for k = i + 1, N do if content[k] then later = true end end
+      if later and hastext[i] and v[i] < textvis - blskip / 2 then return true end
+    end
+    for i = 1, N do
+      if v[i] - shr[i] > textvis + eps then return true end
+    end
+  end
+  return false
+end
+
+-- 下端を決める：見かけの下端の最大値にそろえる．本文だけの満杯の段があれば，行の位置が
+-- そろうようにその段を基準にし，フロートのある段はフロートまわりのグルーの縮みで吸収する．
+-- 決めた下端と，本文だけの段の下端（なければnil）を返す
+function P.bottom(N, v, shr, textonly)
+  local maxvis, textvis = 0, nil
+  for i = 1, N do
+    if v[i] > maxvis then maxvis = v[i] end
+    if i < N and textonly[i] then
+      if not textvis or v[i] > textvis then textvis = v[i] end
+    end
+  end
+  local bottom = maxvis
+  if textvis and textvis < maxvis then
+    local ok = true
+    for i = 1, N do
+      if v[i] - shr[i] > textvis then ok = false end
+    end
+    if ok then bottom = textvis end
+  end
+  return bottom, textvis
+end
+
 -- 定式化（doc/lualatex/evenend/evenend-theory-ja）のモデルが仮定することを，組むときに
 -- 確かめる（debugのときだけ．組版の結果は変えない）．合わないときは，ログに
 -- 「evenend: model violation: …」と書く．文書の終わりに，確かめた回数を書く
@@ -287,6 +432,7 @@ function MC.after(boxno, chunk, before, sts)
 end
 function MC.split(boxno, t)
   if not M.debug then return tex.splitbox(boxno, t, 'exactly') end
+  MC.on()
   local before, sts = MC.try(MC.before, boxno)
   local chunk = tex.splitbox(boxno, t, 'exactly')
   if before then MC.try(MC.after, boxno, chunk, before, sts) end
@@ -318,7 +464,7 @@ function MC.layout1(text, res, N)
   end
 end
 function MC.layout(text, res, N)
-  if M.debug then MC.try(MC.layout1, text, res, N) end
+  if M.debug then MC.on(); MC.try(MC.layout1, text, res, N) end
 end
 function MC.vpack1(b, target)
   -- 自然な高さ（最後の箱の深さは箱の深さになる），伸びと縮みの和（次数ごと）
@@ -365,20 +511,25 @@ function MC.vpack1(b, target)
 end
 function MC.vpack(head, target)
   local b, badness = vpack(head, target, 'exactly')
-  if M.debug then MC.try(MC.vpack1, b, target) end
+  if M.debug then MC.on(); MC.try(MC.vpack1, b, target) end
   return b, badness
 end
 M.modelcheck = MC  -- 試験（test/model）から使う
 -- 確かめた回数は，PDFを閉じる直前に書く（stop_runに登録すると，TeXの終わりの知らせ
--- 「Output written on …」を置き換えてしまう）
-luatexbase.add_to_callback('finish_pdffile', function()
-  if M.debug then
-    texio.write_nl('log', string.format(
-      'evenend: model checks: vsplit=%d layout=%d vpack=%d (skipped %d) violations=%d',
-      MC.n.vsplit, MC.n.layout, MC.n.vpack, MC.n.skipped, MC.n.bad))
-    texio.write_nl('log', '')  -- この後に続く埋め込んだフォントの一覧と行を分ける
-  end
-end, 'evenend.modelcheck')
+-- 「Output written on …」を置き換えてしまう）．debugで検査が初めて動いたときに登録する
+-- （debugでない文書では登録しない．登録すると，luatexbaseがログに1行書く）
+function MC.on()
+  if MC.registered then return end
+  MC.registered = true
+  luatexbase.add_to_callback('finish_pdffile', function()
+    do
+      texio.write_nl('log', string.format(
+        'evenend: model checks: vsplit=%d layout=%d vpack=%d (skipped %d) violations=%d',
+        MC.n.vsplit, MC.n.layout, MC.n.vpack, MC.n.skipped, MC.n.bad))
+      texio.write_nl('log', '')  -- この後に続く埋め込んだフォントの一覧と行を分ける
+    end
+  end, 'evenend.modelcheck')
+end
 
 -- 段の末尾の見えない行を取り除く．行の中のwhatsit（マークやリンクの印など）は
 -- 捨てずに垂直リストへ移し，行の前の行間のグルーも取り除く．見えない行が段の
@@ -2199,83 +2350,14 @@ function M.balance(p)
       if r then free_res(r) return true end
       return false
     end
-    if not feasible(colht) then return nil end
-    local a, b = lo, colht  -- bでは入り切る
-    while b - a > step do
-      local m = math.floor((a + b) / 2)
-      if feasible(m) then b = m else a = m end
-    end
-    -- 入り切るかどうかは高さについて単調とは限らないので，少し下から探し直す
-    for h = math.max(lo, b - 4 * step), b, step do
-      if feasible(h) then return h end
-    end
-    return b
+    return P.min_h(feasible, lo, colht, step)
   end
 
   -- フロートの割り振りの候補：番号順を保ち（後のフロートは前のフロートと同じか
   -- 後の段），段に置かれていたフロートは元の段かそれより後の段へ．持ち越された
   -- フロートはどの段でもよい．候補が多すぎるときは，段に置かれていたフロートを
   -- 動かさない
-  local assigns = {}
-  local function enum(j, minc, cur, fixed)
-    if #assigns > 256 then return end
-    if j > #F then
-      assigns[#assigns + 1] = { table.unpack(cur, 1, #F) }
-      return
-    end
-    local f = F[j]
-    local from = math.max(minc, math.min(f.orig, N))
-    local to = (fixed and not f.deferred) and from or N
-    if fixed and not f.deferred and math.min(f.orig, N) < minc then return end
-    -- 段をまたぐフロート：置かれた段に固定する（持ち越されたものは，右端を越えない段）
-    if f.span then
-      if f.deferred then
-        -- 持ち越されたもの：上（正）か下（負）．右端を越えない段
-        from, to = math.max(minc, 1), N - f.span + 1
-        for c = from, to do
-          if f.cantop or not f.canbot then cur[j] = c enum(j + 1, c, cur, fixed) end
-          if f.canbot then cur[j] = -c enum(j + 1, c, cur, fixed) end
-        end
-        return
-      else
-        if f.orig < minc then return end
-        from, to = f.orig, f.orig
-      end
-    end
-    for c = from, to do
-      cur[j] = c
-      enum(j + 1, c, cur, fixed)
-    end
-  end
-  if not p.fixed then enum(1, 1, {}, false) end
-  if #assigns > 64 then
-    assigns = {}
-    enum(1, 1, {}, true)
-  end
-  -- 段をまたぐフロートが，同じ位置（上か下）で同じ段にかからないか
-  local function span_ok(a)
-    local cover = { top = {}, bot = {} }
-    for j, f in ipairs(F) do
-      if f.span then
-        -- 同じ段から同じ段数にまたがるものどうしは積み重ねてよい（またがる段の
-        -- あいだで並びが同じになる）
-        local pos = f.pos
-        if f.deferred then pos = a[j] < 0 and 'bot' or 'top' end
-        local c0 = math.abs(a[j])
-        local key = c0 .. ':' .. f.span
-        for c = c0, c0 + f.span - 1 do
-          if c > N or (cover[pos][c] and cover[pos][c] ~= key) then return false end
-          cover[pos][c] = key
-        end
-      end
-    end
-    return true
-  end
-  do
-    local ok = {}
-    for _, a in ipairs(assigns) do if span_ok(a) then ok[#ok + 1] = a end end
-    assigns = ok
-  end
+  local assigns = P.assigns(F, N, p.fixed)
   local best, besth, bestmoves
   -- 判断の記録（debugのとき，ログに「evenend: decision …;」と書く．test/model/replay.shが，
   -- lean/のモデルの関数で同じ入力から結果を求めて比べる）
@@ -2292,9 +2374,7 @@ function M.balance(p)
       -- フロートを元の段から動かすのは，段の高さが1行以上低くなるときだけにする
       -- （差が1行未満なら，動かすフロートの少ない割り振りを選ぶ）
       local gain = math.max(p.blskip, step)
-      if not besth
-         or (moves <= bestmoves and hh < besth + gain - step / 2 and (hh < besth - step / 2 or moves < bestmoves))
-         or (moves > bestmoves and hh < besth - gain + step / 2) then
+      if not besth or P.better(besth, bestmoves, hh, moves, gain, step) then
         best, besth, bestmoves = a, hh, moves
         decbest = #dec + 1
       end
@@ -2492,45 +2572,25 @@ function M.balance(p)
   end
   -- 下端がそろわない配分か：最右段が他のどの段よりも高い，または，本文だけの
   -- 満杯の段より高い段があって，フロートまわりのグルーの縮みでも吸収できない
-  local function misaligned0(res, nat, over)
-    if N < 2 then return false end
-    local m, textvis = 0, nil
-    for i = 1, N - 1 do
-      local v = nat[i] + over[i]
-      m = math.max(m, v)
-      if fl_top[i] + fl_bot[i] == 0 and res[i].list then
-        textvis = math.max(textvis or 0, v)
-      end
-    end
-    if nat[N] + over[N] > m + 655 then return true end  -- 0.01pt
-    -- 途中の段（後ろに中身のある段がある）が本文だけの満杯の段より明らかに短い
-    if textvis then
-      for i = 1, N - 1 do
-        local later = false
-        for k = i + 1, N do if res[k].ht > 0 or #tops[k] + #bots[k] > 0 then later = true end end
-        if later and res[i].ht > 0 and nat[i] + over[i] < textvis - p.blskip / 2 then
-          return true
-        end
-      end
-    end
-    if textvis then
-      for i = 1, N do
-        if nat[i] + over[i] - fl_shrink[i] > textvis + 655 then return true end
-      end
-    end
-    return false
-  end
   local function misaligned(res, nat, over)
-    local r = misaligned0(res, nat, over)
-    -- 揃わない配分の判定：行送り，比較の余裕，判定，段ごとの「見かけの下端:グルーの縮み:
-    -- 本文だけの段か:本文があるか:中身があるか」（最後が最右段）
-    if M.debug and N >= 2 then
+    if N < 2 then return false end
+    -- 段ごとの，見かけの下端，フロートまわりのグルーの縮み，本文だけの段か（最右段のほか），
+    -- 本文があるか，中身（本文かフロート）があるか
+    local v, shr, textonly, hastext, content = {}, {}, {}, {}, {}
+    for i = 1, N do
+      v[i], shr[i] = nat[i] + over[i], fl_shrink[i] or 0
+      textonly[i] = i < N and fl_top[i] + fl_bot[i] == 0 and res[i].list and true or false
+      hastext[i] = res[i].ht > 0
+      content[i] = res[i].ht > 0 or #tops[i] + #bots[i] > 0
+    end
+    local r = P.misaligned(N, v, shr, textonly, hastext, content, p.blskip, 655)
+    -- 判断の記録：行送り，比較の余裕，判定，段ごとの「見かけの下端:グルーの縮み:本文だけの
+    -- 段か:本文があるか:中身があるか」（最後が最右段）
+    if M.debug then
       local t = {}
       for i = 1, N do
-        t[i] = string.format('%.0f:%.0f:%d:%d:%d', nat[i] + over[i], fl_shrink[i] or 0,
-          (i < N and fl_top[i] + fl_bot[i] == 0 and res[i].list) and 1 or 0,
-          res[i].ht > 0 and 1 or 0,
-          (res[i].ht > 0 or #tops[i] + #bots[i] > 0) and 1 or 0)
+        t[i] = string.format('%.0f:%.0f:%d:%d:%d', v[i], shr[i], textonly[i] and 1 or 0,
+          hastext[i] and 1 or 0, content[i] and 1 or 0)
       end
       info('decision mis %.0f 655 %d %s;', p.blskip, r and 1 or 0, table.concat(t, ' '))
     end
@@ -2564,21 +2624,14 @@ function M.balance(p)
   -- 見かけの下端の最大値にそろえる．本文だけの満杯の段があれば，行の位置が
   -- そろうようにその段を基準にし，フロートのある段はフロートまわりのグルーの
   -- 縮みで吸収する
-  local maxvis, textvis = 0, nil
-  for i = 1, N do
-    local v = nat[i] + over[i]
-    if v > maxvis then maxvis = v end
-    if i < N and fl_top[i] + fl_bot[i] == 0 and res[i].list then
-      if not textvis or v > textvis then textvis = v end
-    end
-  end
-  local bottom = maxvis
-  if textvis and textvis < maxvis then
-    local ok = true
+  local bottom, textvis
+  do
+    local v, shr, textonly = {}, {}, {}
     for i = 1, N do
-      if nat[i] + over[i] - fl_shrink[i] > textvis then ok = false end
+      v[i], shr[i] = nat[i] + over[i], fl_shrink[i] or 0
+      textonly[i] = i < N and fl_top[i] + fl_bot[i] == 0 and res[i].list and true or false
     end
-    if ok then bottom = textvis end
+    bottom, textvis = P.bottom(N, v, shr, textonly)
   end
   -- 下端を決める：本文だけの段の下端（なければ-），決めた下端，段ごとの「見かけの下端:
   -- グルーの縮み」

@@ -59,7 +59,7 @@ evenendの回帰試験を速く確実に流すための覚え書き．使い方�
 ## モデルとの照らし合わせ
 
 定式化（`doc/lualatex/evenend/evenend-theory-ja`）のモデルが，実装とTeXの動作に合っているかを
-確かめる仕組みが3つある．どれも乱数に頼らない．`all.sh`の最後に流れる．
+確かめる仕組みが4つある．どれも乱数に頼らない．`all.sh`の最後に流れる．
 
 - **仮定の検査**：`debug`のとき，`evenend.lua`（`MC`）が，`\vsplit`の性質，配置の(P2)，箱のグルーの
   割り振りを，組むたびに確かめる．合わなければログに`evenend: model violation: …`と書き，文書の
@@ -70,6 +70,9 @@ evenendの回帰試験を速く確実に流すための覚え書き．使い方�
 - **判断の記録の再生**：`model/replay.sh`．`debug`のログの`evenend: decision …;`の行（候補を選ぶ，
   揃わない配分の判定，下端を決める）を集め，Leanの関数で同じ入力から結果を求めて比べる．
   Leanの作業場所（`~/lean/mathlib-ws`）が要る．
+- **純粋な計算の格子の試験**：`model/pure.sh`．`evenend.lua`の`M.pure`（候補の列挙，候補を選ぶ規則，
+  揃わない配分の判定，下端の決め方，高さを探す手順）を，Leanの関数と，小さな範囲の入力のすべてで
+  比べる．期待値はその場でLeanが書き出す（`lean/grid/GridPure.lean`）．Leanの作業場所が要る．
 
 気をつけること：
 
@@ -85,8 +88,11 @@ evenendの回帰試験を速く確実に流すための覚え書き．使い方�
   （「Output written on …」「No pages of output.」）が出なくなる（`debug`でない文書でも）．
   回数は`finish_pdffile`で書いている．乱数試験の空の文書（「No pages of output」で見分ける）が
   「PDFができない」と不合格になって気づいた．
-- 実装のモデルにかかわる部分（候補を選ぶ規則，判定，下端）を変えたら，`lean/`の関数と，判断の
-  記録の形（`decisions.py`，`lean/grid/RunReplay.lean`）も合わせて変える．
+- 実装のモデルにかかわる部分（`M.pure`の関数）を変えたら，`lean/`の関数と，判断の記録の形
+  （`decisions.py`，`lean/grid/RunReplay.lean`），格子（`lean/grid/GridPure.lean`，`model/pure.lua`）も
+  合わせて変える．TeXの状態に触れない計算は，`M.pure`に置く（局所関数の中に書くと比べられない）．
+- 格子の試験が合わないときは，実装とモデルのどちらが正しいかを先に決める（高さを探す手順の
+  調べ直しでは，モデルが下界より下まで調べていて，実装のほうが意図どおりだった）．
 
 ## 見本での確かめ
 
