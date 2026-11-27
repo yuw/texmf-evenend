@@ -1,7 +1,7 @@
 %% evenend-typography-ja.tex：evenendパッケージのタイポグラフィ編（マクロタイポグラフィの観点から，
 %% 紙面の構成として何をどう揃えるか）
-%% この文書自体をevenendで組んである（2段組を基本に，段数の切り換え，段をまたぐ図，箱の中の
-%% 段組などを使う．使っている所は，本文の「この文書の組み方」の箱に挙げてある）
+%% この文書自体をevenendで組んである（3段組を基本にし，段幅の要る表や見本のある節は2段，
+%% 幅の広い表は1段に切り換える．段をまたぐ図，段の脚注，箱の中の段組も使う）
 %% LuaLaTeXで3回組む（ページの参照が落ち着くまで）．見本（evenend-sample*.pdf）を先に
 %% 組んでおくこと
 
@@ -10,10 +10,17 @@
 \usepackage{array}
 \usepackage{tikz}
 \usepackage{tcolorbox}
-%% この文書自体をevenendで組む：2段，脚注は段の下端，段間罫あり．節の区切りでは段組の全体を
-%% 見出しの上アキの分だけ下げる
-%% 脚注は段の下端に置く（この編は，段の脚注を見せる）
-\usepackage[footnote=column,headingskip=block]{evenend}
+%% この文書自体をevenendで組む：3段，脚注は段の下端（この編は，段の脚注を見せる），段間罫あり．
+%% 節の区切りで段数を切り換えるときは，段組の全体を見出しの上アキの分だけ下げる
+\usepackage[columns=3,footnote=column,headingskip=block]{evenend}
+%% 3段は段間1字（段幅14字），2段は段間2字（段幅21字）
+\setlength\columnsep{1\zw}
+\newcommand\sandan{\evenendcolumns[columnsep=1\zw]{3}}
+\newcommand\nidan{\evenendcolumns[columnsep=2\zw]{2}}
+\newcommand\ichidan{\evenendcolumns{1}}
+%% 行末をそろえない（最後の1字と句点だけが次の行へ送られて，前の行の字間が開くのを避ける．
+%% 段落の終わりで使う）
+\newcommand\yurume{\rightskip=0pt plus 1fil\relax}
 
 \setlength\columnseprule{.25pt}
 %% 箇条書きの前後を空けない（既定の半行アキは，箇条書きの途中で段が改まると，次の段の行が
@@ -90,37 +97,57 @@
   %% 箱の中身が次の段組に重なる）
   \nobreak\nointerlineskip\vbox to\gyoulines\baselineskip{}}
 
-%% 設定の注記：組み方を変えた部分の最後に，その部分の設定を小さい字で記す．行送りは本文の
-%% ままにして，注記の行も行送りの位置に置く．\settei[見出し]{中身}（命令は\path|…|で書く）
-\newcommand\settei[2][この段組の設定]{\par
-  {\dimen0=\baselineskip \footnotesize \baselineskip=\dimen0\relax
-   \raggedright\parindent=0pt \noindent ［#1：#2］\par}}
-%% 図表の置き方の注記：キャプションの下に小さい字で記す
-\newcommand\setteifig[1]{\par{\centering\footnotesize ［#1］\par}}
 %% 表：字を小さくして中央に置く
 \newenvironment{hyou}{\begin{gyouhako}\centering\small}{\end{gyouhako}}
 %% 段幅の表のセル：左揃えにせず両側を揃え，行頭の字下げはしない
 \newcolumntype{P}[1]{>{\parindent0pt}p{#1}}
-%% 節の区切りで段組を改める（同じ段数のまま，そこまでの段組の下端を揃える）
-\newcommand\aratame{\evenendcolumns{2}}
 \newcommand\tybox[3]{\fill[black!50] (#1,#2) rectangle ++(20,#3);}
 
 \title{\pkg{evenend}パッケージの組版\\[.5\baselineskip]
   \large マクロタイポグラフィの観点から}
 \author{木枝祐介}
-\date{v20261126.0}
+\date{v20261127.0}
 
 \begin{document}
-\maketitle
+%% 題名：段抜きで大きく置く（3編で同じ体裁）
+\twocolumn[{%
+  \noindent\rule{\textwidth}{1.6pt}\par
+  \vspace{1.2\baselineskip}
+  \noindent{\fontsize{38}{46}\selectfont\sffamily\gtfamily\bfseries evenend}%
+  \hspace{1\zw}{\fontsize{22}{46}\selectfont\sffamily\gtfamily パッケージの組版}\par
+  \vspace{.9\baselineskip}
+  \noindent{\Large\sffamily\gtfamily マクロタイポグラフィの観点から}\hfill
+  {\large 木枝祐介\hspace{1\zw}v20261127.0}\par
+  \vspace{.5\baselineskip}
+  \noindent\rule{\textwidth}{.4pt}\par
+  \vspace{1.5\baselineskip}}]
 
 この文書では，evenendパッケージが組む紙面を，マクロタイポグラフィの観点から述べる．
 紙面の構成として何を揃え，何を揃えないか，揃えきれないときに何を優先するか，その判断を
-示す．\TeX{}の仕組みには立ち入らない．使い方はマニュアル（\texttt{evenend-ja.pdf}），
-手順とその性質の証明は定式化の文書（\texttt{evenend-theory-ja.pdf}）にある．
+示す．\TeX{}の仕組みには立ち入らない．使い方はマニュアル（\texttt{evenend-\allowbreak ja.pdf}），
+手順とその性質の証明は定式化の文書（\texttt{evenend-\allowbreak theory-\allowbreak ja.pdf}）にある．
 
-見本は，どれもA6判，8ptの\pkg{jlreq}で組み，図\ref{fig:span}のほかは同じ大きさで示す．横組だけを
-扱う\footnote{evenendは縦組に対応していない．\label{pg:fn1}}．「日本語組版処理の要件」（W3C，2020年8月11日版．
+見本は，どれもA6判，8ptの\pkg{jlreq}で組み，2段にまたがる図（図\ref{fig:nariyuki}，図\ref{fig:span}）のほかは同じ大きさで示す．横組だけを
+扱う\footnote{\yurume evenendは縦組に対応していない．}．「日本語組版処理の要件」（W3C，2020年8月11日版．
 以下，要件）の記述を引くときは，節の番号を添える．
+
+%% 図1（横の基準と縦の基準．2節で述べる）は，1ページ目の下に2段にまたがせて置く
+\begin{spanfigure}[b]{2}
+\gyou{%
+  \centering
+  \begin{tikzpicture}[x=1.5mm,y=-.375mm]
+    \foreach \i in {0,...,12} {\draw[black!45,line width=.2pt] (-3,{10+\i*12}) -- (47,{10+\i*12});}
+    \tylines{0}{10}{13}
+    \tylines{24}{10}{4}\tybox{24}{55}{43}\tylines{24}{118}{4}
+    \draw[<->,line width=.3pt] (0,-10) -- node[above,font=\footnotesize,inner sep=1.5pt] {段} (20,-10);
+    \draw[<->,line width=.3pt] (24,-10) -- node[above,font=\footnotesize,inner sep=1.5pt] {段} (44,-10);
+    \draw[<->,line width=.3pt] (50,10) -- (50,22);
+    \node[anchor=west,font=\footnotesize] at (51,16) {行送り};
+  \end{tikzpicture}
+  \caption{横の基準と縦の基準}
+  \label{fig:kijun}
+}
+\end{spanfigure}
 
 \section{マクロタイポグラフィとevenend}
 
@@ -143,13 +170,9 @@ evenendが手を加えるのは，前者だけである．本文の行は，ク�
 なる．evenendは，行送りの値には触れない．扱うのは，その行送りから決まる行の位置を，
 紙面の基準として守ることで，こちらはマクロタイポグラフィの側にある．
 
-\evenendcolumns{1}
-\subsection{マクロタイポグラフィの観点}\label{sec:kanten}
+\subsection{マクロタイポグラフィの観点}
 
 この文書では，evenendの判断を，次の観点に分けて述べる．
-
-\evenendsetup{blockskip=\baselineskip}
-\evenendcolumns[columnsep=1.5\zw,columnseprule=0pt]{3}
 \begin{itemize}
   \item 構造：版面を段に分け，行送りの位置を紙面の縦の基準にする（\ref{sec:structure}節）．
   \item 釣り合い：本文がページの途中で終わる段組で，左右の段の高さを揃える
@@ -163,13 +186,9 @@ evenendが手を加えるのは，前者だけである．本文の行は，ク�
   \item 一貫性：ページによって，同じ要素の位置と大きさが変わらないようにする
     （\ref{sec:consistency}節）．
 \end{itemize}
-\settei{見出しと前置きは\path|\evenendcolumns{1}|，箇条書きは
-  \path|\evenendsetup{blockskip=\baselineskip}|，
-  \path|\evenendcolumns[columnsep=1.5\zw,columnseprule=0pt]{3}|}
 
-\evenendsetup{blockskip=2\baselineskip}
-\evenendcolumns{1}
-\subsection{用語}\label{sec:yougo}
+\ichidan
+\subsection{用語}
 
 \begin{hyou}
   \begin{tabular}{P{.2\linewidth}P{.7\linewidth}}
@@ -194,33 +213,8 @@ evenendが手を加えるのは，前者だけである．本文の行は，ク�
     \hline
   \end{tabular}
 \end{hyou}
-\settei{\path|\evenendcolumns{1}|}
 
-%% この文書の組み方の案内：1段の段組に箱を置き，箱の中を2段に組む
-\evenendcolumns{1}
-\begin{tcolorbox}[title=この文書の組み方]
-\small
-この文書は，それ自体をevenendで組んである．組み方を変えた部分の設定は，それぞれの最後に
-小さい字で記した．文書の全体の設定は，文書の最後にある．組み方を変えた主な所は，次の
-とおりである．
-\setlength\columnsep{2\zw}\setlength\columnseprule{.25pt}%
-\begin{multicols}{2}
-\begin{itemize}
-  \item 段数の切り換え：\ref{sec:kanten}節（1段と3段），\ref{sec:yougo}節（1段），
-    \ref{sec:span}節（3段）．
-  \item 段をまたぐ図：図\ref{fig:span}．段抜きの図：図\ref{fig:nariyuki}など．
-  \item 箱の中の段組：この箱と，\ref{sec:hako}節の箱．
-  \columnbreak
-  \item 段の脚注：\pageref{pg:fn1}ページ，\pageref{pg:fn2}ページ，\pageref{pg:fn3}ページ．
-  \item 節ごとに改めた段組：\ref{sec:order}節から\ref{sec:priority}節まで．
-  \item 段間と段間罫を変えた段組：\ref{sec:nai}節．
-\end{itemize}
-\end{multicols}
-\settei[この箱の設定]{\path|\evenendcolumns{1}|の段組に置いた\pkg{tcolorbox}の中で
-  \path|\begin{multicols}{2}|．左の段は\path|\columnbreak|で改めた}
-\end{tcolorbox}
-
-\aratame
+\sandan
 \section{構造：版面，段，行送りの位置}\label{sec:structure}
 
 段組の紙面は，2つの基準でできている．
@@ -231,25 +225,6 @@ evenendが手を加えるのは，前者だけである．本文の行は，ク�
     設計で決まる行の位置に置くのが原則である（要件2.5.2）．
 \end{itemize}
 図\ref{fig:kijun}に，2段組の紙面の2つの基準を示す．横の線が行送りの位置である．
-
-\begin{figure}[ht]
-
-\gyou{%
-  \centering
-  \begin{tikzpicture}[x=1mm,y=-.25mm]
-    \foreach \i in {0,...,12} {\draw[black!45,line width=.2pt] (-3,{10+\i*12}) -- (47,{10+\i*12});}
-    \tylines{0}{10}{13}
-    \tylines{24}{10}{4}\tybox{24}{55}{43}\tylines{24}{118}{4}
-    \draw[<->,line width=.3pt] (0,-10) -- node[above,font=\footnotesize,inner sep=1.5pt] {段} (20,-10);
-    \draw[<->,line width=.3pt] (24,-10) -- node[above,font=\footnotesize,inner sep=1.5pt] {段} (44,-10);
-    \draw[<->,line width=.3pt] (50,10) -- (50,22);
-    \node[anchor=west,font=\footnotesize] at (51,16) {行送り};
-  \end{tikzpicture}
-  \caption{横の基準と縦の基準}
-  \label{fig:kijun}
-  \setteifig{\path|\begin{figure}[ht]|}
-}
-\end{figure}
 
 縦の基準は，本文のために決めた行送りを，紙面の全体に延ばしたものである．
 紙面の要素（本文の行，見出し，図表，脚注）は，この2つの基準に沿って置く．横の基準は，
@@ -270,6 +245,14 @@ evenendは，段の高さを決め直すときも，この2つの基準を動か
     満杯で，右の段は短いか，空になる．
   \item 揃える：各段の行数を平均にして，段の下端を揃える．
 \end{itemize}
+\begin{spanfigure}[b]{2}
+\gyou{%
+  \centering
+  \optpair[.44\linewidth]{enable-false}{なりゆき}{enable-true}{揃えたもの}
+  \caption{本文がページの途中で終わる段組}
+  \label{fig:nariyuki}
+}
+\end{spanfigure}
 なりゆきでは，本文の塊が版面の左に寄り，右下に大きな余白が残る．紙面の重さが片側に
 かたよる．横組の段組では，改ページなどの直前のページと最終ページで，各段の行数を揃え，
 割り切れないときは最も右の段の末尾を空ける（要件2.3.2，4.1.5）．横組では左右の釣り合いが
@@ -277,16 +260,6 @@ evenendは，段の高さを決め直すときも，この2つの基準を動か
 する．
 
 図\ref{fig:nariyuki}の左はなりゆき（\LaTeX{}の組み方），右は段の下端を揃えたものである．
-
-\begin{figure*}[t]
-\gyou{%
-  \centering
-  \optpair{enable-false}{なりゆき}{enable-true}{揃えたもの}
-  \caption{本文がページの途中で終わる段組}
-  \label{fig:nariyuki}
-  \setteifig{\path|\begin{figure*}[t]|．ほかの段抜きの図も同じ}
-}
-\end{figure*}
 
 揃えると，本文の塊は，版面の幅いっぱいの長方形になる．余白は，その下に1つにまとまる．
 段の高さは，本文が入り切る最小の高さにするので，下にまとまる余白は最も大きくなる．
@@ -311,6 +284,7 @@ evenendは，段の高さを決め直すときも，この2つの基準を動か
 \end{itemize}
 満杯のページは，版面の下端で段が揃っているので，そのままにする．
 
+\nidan
 \section{整列
 ：行の位置と，段の端}\label{sec:align}
 
@@ -358,7 +332,7 @@ evenendは，段の下端を揃えるために行間を伸び縮みさせない�
 
 図表そのものを行取りして，高さを行送りの倍数にしておけば（\pkg{gyoudori}など），どの
 ページでも行はずれない．evenendが行の位置を合わせるのは，evenendが組み直す段だけで
-ある\footnote{マニュアルの「フロートの前後の行の位置」の節．\label{pg:fn2}}．
+ある\footnote{マニュアルの「フロートの前後の行の位置」の節．}．
 
 \subsection{段の下端：どこを下端とみなすか}\label{sec:bottom}
 
@@ -407,7 +381,6 @@ evenendは，段の下端を揃えるために行間を伸び縮みさせない�
   \end{tikzpicture}
   \caption{見かけの下端}
   \label{fig:bottom}
-  \setteifig{\path|\begin{figure}[tb]|}
 }
 \end{figure}
 
@@ -428,16 +401,6 @@ evenendは，段の下端を揃えるために行間を伸び縮みさせない�
 \end{itemize}
 ボディーに合わせると，罫が行より上下に飛び出して見える．インク境界は，その行に実際にある字の
 輪郭から求める．
-
-%% 図（最終ページの脚注）は，6.1節の始まるページの上に置くために，ここに書く
-\begin{figure*}[t]
-\gyou{%
-  \centering
-  \optpair{footnote-page2}{版面の全幅で版面の下端}{footnote-column2}{段の下端}
-  \caption{最終ページの脚注}
-  \label{fig:footnote}
-}
-\end{figure*}
 
 \section{余白：アキをどこにまとめるか}\label{sec:space}
 
@@ -485,6 +448,15 @@ evenendは，段の下端を揃えるために行間を伸び縮みさせない�
     少ない．
 \end{itemize}
 
+\begin{figure*}[t]
+\gyou{%
+  \centering
+  \optpair{footnote-page2}{版面の全幅で版面の下端}{footnote-column2}{段の下端}
+  \caption{最終ページの脚注}
+  \label{fig:footnote}
+}
+\end{figure*}
+
 最終ページでは，次のようにする．
 \begin{itemize}
   \item 版面の下端に置く脚注は，本文がページの途中で終わっても，版面の下端から動かさ
@@ -498,12 +470,14 @@ evenendは，段の下端を揃えるために行間を伸び縮みさせない�
     位置は動かさない．
 \end{itemize}
 
-\subsection{段の中の図表}\label{sec:colfloat}
+%% 6.2節と6.3節は3段（段をまたぐ図を置く）
+\sandan
+\subsection{段の中の図表}
 
 段幅の図表は，段の上か下に置くのが基本である．段の端に付ければ，本文の流れを途中で
 切らず，図表の端が段の端と揃う．揃える段組では，次のようにする．
 \begin{itemize}
-  \item 図表の番号の順は変えない．
+  \item {\yurume 図表の番号の順は変えない．\par}
   \item 図表を置く段は，揃えたときの段の高さが最も小さくなるように選び直す．なりゆきの
     組みで置かれた段より前の段へは動かさない．高さが同じなら，動かす図表の少ない置き方に
     する．
@@ -514,8 +488,6 @@ evenendは，段の下端を揃えるために行間を伸び縮みさせない�
 図表を動かすのは，段の高さを小さくするためで，参照する箇所との前後は見ていない．参照より
 前に図表が来ては困る文書では，置く位置の指定で調整する．
 
-%% 6.3節を3段に組む（段をまたぐ図を置くため）
-\evenendcolumns[columnsep=1.5\zw]{3}
 \subsection{段抜きの図表と，段をまたぐ図表}\label{sec:span}
 
 \begin{spanfigure}[b]{2}
@@ -528,7 +500,6 @@ evenendは，段の下端を揃えるために行間を伸び縮みさせない�
   \end{tabular}
   \caption{3段組で2段にまたがる図}
   \label{fig:span}
-  \setteifig{\path|\begin{spanfigure}[b]{2}|}
 }
 \end{spanfigure}
 
@@ -547,15 +518,13 @@ evenendは，段の下端を揃えるために行間を伸び縮みさせない�
     ない．
 \end{itemize}
 
-\settei{\path|\evenendcolumns[columnsep=1.5\zw]{3}|}
-
-\evenendcolumns{2}
-\subsection{箱の中の段組}\label{sec:hako}
+\nidan
+\subsection{箱の中の段組}
 
 枠で囲んだ箱や図表の中でも，段組を組める（図\ref{fig:box}）．箱は，紙面の中のもう1つの
 小さな版面にあたる．箱の幅を段数と段間で分け，箱の中の行送りで組み，各段の下端を揃える．
 箱の中の行は，箱の外の行送りの位置とは別に並ぶ\footnote{箱の中だけ字の大きさを変えることが
-多い．\label{pg:fn3}}．箱の中の段組は，段をまたいで次のページへは続かない．
+多い．}．箱の中の段組は，段をまたいで次のページへは続かない．
 
 \begin{figure*}[t]
 \gyou{%
@@ -574,7 +543,6 @@ evenendは，段の下端を揃えるために行間を伸び縮みさせない�
 箱は，紙面の中のもう1つの小さな版面にあたる．箱の幅を段数と段間で分け，箱の中の行送りで
 組み，各段の下端を揃える．箱の中の行は，箱の外の行送りの位置とは別に並ぶ．
 \end{multicols}
-\settei[この箱の設定]{段の中の\pkg{tcolorbox}の中で\path|\begin{multicols}{2}|}
 \end{tcolorbox}
 \end{gyouhako}
 
@@ -628,7 +596,7 @@ evenendは，段の下端を揃えるために行間を伸び縮みさせない�
 決まった高さ（\opt{blockmin}．既定は5行分）より小さければ，そこで改ページし，次の
 ページから新しい段数で組む．
 
-\subsection{段間と段間罫}\label{sec:dankan}
+\subsection{段間と段間罫}
 
 段間と段間罫の太さは，段組ごとに決められる．段数を増やして行長が短くなる段組では，段間を
 狭くする，といった使い方ができる．段幅は，版面の幅から段間を除いて段数で割った幅になる
@@ -644,7 +612,7 @@ evenendは，段の下端を揃えるために行間を伸び縮みさせない�
 脚注は，版面の下端に置く組みでは，そのページのどの段組の脚注もまとめて版面の下端に置く．
 段の下端に置く組みでは，参照する箇所のある段組の，その段の下端に置く．
 
-\aratame
+\sandan
 \section{読む順序}\label{sec:order}
 
 段組の紙面は，段を上から下へ読み，次の段の上端へ移る．段組を積んだページでは，上の
@@ -664,9 +632,6 @@ evenendは，段の下端を揃えるために行間を伸び縮みさせない�
     段へ移っても，柱は揃えた後の紙面のとおりになる．
 \end{itemize}
 
-\settei{\path|\evenendcolumns{2}|（節の始まりで段組を改めた）}
-
-\aratame
 \section{一貫性}\label{sec:consistency}
 
 同じ要素は，どのページでも同じ位置に，同じ大きさで現れるのがよい．揃えるページだけが
@@ -679,9 +644,6 @@ evenendは，段の下端を揃えるために行間を伸び縮みさせない�
   \item 段組と段組の間のアキ．同じ設定なら，どの切り換えでも同じ大きさになる．
 \end{itemize}
 
-\settei{\path|\evenendcolumns{2}|（節の始まりで段組を改めた）}
-
-\aratame
 \section{優先する順}\label{sec:priority}
 
 すべてを同時に満たせないとき，evenendは次の順に守る．下にあるものほど先に譲る．
@@ -704,10 +666,8 @@ evenendは，段の下端を揃えるために行間を伸び縮みさせない�
 分けられない材料が段の境に来て，行の位置を保ったままでは下端が合わないときは，その段の
 下を空ける．アキを行間に散らして下端を合わせることはしない．
 
-\settei{\path|\evenendcolumns{2}|（節の始まりで段組を改めた）}
-
-\evenendcolumns{1}
-\section{体裁の判断と設定}\label{sec:settings}
+\ichidan
+\section{体裁の判断と設定}
 
 \begin{hyou}
   \begin{tabular}{@{}P{.3\linewidth}P{.32\linewidth}P{.32\linewidth}@{}}
@@ -732,11 +692,9 @@ evenendは，段の下端を揃えるために行間を伸び縮みさせない�
     \hline
   \end{tabular}
 \end{hyou}
-\settei{\path|\evenendcolumns{1}|}
 
-%% 最後の段組は，段間を3字，段間罫を0.8ptにする
-\evenendcolumns[columnsep=3\zw,columnseprule=.8pt]{2}
-\section{扱わないこと}\label{sec:nai}
+\sandan
+\section{扱わないこと}
 
 \begin{itemize}
   \item マイクロタイポグラフィ．行の中の字の並び，字間，約物の前後のアキ，行をどこで
@@ -754,10 +712,5 @@ evenendは，段の下端を揃えるために行間を伸び縮みさせない�
   \item 満杯のページ．段の下端は版面の下端で揃っているので，組み直さない（脚注を版面の
     全幅で置く組みでは，脚注の領域を除いた高さの段に組み直す）．
 \end{itemize}
-\settei{\path|\evenendcolumns[columnsep=3\zw,columnseprule=.8pt]{2}|}
-\settei[文書の全体の設定]{\path|\documentclass[twocolumn,paper=a4,fontsize=10pt]{jlreq}|，
-  \path|\usepackage[footnote=column,headingskip=block]{evenend}|，
-  \path|\setlength\columnseprule{.25pt}|．注記のない区間は，この設定の2段組である}
-\label{pg:last}
 
 \end{document}

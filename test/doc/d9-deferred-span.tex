@@ -1,0 +1,16 @@
+%% 3段の段組で，段をまたぐ図が次のページへ持ち越され，フロートだけの段になる（揃えた段組）：
+%% 図の上（図がまたぐ段間）に段間罫を引かない
+\documentclass[twocolumn,paper=a4,fontsize=10pt]{jlreq}
+\usepackage[columns=3,footnote=column]{evenend}
+\setlength\columnseprule{.4pt}
+\newcommand\para{吾輩は猫である．名前はまだ無い．どこで生れたかとんと見当がつかぬ．何でも薄暗いじめじめした所でニャーニャー泣いていた事だけは記憶している．\par}
+\begin{document}
+\para\para\para\para\para\para\para\para\para\para\para\para\para\para\para\para
+\begin{spanfigure}[t]{2}
+\centering\fbox{\rule{0pt}{180pt}\rule{200pt}{0pt}}
+\caption{2段にまたがる図}
+\end{spanfigure}
+\para\para\para\para
+\evenendcolumns{2}
+\para\para\para\para
+\end{document}

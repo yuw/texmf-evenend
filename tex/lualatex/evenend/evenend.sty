@@ -1,5 +1,5 @@
 \NeedsTeXFormat{LaTeX2e}[2024-11-01]
-\ProvidesPackage{evenend}[2026/11/26 v20261126.0 Balance the last page of multi-column text (LuaLaTeX) by Yuwsuke Kieda]
+\ProvidesPackage{evenend}[2026/11/27 v20261127.0 Balance the last page of multi-column text (LuaLaTeX) by Yuwsuke Kieda]
 
 \ifdefined\directlua\else
   \PackageError{evenend}{LuaLaTeX is required}{}
@@ -33,6 +33,7 @@
 \newbox\evenend@colbox
 \newbox\evenend@loosebox  % 1段の段組の中身（箱に詰めずに積む．Lua側で組む）
 \newcount\evenend@loosestatus % 1ならloosebox がある
+\newcount\evenend@flonly % 1なら，組んだ段組は本文がなくフロートだけ
 \newif\ifevenend@loosepage % このページに中身のまま積んだ段組がある
 \newif\ifevenend@loosemerged % \@outputboxに積んだブロックをまとめて詰めた
 \newattribute\evenend@fnattr
@@ -384,8 +385,24 @@
         \endgroup
       \fi\fi\fi
     \fi\fi\fi
+    %% フロートや脚注のある段は，本文が空でも見える材料のある段として数える
+    %% （その段を捨てて次のページへ送ることはしない）
+    \ifvoid\footins\else \global\evenend@blockvisibletrue \fi
+    \ifx\@toplist\@empty\else \global\evenend@blockvisibletrue \fi
+    \ifx\@botlist\@empty\else \global\evenend@blockvisibletrue \fi
+    \ifx\@midlist\@empty\else \global\evenend@blockvisibletrue \fi
     \ifevenend@sendback\else
       \ifnum\directlua{tex.sprint(evenend.hasvisible(\number\@cclv) and 1 or 0)}=\@ne
+        %% はみ出さなくても，前の段が空のまま（ページの残りが1行に足りずに）改段され，
+        %% 最初の見える材料が後の段に現れたときは，同じく次のページへ送る
+        \ifvoid\evenend@pagetop\else \ifevenend@blockvisible\else \ifnum\evenend@colno>\z@
+          \ifvoid\footins
+            \ifx\@toplist\@empty \ifx\@botlist\@empty \ifx\@midlist\@empty
+              \global\setbox\evenend@backbox\vbox{\unvcopy\@cclv}%
+              \global\evenend@sendbacktrue
+            \fi\fi\fi
+          \fi
+        \fi\fi\fi
         \global\evenend@blockvisibletrue
       \fi
     \fi
@@ -682,6 +699,12 @@
     %% blockgapは負でもよい（次の段組の先頭に目印を置くときは\topskipの分を差し引く）
     \@tempdima\dimexpr\evenend@blockgap\relax
   \fi
+  %% フロートだけの段組の後：少なくとも\textfloatsepを空ける（ページの頭ではmulticols
+  %% 環境の前のアキを捨てるので，そのままではフロートの下に段組が付く）
+  \ifnum\evenend@flonly=\@ne
+    \ifdim\@tempdima<\textfloatsep \@tempdima\textfloatsep \fi
+  \fi
+  \global\evenend@flonly\z@
   %% 残りの高さが，このページの段組の始まり（表題や段抜きのフロートの下）から
   %% 行送りの位置で終わるように，アキを1行未満だけ広げる（行の位置がそろって
   %% いれば広げない）

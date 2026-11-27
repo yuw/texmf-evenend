@@ -1679,6 +1679,7 @@ function M.balance(p)
   -- グルーとして働くように）．末尾の除去可能な項目のうち，幅のあるグルーやカーン，
   -- ペナルティ，空の箱は除き，幅のない伸びるグルー（\vfillなど）は残す
   tex.setcount('global', 'evenend@loosestatus', 0)
+  tex.setcount('global', 'evenend@flonly', 0)
   if N == 1 and p.loose and not p.fixed and #cols == 1
      and #dblfloats == 0 and #M.deferred.col == 0 then
     local c = cols[1]
@@ -3100,12 +3101,24 @@ function M.balance(p)
         r2top = lo(edge_top(a.fntop), edge_top(c.fntop)) or 0
         r2end = hi(edge_bot(a.fnbot), edge_bot(c.fnbot)) or 0
       end
+      -- 段をまたぐフロートが段間の両側の段を埋めていて，本文の行がどちらにもないとき
+      -- （フロートだけの段）：罫を引く範囲がないので，長さ0の罫にする
+      if a and (c.ph_top or c.ph_bot) and not (a.top or c.top) then rtop, rend = 1, 1 end
       M.rule[i] = { rtop, rend, r2top, r2end }
     end
     local o = newlist()
     append(o, body)
     append(o, vssglue())
     M.out[i] = vpack(o.head, (p.block or fullfn) and h or colht, 'exactly')
+  end
+  -- 本文がなくフロートだけの段組か（TeX側が，後に積む段組との間に\textfloatsepを空ける）
+  do
+    local nf, notext = 0, true
+    for i = 1, N do
+      nf = nf + #tops[i] + #bots[i]
+      if res[i].ht ~= 0 then notext = false end
+    end
+    tex.setcount('global', 'evenend@flonly', (notext and nf > 0) and 1 or 0)
   end
   -- フロートの箱は段に入れたので，M.resetで片付けない
   M.pool = nil

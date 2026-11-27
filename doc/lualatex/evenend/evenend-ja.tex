@@ -1,10 +1,16 @@
 %% evenend-ja.tex：evenendパッケージのマニュアル
 %% LuaLaTeXで2回組む．見本（evenend-sample.pdf，evenend-sample-column.pdf）を
 %% 先に組んでおくこと
-%% この文書自体をevenendで組む（2段を基本に，1段と3段のブロック，段抜きの図表を使う）
+%% この文書自体をevenendで組む（3段で始め，節の区切りで3段，2段，1段を切り換える）
 \documentclass[twocolumn,paper=a4,fontsize=10pt]{jlreq}
 \usepackage{graphicx}
-\usepackage{evenend}
+%% 3段の段組：段間1字，段間罫0.4pt（段幅は14字）．2段の段組：段間2字，段間罫なし（段幅は21字）
+\setlength\columnsep{1\zw}
+\setlength\columnseprule{.4pt}
+\usepackage[columns=3]{evenend}
+\newcommand\sandan{\evenendcolumns[columnsep=1\zw,columnseprule=.4pt]{3}}
+\newcommand\nidan{\evenendcolumns[columnsep=2\zw,columnseprule=0pt]{2}}
+\newcommand\ichidan{\evenendcolumns{1}}
 \usepackage{tikz}
 \usetikzlibrary{arrows.meta,positioning,calc}
 \tikzset{
@@ -28,18 +34,26 @@
 %% 制御綴の「\」と和文の間にも和欧文間のアキを入れる（LuaTeX-jaの既定では入らない）
 \ltjsetparameter{alxspmode={`\\,allow}}
 \newcommand\opt[1]{\texttt{#1}}
-%% 段幅（21字）に収めるための設定
-%% ・verbatimは小さい字で組み，途中で段を改めない
-%% ・\texttt の中は「/」「-」「=」「,」の後で行を分けられるようにする
+%% 段幅（2段は21字，3段は14字）に収めるための設定
+%% ・verbatimは小さい字で組み（3段ではさらに小さく），途中で段を改めない
+%% ・\texttt の中は「/」「-」「=」「,」の後で行を分けられるようにする．綴りの途中でも，
+%%   3字ごとにペナルティを付けて分けられるようにする（長い綴りが行末にかかって字間が開くのを
+%%   避ける．前後に3字以上残る所だけ）
 \makeatletter
-\def\verbatim@font{\small\ttfamily\interlinepenalty\@M}
+\def\verbatim@font{\ifdim\columnwidth<150pt \footnotesize\else\small\fi
+  \ttfamily\interlinepenalty\@M}
 \makeatother
+\newcommand\evdocwordbreak{\penalty\ifdim\columnwidth<150pt 0 \else 300 \fi}
 \NewCommandCopy\evdocorigtexttt\texttt
 \ExplSyntaxOn
 \tl_new:N \l__evdoc_tt_tl
 \DeclareRobustCommand \texttt [1]
   {
     \tl_set:Nn \l__evdoc_tt_tl {#1}
+    \regex_replace_all:nnN { ([A-Za-z0-9@]{3}) ([A-Za-z0-9@]{3}) }
+      { \1 \c{evdocwordbreak} \2 } \l__evdoc_tt_tl
+    \regex_replace_all:nnN { (\c{evdocwordbreak} [A-Za-z0-9@]{3}) ([A-Za-z0-9@]{3}) }
+      { \1 \c{evdocwordbreak} \2 } \l__evdoc_tt_tl
     \regex_replace_all:nnN { ([/\-=,]) } { \1 \c{allowbreak} } \l__evdoc_tt_tl
     \evdocorigtexttt { \l__evdoc_tt_tl }
   }
@@ -47,15 +61,6 @@
 %% 小節の見出し：段幅では2行になるものが多い．2行取りの既定では2行の見出しの前後が
 %% 空かないので，前に1行足す（段の先頭には入らない）
 \ModifyHeading{subsection}{lines=2,before_lines=1}
-%% 組み方の注記：組み方を変えた部分の最後に，その部分の設定を小さく記す．
-%% \kumichu{…}：段組の最後の段落として置く（字は小さく，行送りは本文のまま）
-%% \okichu{…}：図表のキャプションの下に置く
-\makeatletter
-\newcommand\kumichu[1]{\par\begingroup\dimen@=\baselineskip
-  \raggedright\noindent\footnotesize\baselineskip=\dimen@ ［#1］\par\endgroup}
-\makeatother
-\newcommand\okichu[1]{\par\vspace{.2\baselineskip}{\scriptsize ［置き方：#1］\par}}
-\newcommand\ecols[1]{\cs{evenendcolumns}\texttt{#1}}
 %% 見本の幅：段の中でも段抜きでも同じ大きさで示す
 \newlength\evsw \setlength\evsw{.4\textwidth}
 %% オプションの見本（evenend-sample-options.pdf）のページ：見本を組むと書き出される
@@ -87,38 +92,21 @@
 \title{\pkg{evenend}パッケージ\\[.5\baselineskip]
   \large 多段組の最終ページで各段の下端を揃える}
 \author{木枝祐介}
-\date{v20261126.0}
+\date{v20261127.0}
 
 \begin{document}
-\maketitle
-
-%% この文書の組み方の案内：題名の下の1段のブロックに置き，枠の中を2段に組む（箱の中の段組）
-\evenendcolumns{1}
-\noindent\fbox{\begin{minipage}{\dimexpr\linewidth-2\fboxsep-2\fboxrule\relax}\small
-{\gtfamily\sffamily この文書の組み方}\hspace{1\zw}%
-この文書は，それ自体を\pkg{evenend}で組んである．組み方を変えた部分の設定は，それぞれの
-最後に小さく記した（文書全体の設定は，文書の最後に記した）．使った機能と，それを使った場所は
-次のとおり．
-\begin{multicols}{2}
-\begin{itemize}
-  \item 段抜きの題名：このページ
-  \item 箱の中の段組：この枠
-  \item 段抜きの図：図\ref{fig:sample}など
-  \item 段の中の図：図\ref{fig:colsep}，図\ref{fig:box}
-  \item 段抜きの表：表\ref{tab:options}
-  \item 1段のブロック：この枠，\ref{sec:opt-gridreport}節，\ref{sec:flow}節，
-    \ref{sec:gyoudori}節
-  \item 3段のブロック：\ref{sec:limits}節
-  \item 段数を変えずに改めた段組：\ref{sec:options}節，\ref{sec:balance}節，
-    \ref{sec:multicol}節
-  \item 脚注：\pageref{pg:footnote}ページなど
-  \item 最終ページ：\pageref{sec:license}ページ
-\end{itemize}
-\end{multicols}
-\kumichu{この枠の設定：\ecols{\{1\}}の1段のブロックに置いた\cs{fbox}と\texttt{minipage}の
-中で，\texttt{\textbackslash begin\{multicols\}\{2\}}}
-\end{minipage}}
-\evenendcolumns{2}
+%% 題名：段抜きで大きく置く
+\twocolumn[{%
+  \noindent\rule{\textwidth}{1.6pt}\par
+  \vspace{1.2\baselineskip}
+  \noindent{\fontsize{38}{46}\selectfont\sffamily\gtfamily\bfseries evenend}%
+  \hspace{1\zw}{\fontsize{22}{46}\selectfont\sffamily\gtfamily パッケージ}\par
+  \vspace{.9\baselineskip}
+  \noindent{\Large\sffamily\gtfamily 多段組の最終ページで各段の下端を揃える}\hfill
+  {\large 木枝祐介\hspace{1\zw}v20261127.0}\par
+  \vspace{.5\baselineskip}
+  \noindent\rule{\textwidth}{.4pt}\par
+  \vspace{1.5\baselineskip}}]
 
 \section{概要}
 
@@ -143,16 +131,16 @@
 置いた場合（\opt{footnote=page}，既定），右は各段の下端に置いた場合
 （\opt{footnote=column}）である\footnote{見本は\texttt{evenend-sample.tex}と
 \texttt{evenend-sample-column.tex}である．このマニュアルの見本は，どれもA6判，8ptの
-\pkg{jlreq}で組み，同じ大きさで示す．}\label{pg:footnote}．右では，脚注は参照位置のある段に入っている．
+\pkg{jlreq}で組み，同じ大きさで示す（図\ref{fig:sample}は，3段のうち2段にまたがる図に
+したので，小さい）．}．右では，脚注は参照位置のある段に入っている．
 
-\begin{figure*}[tb]
+\begin{spanfigure}[b]{2}
   \centering
-  \fbox{\includegraphics[page=2,width=\evsw]{evenend-sample.pdf}}\hspace{2\zw}%
-  \fbox{\includegraphics[page=2,width=\evsw]{evenend-sample-column.pdf}}
+  \fbox{\includegraphics[page=2,width=.46\linewidth]{evenend-sample.pdf}}\hfill
+  \fbox{\includegraphics[page=2,width=.46\linewidth]{evenend-sample-column.pdf}}
   \caption{均した最終ページ}
   \label{fig:sample}
-  \okichu{\texttt{figure*}環境（段抜きの図），\texttt{[tb]}}
-\end{figure*}
+\end{spanfigure}
 
 \section{動作要件}
 
@@ -174,7 +162,8 @@
 \texttt{tex/lualatex/evenend/}に置く．配布物のディレクトリをそのままTEXMFHOMEに
 してもよい．
 \begin{verbatim}
-export TEXMFHOME=/path/to/texmf-evenend
+export TEXMFHOME=\
+  /path/to/texmf-evenend
 \end{verbatim}
 
 \section{使い方}
@@ -183,7 +172,8 @@ export TEXMFHOME=/path/to/texmf-evenend
 ページが揃う．
 \begin{verbatim}
 \documentclass[twocolumn]{jlreq}
-\usepackage[footnote=column]{evenend}
+\usepackage[footnote=column]
+  {evenend}
 \end{verbatim}
 クラスオプション\opt{twocolumn}を付けていない文書でも，読み込むと段組のモードに入る．
 ただし，クラスにこのオプションがあるときは，付けるほうがよい（\ref{sec:twocolumn}節）．
@@ -215,7 +205,6 @@ export TEXMFHOME=/path/to/texmf-evenend
     \hline
   \end{tabular}\\[.3\baselineskip]
   \small ＊\kyocho{evenendが組む段だけに効く}（\pkg{gyoudori}は要らない．\ref{sec:opt-floatgrid}節）
-  \okichu{\texttt{table*}環境（段抜きの表），\texttt{[tb]}}
 \end{table*}
 
 \begin{description}
@@ -253,6 +242,8 @@ export TEXMFHOME=/path/to/texmf-evenend
 
 \opt{columns}以外のキーは，文書中でも\cs{evenendsetup}で変えられる．
 
+%% 命令の一覧は見出しの綴りが長いので，2段にする
+\nidan
 \subsection{命令}
 
 \begin{description}
@@ -308,7 +299,7 @@ export TEXMFHOME=/path/to/texmf-evenend
 \end{itemize}
 
 %% 節の区切りで段組を改める（段数は2段のまま．前の節の下端が揃う）
-\evenendcolumns{2}
+\nidan
 \section{オプションの詳細}\label{sec:options}
 
 各オプションによる組み方の違いを，同じ材料を組んだ見本で示す（\texttt{evenend-sample-options.tex}．
@@ -444,11 +435,8 @@ A6判の2段組で，オプションを\cs{evenendsetup}で換えながら組ん
   \caption{\opt{floatgrid}：フロートの後の行の位置}
   \label{fig:opt-floatgrid}
 \end{figure*}
-\kumichu{この段組の設定：\ecols{\{2\}}（\ref{sec:options}節の始まりで，段数を変えずに段組を
-改めた）}
-
 %% ログの長い行を示すので，1段のブロックにする
-\evenendcolumns{1}
+\ichidan
 \subsection{\opt{gridreport}：\opt{floatgrid}が効かないページの報告}\label{sec:opt-gridreport}
 
 \opt{floatgrid}はevenendが組む段だけに効く．\opt{footnote=column}で\LaTeX{}が通常どおり組む
@@ -473,9 +461,7 @@ Package evenend Info: Page 1: lines after floats are off the
 ないとき（0.2pt以上ずれたとき）に該当とみなす．\gydep \pkg{gyoudori}でフロートを行取り
 すれば行は行送りの位置に乗るので，報告されない．\opt{floatgrid=false}のときは調べない．
 \opt{debug}（揃えの計算の中身をログに書く）とは別に指定する．
-\kumichu{この段組の設定：\ecols{\{1\}}（ログの長い行を示すための1段のブロック）}
-
-\evenendcolumns{2}
+\nidan
 \section{段数の切り換え}\label{sec:switch}
 
 \cs{evenendcolumns}\texttt{\{}\textit{段数}\texttt{\}}で，ページの途中から段数を変えられる．
@@ -620,7 +606,6 @@ Package evenend Info: Page 1: lines after floats are off the
   \fbox{\includegraphics[page=1,width=\evsw]{evenend-sample-colsep.pdf}}
   \caption{段組ごとに段間と段間罫を変えたページ}
   \label{fig:colsep}
-  \okichu{\texttt{figure}環境（段の中の図），\texttt{[tb]}}
 \end{figure}
 
 段間（\cs{columnsep}）と段間罫の太さ（\cs{columnseprule}）は，段組ごとに決まる．
@@ -648,8 +633,8 @@ Package evenend Info: Page 1: lines after floats are off the
     使い，終わりで環境の前の段組の段数・段間・段間罫に戻す．
 \end{itemize}
 
-\evenendcolumns{2}
-\section{揃え方}\label{sec:balance}
+\sandan
+\section{揃え方}
 
 \subsection{段の高さ}
 
@@ -693,6 +678,7 @@ Package evenend Info: Page 1: lines after floats are off the
 警告を出す．ページがちょうど満杯なら，段の下端はもともと揃うので，警告ではなく情報だけ
 出す．
 
+\nidan
 \subsection{フロート}\label{sec:floats}
 
 \begin{itemize}
@@ -787,6 +773,8 @@ Package evenend Info: Page 1: lines after floats are off the
     インク境界の下端（低い方）にそろえる．インク境界は字の輪郭から求める．段をまたがないフロートの
     横では，これまでどおり段の高さいっぱいに引く．段をまたぐフロートが段間の両側の段を
     埋めていて，本文の行がどちらの段にもないときは，その段間には段間罫を引かない
+    （\LaTeX{}が組む段でも，揃えた段組でも同じ．持ち越された段をまたぐフロートが，揃えた
+    段組でフロートだけの段になるときも引かない）
     （v20261126.0より前の版では，フロートの上に引いた）．
   \item \opt{footnote=page}（既定）では，脚注はすべての段の下に全幅で置くので，下に置いた
     フロートの位置はまたがる段のあいだでそろう．\opt{footnote=column}で下に置いたときは，
@@ -802,6 +790,7 @@ Package evenend Info: Page 1: lines after floats are off the
   \item 版面より高いものは，上か下に置ける高さに抑える（警告を出す）．
 \end{itemize}
 
+\sandan
 \subsection{フロートの前後の行の位置}\label{sec:floatgrid}
 
 フロートの高さが行送りの倍数でなければ，その後に続く本文の行は行送りの位置からずれる．
@@ -852,14 +841,11 @@ Package evenend Info: Page 1: lines after floats are off the
 （前のページから送られてきたもの）は，もとの段に残す．脚注は各段の本文の下に置き，
 脚注の最終行のベースラインを，他の段の最終行のベースラインに揃える．脚注の塊（本文の
 最終行の深さを含む）を行送りの倍数に切り上げて見込み，端数は脚注の上のアキで吸収する．
-\kumichu{この段組の設定：\ecols{\{2\}}（\ref{sec:balance}節の始まりで，段数を変えずに段組を
-改めた）}
-
 %% 流れ図のある小節を1段のブロックで組む
-\evenendcolumns{1}
-\section{仕組み}\label{sec:mech}
+\ichidan
+\section{仕組み}
 
-\subsection{処理の流れ}\label{sec:flow}
+\subsection{処理の流れ}
 
 段組の出力ルーチン（\cs{@outputdblcol}）は，段が1つ組み上がるたびに呼ばれる．evenendは
 そのたびに段の材料をとっておき，ページの最後の段で，そのページをどう出力するかを決める
@@ -898,7 +884,6 @@ Package evenend Info: Page 1: lines after floats are off the
   \end{tikzpicture}
   \caption{段が組み上がるたびの処理}
   \label{fig:alg-flow}
-  \okichu{1段のブロックの中の\texttt{figure}環境，\texttt{[htb]}}
 \end{figure}
 
 揃えるときは，\LaTeX{}が上から詰めて組んだ段を1本の材料に戻し，各段に同じ高さで分け直す
@@ -1228,9 +1213,7 @@ Package evenend Info: Page 1: lines after floats are off the
 図\ref{fig:alg-lua}は，上から時間の順に並べてある．灰色の箱がLua側の処理で，括弧の中は
 \texttt{evenend.lua}の関数である．(2)は段ごと，(3)は揃えないページ，(4)から(6)は揃える
 場面と\opt{footnote=page}の各ページで起きる．
-\kumichu{この段組の設定：\ecols{\{1\}}（幅の広い流れ図を置くための1段のブロック）}
-
-\evenendcolumns{2}
+\sandan
 \subsection{実装}
 
 \begin{figure*}[p]
@@ -1273,7 +1256,6 @@ Package evenend Info: Page 1: lines after floats are off the
   \end{tikzpicture}
   \caption{\TeX{}側とLua側のやりとり}
   \label{fig:alg-lua}
-  \okichu{\texttt{figure*}環境，\texttt{[p]}（図だけのページ）}
 \end{figure*}
 
 \begin{figure*}[tb]
@@ -1338,7 +1320,7 @@ evenendが解く問題の定義，解を作る手順の定式化，その性質�
 マクロタイポグラフィの観点から述べたものは，別の文書\texttt{evenend-typography-ja.pdf}（「\pkg{evenend}パッケージの
 組版」）にまとめてある．
 
-\evenendcolumns{2}
+\nidan
 \section{multicol互換の環境}\label{sec:multicol}
 
 \pkg{multicol}を読み込んでいなければ，同じ書き方の\texttt{multicols}環境，
@@ -1504,6 +1486,7 @@ evenendが解く問題の定義，解を作る手順の定式化，その性質�
     して，1行の字数を確かめる．
 \end{itemize}
 
+\sandan
 \section{柱}\label{sec:marks}
 
 段組のモードでは，柱（\cs{markboth}などのマーク）の情報を，ページを出力するときに1回だけ
@@ -1543,11 +1526,8 @@ evenendが解く問題の定義，解を作る手順の定式化，その性質�
 evenendは\pkg{gyoudori}（行取りのパッケージ）に依存しない．\pkg{gyoudori}を読み込まなくても，
 このマニュアルの機能はすべて使える．\pkg{gyoudori}を併用したときだけの記述には，本文で
 \gydep の印を付けた．印のない記述は，\pkg{gyoudori}の有無によらない．
-\kumichu{この段組の設定：\ecols{\{2\}}（\ref{sec:multicol}節の始まりで，段数を変えずに段組を
-改めた）}
-
 %% 3列の表は1段のブロックに置く
-\evenendcolumns{1}
+\ichidan
 \begin{center}
   \small
   \begin{tabular}{p{.3\linewidth}p{.3\linewidth}p{.3\linewidth}}
@@ -1569,16 +1549,14 @@ evenendは\pkg{gyoudori}（行取りのパッケージ）に依存しない．\p
     \hline
   \end{tabular}
 \end{center}
-\kumichu{この段組の設定：\ecols{\{1\}}（3列の表を置くための1段のブロック）}
-\evenendcolumns{2}
 
+%% 表の後の2行は，1段のブロックのまま組む（3段に分けると細切れになる）
 \pkg{gyoudori}との組み合わせのテストは，\texttt{test/gy/}（\pkg{gyoudori}の
 \opt{float}オプションとの一括テスト）と，乱数による網羅テストの\pkg{gyoudori}ありの文書で
 行っている（\ref{sec:randtest}節）．
 
-%% 短い項目が並ぶので，3段のブロックにする（この段組だけ段間を狭め，段間罫を引く）
-\evenendcolumns[columnsep=1.5\zw,columnseprule=.4pt]{3}
-\section{制限事項}\label{sec:limits}
+\sandan
+\section{制限事項}
 
 \begin{itemize}
   \item 揃える段組では，脚注は段をまたいで分割しない．
@@ -1610,9 +1588,7 @@ evenendは\pkg{gyoudori}（行取りのパッケージ）に依存しない．\p
     またぐフロートがあっても，脚注をフロートの上に置く（その\LaTeX{}の積み順のまま）．
     \opt{spanfootnote=bottom}は，evenendが組み直す段（揃える段組）だけに効く．
 \end{itemize}
-\kumichu{この段組の設定：\ecols{[columnsep=1.5\textbackslash zw,columnseprule=.4pt]\{3\}}}
-
-\evenendcolumns{2}
+\nidan
 \section{配布物}
 
 %% ファイル名が並ぶので，行末をそろえない
@@ -1669,6 +1645,7 @@ lualatex evenend-typography-ja.tex
 lualatex evenend-typography-ja.tex
 \end{verbatim}
 
+\sandan
 \section{乱数による網羅テスト}\label{sec:randtest}
 
 \texttt{test/rand/}の\texttt{gen.py}は，乱数で文書を作る．クラス（\pkg{jlreq}，
@@ -1708,18 +1685,10 @@ cd test/rand
 \texttt{suite.sh}，\texttt{fixed.sh}）は\texttt{test/all.sh}で流せる．速く確実に流すための
 覚え書きは\texttt{test/NOTES.md}にある．
 
-\section{ライセンス}\label{sec:license}
+\section{ライセンス}
 
 MITライセンス（配布物の\texttt{LICENSE}を参照）．
 
 Copyright (c) 2026 Yuwsuke Kieda
-
-\kumichu{この文書全体の設定：%
-\texttt{\textbackslash documentclass[twocolumn,paper=a4,fontsize=10pt]\{jlreq\}}，
-\texttt{\textbackslash usepackage\{evenend\}}（オプションは既定のまま．\opt{columns=2}，
-\opt{footnote=page}）．段間と段間罫はクラスの既定（段間2字，段間罫なし）．
-小節の見出しは\texttt{\textbackslash ModifyHeading\{subsection\}\{lines=2,before\_lines=1\}}，
-\texttt{verbatim}環境は\cs{small}にして途中で段を改めない．この最終ページは，文書末で
-段の下端が揃う}
 
 \end{document}

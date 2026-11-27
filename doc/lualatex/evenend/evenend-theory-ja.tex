@@ -11,9 +11,6 @@
 %% 段組の後，ページの残りが2行あれば，そのページに続きを組む（既定は5行）
 \evenendsetup{blockmin=2\baselineskip}
 \setlength\columnseprule{0pt}
-%% ページの残りが2行あれば，そこから段組を始める（既定は50pt）．\premulticolsは，
-%% evenendが文書の始まりで用意するので，その後で変える
-\AtBeginDocument{\setlength\premulticols{2\baselineskip}}
 \tcbset{colback=white,colframe=black!55,boxrule=.4pt,arc=1.5pt,
   left=1\zw,right=1\zw,top=.5\baselineskip,bottom=.5\baselineskip,
   before skip=.75\baselineskip,after skip=.75\baselineskip}
@@ -76,13 +73,8 @@
 \newcommand\yousei[2]{\par\noindent(M#1)\hspace{.5\zw}\kyocho{#2}．\ignorespaces}
 %% 対応の一覧の項目（表の代わり）：\taiou{左の欄}{中の欄}
 \newcommand\taiou[2]{\par\addvspace{.3\baselineskip}\noindent
-  {\gtfamily\sffamily #1}\par\nobreak
-  {\raggedright\hangindent=2.5\zw\hangafter=1\noindent\hspace{1\zw}→\hspace{.5\zw}#2\par}\nobreak\noindent\ignorespaces}
-%% 組み方の設定の注記：その部分の最後に小さく記す．\settei[見出し]{設定}
-\newcommand\settei[2][この段組の設定]{\par\nobreak\vspace{.25\baselineskip}%
-  {\raggedright\footnotesize\noindent［#1：#2］\par}}
-%% フロートにした図の設定の注記（キャプションの下に置く）
-\newcommand\setteizu[1]{\par\vspace{.25\baselineskip}{\footnotesize［この図の設定：#1］\par}}
+  {\raggedright\gtfamily\sffamily\noindent #1\par}\nobreak
+  {\raggedright\hangindent=3\zw\hangafter=1\noindent\hspace{1\zw}→\hspace{1\zw}#2\par}\nobreak\noindent\ignorespaces}
 %% 地の文の小見出し
 \newcommand\komidashi[1]{\par\addvspace{.5\baselineskip}%
   \noindent{\gtfamily\sffamily #1}\hspace{1\zw}\ignorespaces}
@@ -90,12 +82,24 @@
 \title{\pkg{evenend}パッケージの定式化\\[.5\baselineskip]
   \large マクロタイポグラフィの要請，問題，手順，証明}
 \author{木枝祐介}
-\date{v20261126.0}
+\date{v20261127.0}
 
 \begin{document}
-\maketitle
+%% 題名：1ページ目は，題名の下から3段で組み始める
+\thispagestyle{plain}
+%% 寸法と書体は，マニュアル編（evenend-ja.tex）の題名と同じにしてある
+\noindent\rule{\textwidth}{1.6pt}\par
+\vspace{1.2\baselineskip}
+\noindent{\fontsize{38}{46}\selectfont\sffamily\gtfamily\bfseries evenend}%
+\hspace{1\zw}{\fontsize{22}{46}\selectfont\sffamily\gtfamily パッケージの定式化}\par
+\vspace{.9\baselineskip}
+\noindent{\Large\sffamily\gtfamily マクロタイポグラフィの要請，問題，手順，証明}\hfill
+{\large 木枝祐介\hspace{1\zw}v20261127.0}\par
+\vspace{.5\baselineskip}
+\noindent\rule{\textwidth}{.4pt}\par
+\vspace{1.5\baselineskip}
 
-\begin{multicols}{2}
+\begin{evenendmulticols}[columnsep=2.5\zw,columnseprule=.4pt]{3}
 evenendパッケージは，段組の紙面の構成を決め直す．行の中の組み（マイクロタイポグラフィ）には
 触れず，組み上がった行，図表，脚注を，段と版面のどこに置くか（マクロタイポグラフィ）
 だけを扱う．この文書では，その判断を定式化する．まず，紙面の構成についての要請を
@@ -112,40 +116,9 @@ evenendパッケージは，段組の紙面の構成を決め直す．行の中�
 長さはすべて段の上端から下向きに測る．記号が\TeX{}のどの概念（\cs{box}255，インサート，
 マークなど）にあたるかは，\ref{sec:formal-tex}節にまとめる．証明の一部は，定理証明支援系
 Lean 4でも確かめてある（\ref{sec:lean}節）．
-\settei{\texttt{\cs{begin}\{multicols\}\{2\}}}
-\end{multicols}
-
-\komidashi{この文書の組み方}
-この文書そのものを，\pkg{evenend}の見本として組んでいる．1段を基本にして，部分ごとに
-段組にする．組み方を変えた部分の設定は，それぞれの最後に小さく記した．同じ設定の2段の
-\texttt{multicols}環境が続く所では，節ごとに最初の1つにだけ記してある．文書全体の設定は，
-文書の最後に記した．どの機能がどこにあるかは，次のとおりである．
-\begin{evenendmulticols}[columnsep=2\zw,columnseprule=.4pt]{2}
-\begin{itemize}
-  \item 2段の\texttt{multicols}環境：始めの文，例\ref{ex:used}（\pageref{ex:used}ページ）
-    などの例，証明，注意\ref{rem:noproof}．
-  \item 3段で，前置きのある\texttt{multicols}環境：\ref{sec:f-req}節．見出しと始めの文が
-    前置きで，全幅に組まれる．
-  \item \texttt{evenendmulticols}環境で段間と段間罫を変えた段組：この項目の並び，
-    例\ref{ex:material}，注意\ref{rem:exist}，\ref{sec:f-summary}節（前置きつき）．
-  \item \cs{columnbreak}：例\ref{ex:material}（\pageref{ex:material}ページ）．文と図を段に
-    分ける．
-  \item \pkg{tcolorbox}の箱の中の段組：問題\ref{prob:main}（\pageref{prob:main}ページ）．
-  \item \texttt{minipage}の中の段組：\ref{sec:formal-apply}節の「箱の中の段組」の項
-    （\pageref{par:nest}ページ）．
-  \item 段組の中の脚注：\ref{sec:formal-tex}節（\pageref{fn:whatsit}ページ）．脚注は
-    版面の下端に全幅で置かれる（\opt{footnote=page}）．
-  \item \cs{evenendcolumns}による切り換え：\ref{sec:lean}節から終わりまでは2段．最終
-    ページで段の下端が揃う．
-  \item フロートの図（\texttt{figure}環境）：図\ref{fig:formal-layout}，図\ref{fig:formal-even}，
-    図\ref{fig:formal-fill}から図\ref{fig:formal-tex}．ほかの図は，その場に置いてある．
-  \item 表の代わりの項目の並び：\ref{sec:formal-tex}節と\ref{sec:lean}節の対応の一覧は，
-    段組に流してある．
-\end{itemize}
-\settei{\texttt{\cs{begin}\{evenendmulticols\}[columnsep=2\cs{zw},\allowbreak columnseprule=.4pt]\{2\}}}
 \end{evenendmulticols}
 
-\begin{multicols}{3}[\section{マクロタイポグラフィの要請}\label{sec:f-req}%
+\begin{evenendmulticols}[columnsep=2.5\zw,columnseprule=.4pt]{3}[\section{マクロタイポグラフィの要請}\label{sec:f-req}%
 段組の本文がページの途中で終わるとき，\LaTeX{}は左の段から詰めて組む（なりゆき）．
 evenendは，これを，各段の下端の揃った紙面に組み直す．このとき紙面に求めることを，
 観点ごとに挙げる．]
@@ -165,8 +138,7 @@ evenendは，これを，各段の下端の揃った紙面に組み直す．こ�
     入れる．
 \yousei{8}{一貫性}図表は，\LaTeX{}が置いた段からなるべく動かさない．
     ページの途中で段組を改めるときも，ほかのページを組み直すときも，同じ手順を使う．
-\settei{\texttt{\cs{begin}\{multicols\}\{3\}[前置き]}．前置きは，節の見出しと始めの文}
-\end{multicols}
+\end{evenendmulticols}
 横の基準は，この文書の式には現れない．段幅と段間は初めに決まり，本文の行と図表は
 その幅で組み上がっているので，決め直すのは縦の方向だけである．以下では，材料の高さと，
 それを段に分ける位置だけを扱う．
@@ -194,7 +166,8 @@ $\tau+\ell b$（$\ell=0,1,\dots$）である．版面（M2）は，段の高さ$
 含む），本文の高さ$|T_i|$，脚注の高さ$G_i$（区切りの罫と上のアキを含む）の和である．
 どの段でも$U_i\le h$なら，配置は$h$に入り切る．
 
-\begin{zu}
+\begin{figure}[tbp]
+  \centering
   \begin{tikzpicture}[alg,x=.9mm,y=.9mm,
       txt/.style={fill=black!18},fl/.style={fill=black!45}]
     %% ページの中の段組
@@ -235,7 +208,7 @@ $\tau+\ell b$（$\ell=0,1,\dots$）である．版面（M2）は，段の高さ$
   \end{tikzpicture}
   \caption{段組と所要の高さ（定義\ref{def:frame}，\ref{def:used}）}
   \label{fig:formal-frame}
-\end{zu}
+\end{figure}
 
 \begin{stmt}[段組]{例}\label{ex:frame}
 この節の例では，次の1つの段組を通して使う（図\ref{fig:ex-frame}）．段数は$N=3$，行送りは
@@ -263,8 +236,8 @@ $238\,\mathrm{pt}$で，上に段抜きのフロートがあり，下のアキ�
 \end{itemize}
 \end{stmt}
 
-%% 調整：図2は，ページの下の空きを詰めるために，例2の直後から定義3の後へ送ってある
-\begin{zu}
+\begin{figure}[tbp]
+  \centering
   \begin{tikzpicture}[alg,x=1mm,y=-.25mm]
     \fill[black!45] (0,0) rectangle (68,48);
     \node[white] at (34,24) {段抜きのフロート};
@@ -277,7 +250,7 @@ $238\,\mathrm{pt}$で，上に段抜きのフロートがあり，下のアキ�
   \end{tikzpicture}
   \caption{例\ref{ex:frame}の段組}
   \label{fig:ex-frame}
-\end{zu}
+\end{figure}
 
 \begin{evenendmulticols}[columnsep=2\zw,columnseprule=.4pt]{2}
 \begin{stmt}[材料]{例}\label{ex:material}
@@ -317,7 +290,6 @@ $\varphi$は3行目（\textdagger）に参照位置のある脚注である．
   \caption{例\ref{ex:material}の材料}
   \label{fig:ex-material}
 \end{zu}
-\settei{\texttt{\cs{begin}\{evenendmulticols\}[columnsep=2\cs{zw},\allowbreak columnseprule=.4pt]\{2\}}．文と図の間に\texttt{\cs{columnbreak}}}
 \end{evenendmulticols}
 
 \section{配置と読む順序}\label{sec:f-layout}
@@ -404,7 +376,6 @@ $\varphi$は3行目（\textdagger）に参照位置のある脚注である．
   \end{tikzpicture}
   \caption{材料と配置（定義\ref{def:material}，\ref{def:layout}）}
   \label{fig:formal-layout}
-  \setteizu{\texttt{\cs{begin}\{figure\}[tbp]}}
 \end{figure}
 
 \begin{stmt}[配置]{定義}\label{def:layout}
@@ -446,7 +417,9 @@ $o_1=1$なので，割り振りは$s(1)=1,2,3$の3つである（$S$の元は3�
 図\ref{fig:ex-layout}の左は，\LaTeX{}が組んだ配置である．前の段から詰めるので，段3が空に
 なる．右は，揃えた配置である．同じ材料を，切れ目だけを変えて3段に分けている．
 
-\begin{zu}
+%% 調整：定義の箇条書きの途中に割り込まないように，ページの下に置く
+\begin{figure}[bp]
+  \centering
   \begin{tikzpicture}[alg,x=1mm,y=-.25mm]
     \foreach \x in {0,24,48} {\excol{\x}{0}}
     \exfloat{0}{0}\exlines{0}{58}{9}\exfoot{0}{178}
@@ -464,7 +437,7 @@ $o_1=1$なので，割り振りは$s(1)=1,2,3$の3つである（$S$の元は3�
   \end{tikzpicture}
   \caption{例\ref{ex:layout}の2つの配置}
   \label{fig:ex-layout}
-\end{zu}
+\end{figure}
 
 \section{高さと下端：版面と整列の量}\label{sec:f-height}
 
@@ -504,13 +477,14 @@ $o_1=1$なので，割り振りは$s(1)=1,2,3$の3つである（$S$の元は3�
 \LaTeX{}の配置$k^0$では$U_1=48+106+24=178$，$U_2=166$，$U_3=0$で，$h=H=178\,\mathrm{pt}$で
 なければ入り切らない．
 \end{stmt}
-\settei{\texttt{\cs{begin}\{multicols\}\{2\}}}
 \end{multicols}
 
 図\ref{fig:ex-used}で，段1の所要の高さは，フロート，本文4行，脚注の高さの和である．
 本文の高さは最終行のベースラインまでで，行の深さは数えない．
 
-\begin{zu}
+%% 調整：定義の箇条書きの途中に割り込まないように，ページの下に置く
+\begin{figure}[bp]
+  \centering
   \begin{tikzpicture}[alg,x=1mm,y=-.25mm]
     \foreach \x in {0,24,48} {\excol{\x}{0}}
     \exfloat{0}{0}\exlines{0}{58}{4}\exfoot{0}{118}
@@ -528,7 +502,7 @@ $o_1=1$なので，割り振りは$s(1)=1,2,3$の3つである（$S$の元は3�
   \end{tikzpicture}
   \caption{例\ref{ex:used}の所要の高さ（単位はpt）}
   \label{fig:ex-used}
-\end{zu}
+\end{figure}
 
 \begin{stmt}[見かけの下端]{定義}\label{def:bottom}
 $d$を，$T$の行の深さのうち最も多い値とする（本文の行の標準の深さ）．配置の段$i$の
@@ -567,7 +541,8 @@ $e_i=3$である．
 行の深さ$d=3\,\mathrm{pt}$である．段1の脚注は，本文の2行下の行の位置に最終行の
 ベースラインを置く．
 
-\begin{zu}
+\begin{figure}[tbp]
+  \centering
   \begin{tikzpicture}[alg,x=1mm,y=-.25mm]
     \foreach \x in {0,24,48} {\excol{\x}{0}}
     \exfloat{0}{0}\exlines{0}{58}{4}\exfoot{0}{118}
@@ -582,7 +557,7 @@ $e_i=3$である．
   \end{tikzpicture}
   \caption{例\ref{ex:bottom}の見かけの下端（単位はpt）}
   \label{fig:ex-bottom}
-\end{zu}
+\end{figure}
 
 \section{釣り合いと整列：揃った配置と問題}\label{sec:f-even}
 
@@ -639,7 +614,6 @@ $e_i=3$である．
   \end{tikzpicture}
   \caption{見かけの下端と揃った配置（定義\ref{def:bottom}，\ref{def:even}）}
   \label{fig:formal-even}
-  \setteizu{\texttt{\cs{begin}\{figure\}[tbp]}}
 \end{figure}
 
 \begin{multicols}{2}
@@ -657,14 +631,14 @@ $(v_1,v_2,v_3)=(121,109,121)$になる．段2は本文だけの段なので，3�
 $\beta=109$とするしかない．しかし$v_3=121>109$で，2に反する．よって，この配置は，
 どの$\beta$でも揃っていない．
 \end{stmt}
-\settei{\texttt{\cs{begin}\{multicols\}\{2\}}}
 \end{multicols}
 
 図\ref{fig:ex-even}の左は，下端$\beta$で揃った配置である．最後の段3は短くてよい．右は，
 途中の段2が1行分短い配置である．段2は本文だけの段で伸ばせないので，揃っていない
 （どちらも，段の下の部分は省いてある）．
 
-\begin{zu}
+\begin{figure}[tbp]
+  \centering
   \begin{tikzpicture}[alg,x=1mm,y=-.25mm]
     \foreach \x in {0,24,48} {\excol[136]{\x}{0}}
     \exfloat{0}{0}\exlines{0}{58}{4}\exfoot{0}{118}
@@ -685,7 +659,7 @@ $\beta=109$とするしかない．しかし$v_3=121>109$で，2に反する．�
   \end{tikzpicture}
   \caption{例\ref{ex:even}の2つの配置}
   \label{fig:ex-even}
-\end{zu}
+\end{figure}
 
 \par\addvspace{.5\baselineskip}
 \noindent\begin{minipage}{\linewidth}
@@ -708,12 +682,11 @@ $\beta=109$とするしかない．しかし$v_3=121>109$で，2に反する．�
 \end{enumerate}
 \end{multicols}
 \end{stmt}
-\settei[この箱の設定]{\texttt{tcolorbox}の中に\texttt{\cs{begin}\{multicols\}\{2\}}}
 \end{tcolorbox}
 \end{minipage}
 \par\addvspace{.5\baselineskip}
 
-\begin{evenendmulticols}[columnsep=3\zw,columnseprule=.4pt]{2}
+\begin{evenendmulticols}[columnsep=2\zw,columnseprule=.4pt]{2}
 \begin{stmt}{注意}\label{rem:exist}
 行もフロートも分けられないので，(P4)を満たす配置があるとは限らない．また，(P1)は
 \LaTeX{}の配置$(k^0,s^0)$が$h=H$で満たすように見えるが，定義\ref{def:used}の切り上げの
@@ -722,11 +695,10 @@ $\beta=109$とするしかない．しかし$v_3=121>109$で，2に反する．�
 手順の中で定める．手順について証明できることと，証明しないことは，命題\ref{prop:main}と
 注意\ref{rem:noproof}に分けて述べる．
 \end{stmt}
-\settei{\texttt{\cs{begin}\{evenendmulticols\}[columnsep=3\cs{zw},\allowbreak columnseprule=.4pt]\{2\}}}
 \end{evenendmulticols}
 
 \komidashi{要請と条件の対応}
-\begin{multicols}{2}
+\begin{evenendmulticols}[columnsep=2.5\zw,columnseprule=.4pt]{3}
 問題\ref{prob:main}の条件は，要請に次のように対応する．
 \begin{itemize}
   \item (P1)は版面（M2）．段の高さ$H$を超えない．
@@ -741,7 +713,7 @@ $\beta=109$とするしかない．しかし$v_3=121>109$で，2に反する．�
 ことが，それにあたる．(P1)から(P4)は満たすべき条件，(P5)は条件を満たすものの中での
 選び方である．つまり，版面，読む順序，配置，釣り合いと整列を先に守り，余白と一貫性は
 その中で選ぶ．
-\end{multicols}
+\end{evenendmulticols}
 
 \section{手順と証明}\label{sec:f-proc}
 
@@ -800,7 +772,6 @@ $k_0\le\dots\le k_N$による分割で，本文は読む順のままである．
 引いてある（定義\ref{def:used}）．$h\le H$なので，どの段もその領域に掛からず，脚注を
 版面の下端に全幅で置ける．
 \end{shoumei}
-\settei{\texttt{\cs{begin}\{multicols\}\{2\}}}
 \end{multicols}
 
 図\ref{fig:formal-fill}に，段$i$の切り出しを示す．初めは，脚注を見込まずに高さ$c$まで
@@ -852,7 +823,6 @@ $k_0\le\dots\le k_N$による分割で，本文は読む順のままである．
   \end{tikzpicture}
   \caption{貪欲な分割$\mathrm{Fill}$の段$i$の切り出し（補題\ref{lem:fill}）}
   \label{fig:formal-fill}
-  \setteizu{\texttt{\cs{begin}\{figure\}[tbp]}}
 \end{figure}
 
 \begin{stmt}{注意}
@@ -931,7 +901,6 @@ $h(s)$より低いものでは失敗することだけである．
   \end{tikzpicture}
   \caption{割り振りごとの最小の高さの探し方（補題\ref{lem:minh}）}
   \label{fig:formal-minh}
-  \setteizu{\texttt{\cs{begin}\{figure\}[tbp]}}
 \end{figure}
 
 \begin{stmt}[揃えた配置の構成]{命題}\label{prop:main}
@@ -1037,7 +1006,6 @@ $h(s)$より低いものでは失敗することだけである．
   \end{tikzpicture}
   \caption{揃わない配分（命題\ref{prop:main}の手順4）}
   \label{fig:formal-misaligned}
-  \setteizu{\texttt{\cs{begin}\{figure\}[tbp]}}
 \end{figure}
 \begin{multicols}{2}
 \begin{shoumei}
@@ -1062,7 +1030,7 @@ $\beta=\beta_T$とするのは，すべての段で，$v_i$からフロートま
 \end{multicols}
 
 \komidashi{手順と要請の対応}
-\begin{multicols}{2}
+\begin{evenendmulticols}[columnsep=2.5\zw,columnseprule=.4pt]{3}
 命題\ref{prop:main}の手順のそれぞれが，どの要請のためにあるかを記す．
 \begin{itemize}
   \item 手順1から3は，余白（M7）と一貫性（M8）の折り合いである．段組が最も低くなる
@@ -1077,7 +1045,7 @@ $\beta=\beta_T$とするのは，すべての段で，$v_i$からフロートま
     フロートの前後の行の位置合わせをやめる．版面（M2）を守るために，整列（M6）の一部を
     譲る．
 \end{itemize}
-\end{multicols}
+\end{evenendmulticols}
 
 \begin{stmt}[段が揃うための条件]{命題}\label{prop:even}
 命題\ref{prop:main}の手順が返した配置と$\beta$について，次が成り立つ．
@@ -1194,7 +1162,7 @@ $\beta_T$である．(a)から(c)のどれかにあたれば，$h$を1ptずつ�
 そのまま成り立つ．持ち越したフロートは，$s(j)\ge o_j=1$のどの段にも置けるので，
 この段組の中に置かれる．{\widowpenalty=10000\par}
 
-\komidashi{配置：箱の中の段組（入れ子の段組）}\label{par:nest}
+\komidashi{配置：箱の中の段組（入れ子の段組）}
 \par\nobreak\vspace{.25\baselineskip}
 \noindent\fbox{\begin{minipage}{\dimexpr\linewidth-2\fboxsep-2\fboxrule\relax}
 \begin{multicols}{2}
@@ -1214,9 +1182,9 @@ $\beta_T$である．(a)から(c)のどれかにあたれば，$h$を1ptずつ�
     入れ子があっても変わらない．
 \end{itemize}
 \end{multicols}
-\settei[この箱の設定]{\texttt{\cs{fbox}}の中の\texttt{minipage}に\texttt{\cs{begin}\{multicols\}\{2\}}}
+\vspace{.4\baselineskip}
 \end{minipage}}
-\par\addvspace{.5\baselineskip}
+\par\addvspace{.75\baselineskip}
 
 \komidashi{一貫性：\opt{footnote=page}のページ}
 脚注を版面の下端に置く組みでは，脚注の位置をどのページでも同じにする．
@@ -1289,7 +1257,6 @@ $\beta_T$である．(a)から(c)のどれかにあたれば，$h$を1ptずつ�
   \end{tikzpicture}
   \caption{\opt{footnote=page}のページの組み直し}
   \label{fig:formal-page}
-  \setteizu{\texttt{\cs{begin}\{figure\}[tbp]}}
 \end{figure}
 
 \begin{stmt}[実装との対応]{注意}
@@ -1300,9 +1267,7 @@ $\mathrm{Fill}$は\texttt{fill\_once}（段をまたぐフロートの脚注を�
 （\texttt{boxbalance}）は，フロートと脚注のない場合（$F=\Phi=\emptyset$）の同じ手順である．
 \end{stmt}
 
-%% 調整：見出しと前置きだけがページの下に残らないように，ここで改ページする
-\newpage
-\begin{evenendmulticols}[columnsep=2\zw,columnseprule=.4pt]{2}[\section{要請ごとに言えること}\label{sec:f-summary}%
+\begin{evenendmulticols}[columnsep=2.5\zw,columnseprule=.4pt]{3}[\section{要請ごとに言えること}\label{sec:f-summary}%
 \ref{sec:f-req}節の要請のそれぞれについて，手順が返した配置に言えることと，言えない
 ことをまとめる．]
 
@@ -1352,7 +1317,6 @@ $\mathrm{Fill}$は\texttt{fill\_once}（段をまたぐフロートの脚注を�
 作りとして目指しているが，材料によっては成り立たない．証明のない性質は，マニュアルの
 「乱数による網羅テスト」の節の試験で，組んだ結果を検査して確かめている．この順は，
 要請がぶつかったときに守る順でもある．
-\settei{\texttt{\cs{begin}\{evenendmulticols\}[columnsep=2\cs{zw},\allowbreak columnseprule=.4pt]\{2\}[前置き]}．前置きは，節の見出しと始めの文}
 \end{evenendmulticols}
 
 以下の3つの節は，定式化と実装のつながりを述べる．記号と\TeX{}の概念の対応
@@ -1415,7 +1379,6 @@ $\mathrm{Fill}$は\texttt{fill\_once}（段をまたぐフロートの脚注を�
   \end{tikzpicture}
   \caption{\TeX{}の概念と材料の対応}
   \label{fig:formal-tex}
-  \setteizu{\texttt{\cs{begin}\{figure\}[tbp]}}
 \end{figure}
 
 \section{\TeX{}の概念との対応}\label{sec:formal-tex}
@@ -1434,10 +1397,9 @@ contributions）のリストに残る（図\ref{fig:formal-tex}）．
 
 インサートは\cs{box}255から抜かれるので，脚注が本文のどの行にあったか（参照位置
 $a(\varphi)$）は，\TeX{}の側には残らない．そこでevenendは，\cs{@footnotetext}を
-置き換え，脚注ごとに番号を振って，参照のある行の直後に印\footnote{whatsitである．\LuaTeX{}の\texttt{user\_defined}を使う．}\label{fn:whatsit}を\cs{vadjust}で置き，脚注の中身には同じ番号を属性（attribute）で
+置き換え，脚注ごとに番号を振って，参照のある行の直後に印\footnote{whatsitである．\LuaTeX{}の\texttt{user\_defined}を使う．}を\cs{vadjust}で置き，脚注の中身には同じ番号を属性（attribute）で
 付ける．印は\cs{box}255に残り，本文と一緒に段に分かれるので，印の入った段がその脚注の
 段になる．マーク（\cs{mark}）も\cs{box}255に残る要素で，本文と一緒に段に入る．
-\settei{\texttt{\cs{begin}\{multicols\}\{2\}}}
 \end{multicols}
 
 図\ref{fig:formal-tex}で，ページビルダは，主垂直リストの改ページの位置までを
@@ -1451,7 +1413,8 @@ $a(\varphi)$を知る．改ページの位置のペナルティとグルーは�
 概念ごとの対応を，次に示す．各項は，\TeX{}の概念，この文書の記号（矢印の右），evenendの
 扱いの順である．
 
-\begin{multicols}{2}
+%% \smallの字（9pt）で23字の段幅になるように，段間を26ptにする
+\begin{evenendmulticols}[columnsep=26pt]{2}
 \small
 \taiou{出力ルーチン（\cs{output}）}{手順を行う場所}
   段を取り込むのは，\LaTeX{}の\cs{@makecol}の直前である．ページの最後の段で揃える
@@ -1503,8 +1466,7 @@ $a(\varphi)$を知る．改ページの位置のペナルティとグルーは�
   \TeX{}のインサートではない．\LaTeX{}が箱レジスタに入れ，リスト（\cs{@toplist}，
   \cs{@botlist}，\cs{@deferlist}，\cs{@dbltoplist}）で持つ．evenendは，段を取り込むときに
   リストから箱の写しを取る．
-\settei{\texttt{\cs{begin}\{multicols\}\{2\}}の中を\texttt{\cs{small}}で組む}
-\end{multicols}
+\end{evenendmulticols}
 
 \evenendcolumns{2}
 \section{Leanによる確認}\label{sec:lean}
@@ -1525,6 +1487,8 @@ Leanで確かめているのは，この文書に書いた手順（モデル）�
 文とLeanの定理の対応を，次に示す．各項は，この文書の文，Leanのファイルと定理（矢印の右），
 モデルでの扱いの順である．
 
+%% \smallの字（9pt）で23字の段幅になるように，段間を26ptにして段組を改める
+\evenendcolumns[columnsep=26pt]{2}
 {\small
 \taiou{例\ref{ex:frame}から例\ref{ex:even}}{\texttt{Example.lean}}
   例の数値（所要の高さ，見かけの下端，揃う配置と揃わない配置）を，定義のとおりに計算して
@@ -1598,6 +1562,7 @@ Leanで確かめているのは，この文書に書いた手順（モデル）�
   つねに領域$\Psi$に収まる（何回で打ち切っても成り立つ）．
 \par}
 
+\evenendcolumns{2}
 
 手順が止まることは，Leanでは定義そのものが保証する．Leanの関数は，必ず止まる形（回数の
 上限を引数に持つ再帰）でしか定義できないからである．
@@ -1714,7 +1679,5 @@ Leanの証明は，モデルについてのものである．モデルが\texttt
   \item 脚注の置き方（(P3)）．
 \end{itemize}
 
-\settei[\ref{sec:lean}節からここまでの設定]{\texttt{\cs{evenendcolumns}\{2\}}．段間と段間罫は既定のまま}
-\settei[文書全体の設定]{\texttt{\cs{documentclass}[paper=a4,\allowbreak fontsize=10pt]\{jlreq\}}，\texttt{\cs{usepackage}[columns=1]\{evenend\}}，\texttt{\cs{columnseprule}=0pt}，\texttt{\cs{premulticols}=2\cs{baselineskip}}，\texttt{\cs{evenendsetup}\{blockmin=2\cs{baselineskip}\}}}
 
 \end{document}
