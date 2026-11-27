@@ -1,0 +1,14 @@
+%% 1段のブロックの最後が深さの大きい箱（上下中央で揃えたminipage）：
+%% 次の段組との間のアキは，箱の下端から測る（深さは\maxdepthまで数える）
+\documentclass[twocolumn,paper=a4,fontsize=10pt]{jlreq}
+\usepackage{evenend}
+\newcommand\para{吾輩は猫である．名前はまだ無い．どこで生れたかとんと見当がつかぬ．何でも薄暗いじめじめした所でニャーニャー泣いていた事だけは記憶している．\par}
+\begin{document}
+\evenendcolumns{1}
+\noindent\fbox{\begin{minipage}{\dimexpr\linewidth-2\fboxsep-2\fboxrule\relax}
+\para\para\para\para\para\para
+\end{minipage}}
+\evenendcolumns{2}
+\section{概要}
+\para\para\para\para
+\end{document}

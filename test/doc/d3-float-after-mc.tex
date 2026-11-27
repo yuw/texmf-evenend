@@ -1,0 +1,19 @@
+%% columns=1の文書で，multicols環境の後の1段の本文の上のフロート：前の段組に重ねず，
+%% 段組の後のアキ（\multicolsep）だけ離して置く
+\documentclass[paper=a4,fontsize=10pt]{jlreq}
+\usepackage[columns=1]{evenend}
+\newcommand\para{吾輩は猫である．名前はまだ無い．どこで生れたかとんと見当がつかぬ．何でも薄暗いじめじめした所でニャーニャー泣いていた事だけは記憶している．\par}
+\begin{document}
+\para\para\para\para\para\para\para\para\para\para\para\para\para\para\para\para\para\para
+\begin{multicols}{2}
+\para\para\para\para\para\para\para\para\para\para\para\para\para\para\para\para\para\para\para\para\para\para\para\para\para\para\para
+\end{multicols}
+
+\para
+\begin{figure}[tbp]
+  \centering
+  \rule{.8\linewidth}{4cm}
+  \caption{フロート}
+\end{figure}
+\para\para\para\para
+\end{document}

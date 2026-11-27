@@ -263,7 +263,7 @@ for j, b in enumerate(meta['blocks']):
         yc = (wl[1] + wl[3]) / 2
         hh = g['h'] * 72 / 72.27 / 2 + 1
         # \twocolumn[...]のタイトルの行（evenendがなくても，その直下の上のフロートの枠が
-        # タイトルの字面に触れる）は除く
+        # タイトルのインク境界に触れる）は除く
         title_y = [tw[3] for tw in W if 'ZTITLEZ' in tw[4]]
         for w in W:
             if w is wl or w is wr or re.search(r'ZS\d+[LR]Z', w[4]): continue

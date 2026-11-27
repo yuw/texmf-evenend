@@ -1,0 +1,12 @@
+%% footnote=pageで組み直すページ：LaTeXが段を分けたときに段の先頭になった見出しの前の
+%% 行間のグルー（whatsitの後にある）も取り戻す．見出しが前の行に重ならない
+\documentclass[twocolumn,paper=a4,fontsize=10pt]{jlreq}
+\usepackage{evenend}
+\newcommand\para{吾輩は猫である．名前はまだ無い．どこで生れたかとんと見当がつかぬ．何でも薄暗いじめじめした所でニャーニャー泣いていた事だけは記憶している．\par}
+\newcount\n
+\begin{document}
+\n=0 \loop\ifnum\n<24 行\the\n\par \advance\n by 1 \repeat
+\para 脚注のある行\footnote{脚注．}．\para
+\subsection{小節の見出し}
+\para\para\para\para\para\para\para\para\para\para\para\para\para\para\para\para\para\para\para\para
+\end{document}

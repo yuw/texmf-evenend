@@ -1,0 +1,14 @@
+%% 段組を改める位置で，前の段組が1行だけページに入り切らない（footnote=page）：
+%% 送り返した1行は次のページの上に元の段数のブロックとして積み，その下に次の段組を続ける
+%% （1行だけのページを出さない．2ページになる）
+\documentclass[twocolumn,paper=a4,fontsize=10pt]{jlreq}
+\usepackage{evenend}
+\newcommand\para{吾輩は猫である．名前はまだ無い．どこで生れたかとんと見当がつかぬ．何でも薄暗いじめじめした所でニャーニャー泣いていた事だけは記憶している．\par}
+\newcount\n
+\begin{document}
+\section{一}
+\n=0 \loop\ifnum\n<18 \para \advance\n by 1 \repeat
+\evenendcolumns{2}
+\section{二}
+\para\para\para\para\para\para
+\end{document}

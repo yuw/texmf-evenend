@@ -1,10 +1,22 @@
 %% evenend-theory-ja.tex：evenendパッケージの定式化（マクロタイポグラフィの要請，問題の定義，
 %% 手順，証明）
 %% LuaLaTeXで2回組む．使い方はマニュアル（evenend-ja.tex）にある
+%% この文書そのものを，evenendの見本として組む．1段を基本にして（columns=1），
+%% 部分ごとにmulticols環境，evenendmulticols環境，\evenendcolumnsで段組にする
 \documentclass[paper=a4,fontsize=10pt]{jlreq}
 \usepackage{graphicx}
-\usepackage{longtable,array}
-\usepackage{float}
+\usepackage{array}
+\usepackage{tcolorbox}
+\usepackage[columns=1]{evenend}
+%% 段組の後，ページの残りが2行あれば，そのページに続きを組む（既定は5行）
+\evenendsetup{blockmin=2\baselineskip}
+\setlength\columnseprule{0pt}
+%% ページの残りが2行あれば，そこから段組を始める（既定は50pt）．\premulticolsは，
+%% evenendが文書の始まりで用意するので，その後で変える
+\AtBeginDocument{\setlength\premulticols{2\baselineskip}}
+\tcbset{colback=white,colframe=black!55,boxrule=.4pt,arc=1.5pt,
+  left=1\zw,right=1\zw,top=.5\baselineskip,bottom=.5\baselineskip,
+  before skip=.75\baselineskip,after skip=.75\baselineskip}
 \usepackage{tikz}
 \usetikzlibrary{arrows.meta,positioning,calc}
 \tikzset{
@@ -54,6 +66,23 @@
 \newenvironment{shoumei}{%
   \par\noindent{\gtfamily\sffamily 証明}\hspace{1\zw}\ignorespaces}
   {\unskip\nobreak\hfill □\par\addvspace{.5\baselineskip}}
+%% その場に置く図（フロートにしない）：例の図など，文のすぐ後に置きたい図に使う．段組や箱の中でも使える
+\makeatletter
+\newenvironment{zu}{\par\addvspace{.75\baselineskip}\noindent
+  \begin{minipage}{\linewidth}\def\@captype{figure}\centering}
+  {\end{minipage}\par\addvspace{.75\baselineskip}}
+\makeatother
+%% 要請の項目（段組の中で使う）：\yousei{番号}{観点}
+\newcommand\yousei[2]{\par\noindent(M#1)\hspace{.5\zw}\kyocho{#2}．\ignorespaces}
+%% 対応の一覧の項目（表の代わり）：\taiou{左の欄}{中の欄}
+\newcommand\taiou[2]{\par\addvspace{.3\baselineskip}\noindent
+  {\gtfamily\sffamily #1}\par\nobreak
+  {\raggedright\hangindent=2.5\zw\hangafter=1\noindent\hspace{1\zw}→\hspace{.5\zw}#2\par}\nobreak\noindent\ignorespaces}
+%% 組み方の設定の注記：その部分の最後に小さく記す．\settei[見出し]{設定}
+\newcommand\settei[2][この段組の設定]{\par\nobreak\vspace{.25\baselineskip}%
+  {\raggedright\footnotesize\noindent［#1：#2］\par}}
+%% フロートにした図の設定の注記（キャプションの下に置く）
+\newcommand\setteizu[1]{\par\vspace{.25\baselineskip}{\footnotesize［この図の設定：#1］\par}}
 %% 地の文の小見出し
 \newcommand\komidashi[1]{\par\addvspace{.5\baselineskip}%
   \noindent{\gtfamily\sffamily #1}\hspace{1\zw}\ignorespaces}
@@ -61,11 +90,12 @@
 \title{\pkg{evenend}パッケージの定式化\\[.5\baselineskip]
   \large マクロタイポグラフィの要請，問題，手順，証明}
 \author{木枝祐介}
-\date{v20261124.2}
+\date{v20261126.0}
 
 \begin{document}
 \maketitle
 
+\begin{multicols}{2}
 evenendパッケージは，段組の紙面の構成を決め直す．行の中の組み（マイクロタイポグラフィ）には
 触れず，組み上がった行，図表，脚注を，段と版面のどこに置くか（マクロタイポグラフィ）
 だけを扱う．この文書では，その判断を定式化する．まず，紙面の構成についての要請を
@@ -82,30 +112,61 @@ evenendパッケージは，段組の紙面の構成を決め直す．行の中�
 長さはすべて段の上端から下向きに測る．記号が\TeX{}のどの概念（\cs{box}255，インサート，
 マークなど）にあたるかは，\ref{sec:formal-tex}節にまとめる．証明の一部は，定理証明支援系
 Lean 4でも確かめてある（\ref{sec:lean}節）．
+\settei{\texttt{\cs{begin}\{multicols\}\{2\}}}
+\end{multicols}
 
-\section{マクロタイポグラフィの要請}\label{sec:f-req}
+\komidashi{この文書の組み方}
+この文書そのものを，\pkg{evenend}の見本として組んでいる．1段を基本にして，部分ごとに
+段組にする．組み方を変えた部分の設定は，それぞれの最後に小さく記した．同じ設定の2段の
+\texttt{multicols}環境が続く所では，節ごとに最初の1つにだけ記してある．文書全体の設定は，
+文書の最後に記した．どの機能がどこにあるかは，次のとおりである．
+\begin{evenendmulticols}[columnsep=2\zw,columnseprule=.4pt]{2}
+\begin{itemize}
+  \item 2段の\texttt{multicols}環境：始めの文，例\ref{ex:used}（\pageref{ex:used}ページ）
+    などの例，証明，注意\ref{rem:noproof}．
+  \item 3段で，前置きのある\texttt{multicols}環境：\ref{sec:f-req}節．見出しと始めの文が
+    前置きで，全幅に組まれる．
+  \item \texttt{evenendmulticols}環境で段間と段間罫を変えた段組：この項目の並び，
+    例\ref{ex:material}，注意\ref{rem:exist}，\ref{sec:f-summary}節（前置きつき）．
+  \item \cs{columnbreak}：例\ref{ex:material}（\pageref{ex:material}ページ）．文と図を段に
+    分ける．
+  \item \pkg{tcolorbox}の箱の中の段組：問題\ref{prob:main}（\pageref{prob:main}ページ）．
+  \item \texttt{minipage}の中の段組：\ref{sec:formal-apply}節の「箱の中の段組」の項
+    （\pageref{par:nest}ページ）．
+  \item 段組の中の脚注：\ref{sec:formal-tex}節（\pageref{fn:whatsit}ページ）．脚注は
+    版面の下端に全幅で置かれる（\opt{footnote=page}）．
+  \item \cs{evenendcolumns}による切り換え：\ref{sec:lean}節から終わりまでは2段．最終
+    ページで段の下端が揃う．
+  \item フロートの図（\texttt{figure}環境）：図\ref{fig:formal-layout}，図\ref{fig:formal-even}，
+    図\ref{fig:formal-fill}から図\ref{fig:formal-tex}．ほかの図は，その場に置いてある．
+  \item 表の代わりの項目の並び：\ref{sec:formal-tex}節と\ref{sec:lean}節の対応の一覧は，
+    段組に流してある．
+\end{itemize}
+\settei{\texttt{\cs{begin}\{evenendmulticols\}[columnsep=2\cs{zw},\allowbreak columnseprule=.4pt]\{2\}}}
+\end{evenendmulticols}
 
+\begin{multicols}{3}[\section{マクロタイポグラフィの要請}\label{sec:f-req}%
 段組の本文がページの途中で終わるとき，\LaTeX{}は左の段から詰めて組む（なりゆき）．
 evenendは，これを，各段の下端の揃った紙面に組み直す．このとき紙面に求めることを，
-観点ごとに挙げる．
-\begin{enumerate}
-  \item[(M1)\hspace{.5\zw}] \kyocho{構造}．紙面の基準を動かさない．横の基準は段（段数，段幅，
+観点ごとに挙げる．]
+\yousei{1}{構造}紙面の基準を動かさない．横の基準は段（段数，段幅，
     段間），縦の基準は行の位置（1行目のベースラインから行送りごとの位置）である．
-  \item[(M2)\hspace{.5\zw}] \kyocho{版面}．どの段も，版面の中で段組に使える高さを超えない．
-  \item[(M3)\hspace{.5\zw}] \kyocho{読む順序}．本文の順を変えない．図表の番号の順を変えず，
+\yousei{2}{版面}どの段も，版面の中で段組に使える高さを超えない．
+\yousei{3}{読む順序}本文の順を変えない．図表の番号の順を変えず，
     図表を前の段へ動かさない．
-  \item[(M4)\hspace{.5\zw}] \kyocho{配置}．脚注は，参照する箇所と同じ段の下端か，版面の下端に
+\yousei{4}{配置}脚注は，参照する箇所と同じ段の下端か，版面の下端に
     全幅で置く．上の図表は段の上端に，下の図表は段の下端に置く．
-  \item[(M5)\hspace{.5\zw}] \kyocho{釣り合い}．中身のある最後の段を除いて，段の下端を1つの
+\yousei{5}{釣り合い}中身のある最後の段を除いて，段の下端を1つの
     位置に揃える．最後の段は，その位置より下に出ない．
-  \item[(M6)\hspace{.5\zw}] \kyocho{整列}．段の下端は，目に見える下端で測る．下端を揃える
+\yousei{6}{整列}段の下端は，目に見える下端で測る．下端を揃える
     ために，本文の行を行の位置から動かさない．
-  \item[(M7)\hspace{.5\zw}] \kyocho{余白}．段組をできるだけ低くして，余白を段組の下に
+\yousei{7}{余白}段組をできるだけ低くして，余白を段組の下に
     まとめる．高さを合わせるためのアキは，行間に入れず，本文と図表，本文と脚注の境に
     入れる．
-  \item[(M8)\hspace{.5\zw}] \kyocho{一貫性}．図表は，\LaTeX{}が置いた段からなるべく動かさない．
+\yousei{8}{一貫性}図表は，\LaTeX{}が置いた段からなるべく動かさない．
     ページの途中で段組を改めるときも，ほかのページを組み直すときも，同じ手順を使う．
-\end{enumerate}
+\settei{\texttt{\cs{begin}\{multicols\}\{3\}[前置き]}．前置きは，節の見出しと始めの文}
+\end{multicols}
 横の基準は，この文書の式には現れない．段幅と段間は初めに決まり，本文の行と図表は
 その幅で組み上がっているので，決め直すのは縦の方向だけである．以下では，材料の高さと，
 それを段に分ける位置だけを扱う．
@@ -133,8 +194,7 @@ $\tau+\ell b$（$\ell=0,1,\dots$）である．版面（M2）は，段の高さ$
 含む），本文の高さ$|T_i|$，脚注の高さ$G_i$（区切りの罫と上のアキを含む）の和である．
 どの段でも$U_i\le h$なら，配置は$h$に入り切る．
 
-\begin{figure}[H]
-  \centering
+\begin{zu}
   \begin{tikzpicture}[alg,x=.9mm,y=.9mm,
       txt/.style={fill=black!18},fl/.style={fill=black!45}]
     %% ページの中の段組
@@ -175,7 +235,7 @@ $\tau+\ell b$（$\ell=0,1,\dots$）である．版面（M2）は，段の高さ$
   \end{tikzpicture}
   \caption{段組と所要の高さ（定義\ref{def:frame}，\ref{def:used}）}
   \label{fig:formal-frame}
-\end{figure}
+\end{zu}
 
 \begin{stmt}[段組]{例}\label{ex:frame}
 この節の例では，次の1つの段組を通して使う（図\ref{fig:ex-frame}）．段数は$N=3$，行送りは
@@ -188,21 +248,6 @@ $238\,\mathrm{pt}$で，上に段抜きのフロートがあり，下のアキ�
 図\ref{fig:ex-frame}で，版面から段抜きのフロートとその下のアキを除いた高さが，段の
 高さ$H$である（ごく薄い地が段）．
 
-\begin{figure}[H]
-  \centering
-  \begin{tikzpicture}[alg,x=1mm,y=-.25mm]
-    \fill[black!45] (0,0) rectangle (68,48);
-    \node[white] at (34,24) {段抜きのフロート};
-    \foreach \x in {0,24,48} {\excol{\x}{60}}
-    \foreach \x/\i in {10/1,34/2,58/3} {\node at (\x,149) {段\i};}
-    \draw (0,0) rectangle (68,238);
-    \draw[<->] (72,0) -- (72,60) node[midway,right=2pt] {$60\,\mathrm{pt}$（下のアキを含む）};
-    \draw[<->] (72,60) -- (72,238) node[midway,right=2pt] {$H=178\,\mathrm{pt}$（15行）};
-    \draw[<->] (-4,0) -- (-4,238) node[midway,left=2pt] {版面$238\,\mathrm{pt}$};
-  \end{tikzpicture}
-  \caption{例\ref{ex:frame}の段組}
-  \label{fig:ex-frame}
-\end{figure}
 
 \begin{stmt}[材料]{定義}\label{def:material}
 ページの\kyocho{材料}とは，次の3つの組$M=(T,F,\Phi)$である．
@@ -218,6 +263,23 @@ $238\,\mathrm{pt}$で，上に段抜きのフロートがあり，下のアキ�
 \end{itemize}
 \end{stmt}
 
+%% 調整：図2は，ページの下の空きを詰めるために，例2の直後から定義3の後へ送ってある
+\begin{zu}
+  \begin{tikzpicture}[alg,x=1mm,y=-.25mm]
+    \fill[black!45] (0,0) rectangle (68,48);
+    \node[white] at (34,24) {段抜きのフロート};
+    \foreach \x in {0,24,48} {\excol{\x}{60}}
+    \foreach \x/\i in {10/1,34/2,58/3} {\node at (\x,149) {段\i};}
+    \draw (0,0) rectangle (68,238);
+    \draw[<->] (72,0) -- (72,60) node[midway,right=2pt] {$60\,\mathrm{pt}$（下のアキを含む）};
+    \draw[<->] (72,60) -- (72,238) node[midway,right=2pt] {$H=178\,\mathrm{pt}$（15行）};
+    \draw[<->] (-4,0) -- (-4,238) node[midway,left=2pt] {版面$238\,\mathrm{pt}$};
+  \end{tikzpicture}
+  \caption{例\ref{ex:frame}の段組}
+  \label{fig:ex-frame}
+\end{zu}
+
+\begin{evenendmulticols}[columnsep=2\zw,columnseprule=.4pt]{2}
 \begin{stmt}[材料]{例}\label{ex:material}
 例\ref{ex:frame}の段組に，次の材料を組む（図\ref{fig:ex-material}）．
 \begin{itemize}
@@ -230,31 +292,33 @@ $238\,\mathrm{pt}$で，上に段抜きのフロートがあり，下のアキ�
 \end{itemize}
 本文の行の深さは，どの行も$d=3\,\mathrm{pt}$とする．
 \end{stmt}
+\columnbreak
 
 図\ref{fig:ex-material}で，本文$T$は23行を1本につないだもの，$f_1$は段内フロート，
 $\varphi$は3行目（\textdagger）に参照位置のある脚注である．
 
-\begin{figure}[H]
-  \centering
-  \begin{tikzpicture}[alg,x=1mm,y=-.25mm]
+\begin{zu}
+  \begin{tikzpicture}[alg,x=.7mm,y=-.18mm]
     \exlines{0}{10}{23}
     \node[left=2pt] at (0,6.5) {$t_1$};
     \node[left=2pt] at (0,30.5) {$t_3$};
     \node[left=2pt] at (0,270.5) {$t_{23}$};
     \node[font=\footnotesize] at (17,30.5) {\textdagger};
-    \node at (10,292) {本文$T$};
+    \node at (10,298) {本文$T$};
     \exfloat{40}{0}
     \draw[<->] (63,0) -- (63,48) node[midway,right=2pt] {$|f_1|=48\,\mathrm{pt}$};
     \draw[densely dotted] (60,48) -- (64,48);
-    \node at (50,62) {フロート$f_1$（上，$o_1=1$）};
+    \node[anchor=west] at (38,72) {フロート$f_1$（上，$o_1=1$）};
     \exfoot{40}{120}
     \draw[<->] (63,100) -- (63,120) node[midway,right=2pt] {$20\,\mathrm{pt}$};
-    \node at (50,134) {脚注$\varphi$（$a(\varphi)=3$）};
-    \draw[->,densely dashed] (20,30.5) to[out=0,in=180] (39,112);
+    \node[anchor=west] at (38,146) {脚注$\varphi$（$a(\varphi)=3$）};
+    \draw[->,densely dashed] (20,30.5) to[out=0,in=180] (30,80) to[out=0,in=180] (39,112);
   \end{tikzpicture}
   \caption{例\ref{ex:material}の材料}
   \label{fig:ex-material}
-\end{figure}
+\end{zu}
+\settei{\texttt{\cs{begin}\{evenendmulticols\}[columnsep=2\cs{zw},\allowbreak columnseprule=.4pt]\{2\}}．文と図の間に\texttt{\cs{columnbreak}}}
+\end{evenendmulticols}
 
 \section{配置と読む順序}\label{sec:f-layout}
 
@@ -262,28 +326,8 @@ $\varphi$は3行目（\textdagger）に参照位置のある脚注である．
 切れ目で分けるだけにして順を変えず，フロートの割り振りには，番号の順を保つことと，前の
 段へ動かさないことを条件として課す．
 
-\begin{stmt}[配置]{定義}\label{def:layout}
-材料$M$の\kyocho{配置}とは，次の組$(k,s)$である（図\ref{fig:formal-layout}）．
-\begin{itemize}
-  \item 切れ目$k=(k_0,\dots,k_N)$，$0=k_0\le k_1\le\dots\le k_N=n$．段$i$の本文は
-    $T_i=(t_{k_{i-1}+1},\dots,t_{k_i})$である．切れ目は，\TeX{}が改ページできる位置に限る．
-    段の先頭に来た捨てられる要素（グルーなど）は，$T_i$から除く．
-  \item フロートの割り振り$s\colon\{1,\dots,m\}\to\{1,\dots,N\}$．次の2つを満たす．
-    \begin{enumerate}
-      \item 番号順を保つ：$s(j)\le s(j+1)$．
-      \item 前の段へ動かさない：$s(j)\ge o_j$．段をまたぐフロートは$s(j)=o_j$．
-    \end{enumerate}
-\end{itemize}
-割り振りの全体を$S$と書く．\LaTeX{}が組んだページは，1つの配置$(k^0,s^0)$を
-与える（$s^0(j)=o_j$）．
-\end{stmt}
-
-図\ref{fig:formal-layout}の上では，本文$T$を切れ目$k_1$，$k_2$で$T_1$，$T_2$，$T_3$に
-分け，フロートを割り振り$s$で段に置いている．$f_2$は，\LaTeX{}が置いた段2から段3へ
-動かしている．下は，割り振りの全体$S$の例である．2つのフロートをどちらも\LaTeX{}が
-段1に置いたとき，$S$は左の3つからなる．$\mu$は動かす量である（問題\ref{prob:main}）．
-
-\begin{figure}[H]
+%% 調整：図4は，参照するページに入るように，3節の始めに置いてある
+\begin{figure}[tbp]
   \centering
   \begin{tikzpicture}[alg,x=.9mm,y=.9mm,
       txt/.style={fill=black!18},fl/.style={fill=black!45}]
@@ -360,7 +404,31 @@ $\varphi$は3行目（\textdagger）に参照位置のある脚注である．
   \end{tikzpicture}
   \caption{材料と配置（定義\ref{def:material}，\ref{def:layout}）}
   \label{fig:formal-layout}
+  \setteizu{\texttt{\cs{begin}\{figure\}[tbp]}}
 \end{figure}
+
+\begin{stmt}[配置]{定義}\label{def:layout}
+材料$M$の\kyocho{配置}とは，次の組$(k,s)$である（図\ref{fig:formal-layout}）．
+\begin{itemize}
+  \item 切れ目$k=(k_0,\dots,k_N)$，$0=k_0\le k_1\le\dots\le k_N=n$．段$i$の本文は
+    $T_i=(t_{k_{i-1}+1},\dots,t_{k_i})$である．切れ目は，\TeX{}が改ページできる位置に限る．
+    段の先頭に来た捨てられる要素（グルーなど）は，$T_i$から除く．
+  \item フロートの割り振り$s\colon\{1,\dots,m\}\to\{1,\dots,N\}$．次の2つを満たす．
+    \begin{enumerate}
+      \item 番号順を保つ：$s(j)\le s(j+1)$．
+      \item 前の段へ動かさない：$s(j)\ge o_j$．段をまたぐフロートは$s(j)=o_j$．
+    \end{enumerate}
+\end{itemize}
+割り振りの全体を$S$と書く．\LaTeX{}が組んだページは，1つの配置$(k^0,s^0)$を
+与える（$s^0(j)=o_j$）．
+\end{stmt}
+
+図\ref{fig:formal-layout}の上では，本文$T$を切れ目$k_1$，$k_2$で$T_1$，$T_2$，$T_3$に
+分け，フロートを割り振り$s$で段に置いている．$f_2$は，\LaTeX{}が置いた段2から段3へ
+動かしている．下は，割り振りの全体$S$の例である．2つのフロートをどちらも\LaTeX{}が
+段1に置いたとき，$S$は左の3つからなる．$\mu$は動かす量である（問題\ref{prob:main}）．
+
+
 
 \begin{stmt}[配置]{例}\label{ex:layout}
 例\ref{ex:material}の材料の配置を2つ挙げる（図\ref{fig:ex-layout}）．フロートは1つで
@@ -374,11 +442,11 @@ $o_1=1$なので，割り振りは$s(1)=1,2,3$の3つである（$S$の元は3�
 どちらも，脚注の参照位置の3行目は段1にある．
 \end{stmt}
 
+
 図\ref{fig:ex-layout}の左は，\LaTeX{}が組んだ配置である．前の段から詰めるので，段3が空に
 なる．右は，揃えた配置である．同じ材料を，切れ目だけを変えて3段に分けている．
 
-\begin{figure}[H]
-  \centering
+\begin{zu}
   \begin{tikzpicture}[alg,x=1mm,y=-.25mm]
     \foreach \x in {0,24,48} {\excol{\x}{0}}
     \exfloat{0}{0}\exlines{0}{58}{9}\exfoot{0}{178}
@@ -396,7 +464,7 @@ $o_1=1$なので，割り振りは$s(1)=1,2,3$の3つである（$S$の元は3�
   \end{tikzpicture}
   \caption{例\ref{ex:layout}の2つの配置}
   \label{fig:ex-layout}
-\end{figure}
+\end{zu}
 
 \section{高さと下端：版面と整列の量}\label{sec:f-height}
 
@@ -421,6 +489,7 @@ $o_1=1$なので，割り振りは$s(1)=1,2,3$の3つである（$S$の元は3�
 ついて，すべての$i$で$U_i\le h$のとき，配置は\kyocho{$h$に入り切る}という．
 \end{stmt}
 
+\begin{multicols}{2}
 \begin{stmt}[所要の高さ]{例}\label{ex:used}
 例\ref{ex:layout}の揃えた配置$k=(0,4,14,23)$の所要の高さを求める
 （図\ref{fig:ex-used}）．$\ell$行の本文の高さは，1行目のベースラインまでの$\tau$と
@@ -435,12 +504,13 @@ $o_1=1$なので，割り振りは$s(1)=1,2,3$の3つである（$S$の元は3�
 \LaTeX{}の配置$k^0$では$U_1=48+106+24=178$，$U_2=166$，$U_3=0$で，$h=H=178\,\mathrm{pt}$で
 なければ入り切らない．
 \end{stmt}
+\settei{\texttt{\cs{begin}\{multicols\}\{2\}}}
+\end{multicols}
 
 図\ref{fig:ex-used}で，段1の所要の高さは，フロート，本文4行，脚注の高さの和である．
 本文の高さは最終行のベースラインまでで，行の深さは数えない．
 
-\begin{figure}[H]
-  \centering
+\begin{zu}
   \begin{tikzpicture}[alg,x=1mm,y=-.25mm]
     \foreach \x in {0,24,48} {\excol{\x}{0}}
     \exfloat{0}{0}\exlines{0}{58}{4}\exfoot{0}{118}
@@ -458,7 +528,7 @@ $o_1=1$なので，割り振りは$s(1)=1,2,3$の3つである（$S$の元は3�
   \end{tikzpicture}
   \caption{例\ref{ex:used}の所要の高さ（単位はpt）}
   \label{fig:ex-used}
-\end{figure}
+\end{zu}
 
 \begin{stmt}[見かけの下端]{定義}\label{def:bottom}
 $d$を，$T$の行の深さのうち最も多い値とする（本文の行の標準の深さ）．配置の段$i$の
@@ -477,6 +547,7 @@ $v_i$を，段の最後の要素の基準線の位置$n_i$と，その下に見�
 $e_i=0$である．
 \end{stmt}
 
+\begin{multicols}{2}
 \begin{stmt}[見かけの下端]{例}\label{ex:bottom}
 例\ref{ex:layout}の揃えた配置の見かけの下端を求める（図\ref{fig:ex-bottom}）．
 \begin{itemize}
@@ -490,13 +561,13 @@ $e_i=0$である．
 （単位はpt．）定義\ref{def:bottom}の終わりの分け方では，$(n_1,n_2,n_3)=(118,118,106)$，
 $e_i=3$である．
 \end{stmt}
+\end{multicols}
 
 図\ref{fig:ex-bottom}の実線は最後の行のベースライン，破線は見かけの下端で，その差が
 行の深さ$d=3\,\mathrm{pt}$である．段1の脚注は，本文の2行下の行の位置に最終行の
 ベースラインを置く．
 
-\begin{figure}[H]
-  \centering
+\begin{zu}
   \begin{tikzpicture}[alg,x=1mm,y=-.25mm]
     \foreach \x in {0,24,48} {\excol{\x}{0}}
     \exfloat{0}{0}\exlines{0}{58}{4}\exfoot{0}{118}
@@ -511,7 +582,7 @@ $e_i=3$である．
   \end{tikzpicture}
   \caption{例\ref{ex:bottom}の見かけの下端（単位はpt）}
   \label{fig:ex-bottom}
-\end{figure}
+\end{zu}
 
 \section{釣り合いと整列：揃った配置と問題}\label{sec:f-even}
 
@@ -534,9 +605,9 @@ $e_i=3$である．
 図\ref{fig:formal-even}の帯は行で，帯の下辺がベースラインである．段1は本文だけの段で，
 行は$\tau+\ell b$の位置から動かさない．段2は，本文と下のフロートの間のアキを伸び縮み
 させて，フロートの下端を$\beta$に合わせる．段3は中身のある最後の段$L$で，$\beta$より
-高くなければよい．段の脚注の最終行は，行の位置（$\tau+\ell b$）に置く．
+高くなければよい．段の脚注の最終行は，行の位置（$\tau+\ell b$）に置く．{\widowpenalty=10000\par}
 
-\begin{figure}[H]
+\begin{figure}[tbp]
   \centering
   \begin{tikzpicture}[alg,x=.9mm,y=.9mm,
       txt/.style={fill=black!18},fl/.style={fill=black!45}]
@@ -568,8 +639,10 @@ $e_i=3$である．
   \end{tikzpicture}
   \caption{見かけの下端と揃った配置（定義\ref{def:bottom}，\ref{def:even}）}
   \label{fig:formal-even}
+  \setteizu{\texttt{\cs{begin}\{figure\}[tbp]}}
 \end{figure}
 
+\begin{multicols}{2}
 \begin{stmt}[揃った配置]{例}\label{ex:even}
 例\ref{ex:bottom}の配置は，下端$\beta=121\,\mathrm{pt}$で揃っている（図\ref{fig:ex-even}の左）．
 中身のある最後の段は$L=3$である．
@@ -584,13 +657,14 @@ $(v_1,v_2,v_3)=(121,109,121)$になる．段2は本文だけの段なので，3�
 $\beta=109$とするしかない．しかし$v_3=121>109$で，2に反する．よって，この配置は，
 どの$\beta$でも揃っていない．
 \end{stmt}
+\settei{\texttt{\cs{begin}\{multicols\}\{2\}}}
+\end{multicols}
 
 図\ref{fig:ex-even}の左は，下端$\beta$で揃った配置である．最後の段3は短くてよい．右は，
 途中の段2が1行分短い配置である．段2は本文だけの段で伸ばせないので，揃っていない
 （どちらも，段の下の部分は省いてある）．
 
-\begin{figure}[H]
-  \centering
+\begin{zu}
   \begin{tikzpicture}[alg,x=1mm,y=-.25mm]
     \foreach \x in {0,24,48} {\excol[136]{\x}{0}}
     \exfloat{0}{0}\exlines{0}{58}{4}\exfoot{0}{118}
@@ -611,13 +685,17 @@ $\beta=109$とするしかない．しかし$v_3=121>109$で，2に反する．�
   \end{tikzpicture}
   \caption{例\ref{ex:even}の2つの配置}
   \label{fig:ex-even}
-\end{figure}
+\end{zu}
 
+\par\addvspace{.5\baselineskip}
+\noindent\begin{minipage}{\linewidth}
 \komidashi{問題}
 ここまでの定義で，要請を問題の条件に置き換える．
+\begin{tcolorbox}
 \begin{stmt}[最終ページを揃える]{問題}\label{prob:main}
 材料$M$，段数$N$，段の高さ$H$が与えられ，$M$は\LaTeX{}が高さ$H$の$N$段に組んだものと
 する．次を満たす配置$(k,s)$と高さ$h\le H$を求めよ．
+\begin{multicols}{2}
 \begin{enumerate}
   \item[(P1)\hspace{.5\zw}] 配置は$h$に入り切る．
   \item[(P2)\hspace{.5\zw}] 順序を保つ．本文は読む順のまま（切れ目$k$で分けるだけ），フロートは
@@ -628,8 +706,14 @@ $\beta=109$とするしかない．しかし$v_3=121>109$で，2に反する．�
   \item[(P5)\hspace{.5\zw}] (P1)から(P4)を満たすもののうちで，$h$が最も小さい．$h$の差が1行未満なら，
     動かすフロートの少ないものを選ぶ．動かす量は$\mu(s)=\sum_j(s(j)-o_j)$で測る．
 \end{enumerate}
+\end{multicols}
 \end{stmt}
+\settei[この箱の設定]{\texttt{tcolorbox}の中に\texttt{\cs{begin}\{multicols\}\{2\}}}
+\end{tcolorbox}
+\end{minipage}
+\par\addvspace{.5\baselineskip}
 
+\begin{evenendmulticols}[columnsep=3\zw,columnseprule=.4pt]{2}
 \begin{stmt}{注意}\label{rem:exist}
 行もフロートも分けられないので，(P4)を満たす配置があるとは限らない．また，(P1)は
 \LaTeX{}の配置$(k^0,s^0)$が$h=H$で満たすように見えるが，定義\ref{def:used}の切り上げの
@@ -638,8 +722,11 @@ $\beta=109$とするしかない．しかし$v_3=121>109$で，2に反する．�
 手順の中で定める．手順について証明できることと，証明しないことは，命題\ref{prop:main}と
 注意\ref{rem:noproof}に分けて述べる．
 \end{stmt}
+\settei{\texttt{\cs{begin}\{evenendmulticols\}[columnsep=3\cs{zw},\allowbreak columnseprule=.4pt]\{2\}}}
+\end{evenendmulticols}
 
 \komidashi{要請と条件の対応}
+\begin{multicols}{2}
 問題\ref{prob:main}の条件は，要請に次のように対応する．
 \begin{itemize}
   \item (P1)は版面（M2）．段の高さ$H$を超えない．
@@ -654,6 +741,7 @@ $\beta=109$とするしかない．しかし$v_3=121>109$で，2に反する．�
 ことが，それにあたる．(P1)から(P4)は満たすべき条件，(P5)は条件を満たすものの中での
 選び方である．つまり，版面，読む順序，配置，釣り合いと整列を先に守り，余白と一貫性は
 その中で選ぶ．
+\end{multicols}
 
 \section{手順と証明}\label{sec:f-proc}
 
@@ -686,6 +774,7 @@ $i=1,\dots,N-1$の順に，残りの本文の先頭から段$i$の本文を切�
 最後に，残りの本文のすべてを$T_N$とする．$U_N\le h$で，$T_N$に強制の改段が残って
 いなければ，配置を返す．そうでなければ失敗とする．
 \end{tejun}
+\begin{multicols}{2}
 \begin{shoumei}
 \kyocho{止まること}．段$1$から$N-1$のそれぞれで，2から4のくり返しは高々10回である．
 1回のくり返しで\cs{vsplit}を1回使うので，\cs{vsplit}は高々$10(N-1)$回である．
@@ -711,6 +800,8 @@ $k_0\le\dots\le k_N$による分割で，本文は読む順のままである．
 引いてある（定義\ref{def:used}）．$h\le H$なので，どの段もその領域に掛からず，脚注を
 版面の下端に全幅で置ける．
 \end{shoumei}
+\settei{\texttt{\cs{begin}\{multicols\}\{2\}}}
+\end{multicols}
 
 図\ref{fig:formal-fill}に，段$i$の切り出しを示す．初めは，脚注を見込まずに高さ$c$まで
 本文を切り出す．切り出した本文に脚注の参照（\textdagger）があると，脚注の分だけ$h$を
@@ -761,6 +852,7 @@ $k_0\le\dots\le k_N$による分割で，本文は読む順のままである．
   \end{tikzpicture}
   \caption{貪欲な分割$\mathrm{Fill}$の段$i$の切り出し（補題\ref{lem:fill}）}
   \label{fig:formal-fill}
+  \setteizu{\texttt{\cs{begin}\{figure\}[tbp]}}
 \end{figure}
 
 \begin{stmt}{注意}
@@ -774,7 +866,7 @@ $\mathrm{Fill}(s,h)$が失敗することはありうる．また，$\mathrm{Fil
 $s\in S$に対し，次の手順は，高々
 $\max\{0,\lceil\log_2((H-h_0)/1\,\mathrm{pt})\rceil\}+6$回の$\mathrm{Fill}$で止まり，
 $\mathrm{Fill}(s,h)$が成功する高さ$h(s)\le H$を1つ返すか，「入り切らない」と
-答える．$h_0$は，手順の中で定める下界である．
+答える．$h_0$は，手順の中で定める下界である．{\widowpenalty=10000\par}
 \end{stmt}
 \begin{tejun}
 $\mathrm{Fill}(s,H)$が失敗すれば，「入り切らない」と答える．成功すれば，下界を
@@ -783,7 +875,7 @@ $\mathrm{Fill}(s,H)$が失敗すれば，「入り切らない」と答える．
 下端を中点に移し，幅が1ptになるまで続ける．上端を$h_1$とする．$\mathrm{Fill}$の成否は
 単調とは限らないので，最後に$h_1-4\,\mathrm{pt}$から$h_1$まで1ptずつ調べ，最初に成功した
 高さを$h(s)$とする．ただし，下界$h_0$より下は調べない（$h_1-4\,\mathrm{pt}$が$h_0$より
-下になるときは，$h_0$から調べる）．$h_0$が負になるときは，$h_0=0$とする．
+下になるときは，$h_0$から調べる）．$h_0$が負になるときは，$h_0=0$とする．{\widowpenalty=10000\par}
 \end{tejun}
 \begin{shoumei}
 二分法のあいだ，区間の上端では，つねに$\mathrm{Fill}$が成功する．初めの上端$H$では
@@ -839,6 +931,7 @@ $h(s)$より低いものでは失敗することだけである．
   \end{tikzpicture}
   \caption{割り振りごとの最小の高さの探し方（補題\ref{lem:minh}）}
   \label{fig:formal-minh}
+  \setteizu{\texttt{\cs{begin}\{figure\}[tbp]}}
 \end{figure}
 
 \begin{stmt}[揃えた配置の構成]{命題}\label{prop:main}
@@ -857,7 +950,7 @@ $h(s)$より低いものでは失敗することだけである．
 \begin{enumerate}
   \item \kyocho{候補を挙げる}．$S$の割り振りを列挙する．64個を超えるときは，\LaTeX{}が
     置いたフロートを動かさず（$s(j)=o_j$），持ち越したフロートだけを動かす候補に限る．
-    段をまたぐフロートが同じ位置で同じ段に重なる候補は除く．
+    段をまたぐフロートが同じ位置で同じ段に重なる候補は除く．{\widowpenalty=10000\par}
   \item \kyocho{高さを求める}．各候補$s$について，補題\ref{lem:minh}で$h(s)$を
     求める．
   \item \kyocho{候補を選ぶ}．候補を順に見て，それまでの最良$(s^*,h^*)$を次の規則で
@@ -900,130 +993,7 @@ $h(s)$より低いものでは失敗することだけである．
     \TeX{}側は，\LaTeX{}の配置$(k^0,s^0)$のままページを出力し，警告を出す．
 \end{enumerate}
 \end{tejun}
-\begin{shoumei}
-\kyocho{止まること}．手順1の候補は高々257個である．手順2は，候補ごとに
-補題\ref{lem:minh}の回数の$\mathrm{Fill}$で終わる．手順4は，$h$を1ptずつ$H$まで上げる
-だけなので，高々$(H-h^*)/1\,\mathrm{pt}$回の$\mathrm{Fill}$で終わる．手順3と5は
-$\mathrm{Fill}$を使わない．手順6から手順1へ戻るのは高々2回なので，全体は高々3巡で
-終わる．$\mathrm{Fill}$そのものは，補題\ref{lem:fill}から，高々$10(N-1)$回の\cs{vsplit}で
-止まる．
-
-\kyocho{(i)}．配置を返すのは，手順3で候補が選ばれたときだけである．このとき返す配置は，
-$\mathrm{Fill}(s^*,h^*)$が返したものか，手順4の$\mathrm{Fill}(s^*,h)$
-（$h^*<h\le H$）が返したものである．$h^*=h(s^*)\le H$は，補題\ref{lem:minh}による．
-手順5は，切れ目も割り振りも変えない．よって，補題\ref{lem:fill}から，配置はその$h$に
-ついて(P1)から(P3)を満たす．手順6で条件を緩めた後は，緩めた$G_i$で定めた所要の高さに
-ついて同じことが成り立つ．
-
-\kyocho{(ii)}．手順5で$\beta=\max_i v_i$としたときは，すべての段で$v_i\le\beta$である．
-$\beta=\beta_T$とするのは，すべての段で，$v_i$からフロートまわりのグルーの縮みを引いた
-値が$\beta_T$以下のときだけである．どちらの場合も，主張が成り立つ．
-\end{shoumei}
-
-\komidashi{手順と要請の対応}
-命題\ref{prop:main}の手順のそれぞれが，どの要請のためにあるかを記す．
-\begin{itemize}
-  \item 手順1から3は，余白（M7）と一貫性（M8）の折り合いである．段組が最も低くなる
-    割り振りを探すが，図表を余計に動かすのは，1行以上低くなるときだけにする．
-  \item 手順4は，釣り合い（M5）と整列（M6）の折り合いである．最も低い高さで分けた配置が
-    揃わないとき，行間を伸ばすのではなく，高さを上げて分け直す．余白（M7）を譲って，
-    行の位置を守る．
-  \item 手順5は，整列（M6）と余白（M7）のうち，アキの入れ場所を定める．本文だけの段を
-    基準にして下端を決め，伸び縮みは図表のまわりのグルーに持たせる．無限に伸びるグルーを
-    入れる3つの場所は，どれも本文と脚注，本文と図表の境か，本文の末尾で，行間ではない．
-  \item 手順6は，入り切らないときに譲る順を定める．まず脚注の高さの切り上げを，次に
-    フロートの前後の行の位置合わせをやめる．版面（M2）を守るために，整列（M6）の一部を
-    譲る．
-\end{itemize}
-
-\begin{stmt}[段が揃うための条件]{命題}\label{prop:even}
-命題\ref{prop:main}の手順が返した配置と$\beta$について，次が成り立つ．
-\begin{enumerate}
-  \item[(i)\hspace{.5\zw}] $v_i>\beta$の段は，手順5でグルーが縮み，見かけの下端が$\beta$に
-    なる．
-  \item[(ii)\hspace{.5\zw}] $v_i<\beta$の段$i<L$は，次の3つを満たせば，手順5で見かけの
-    下端が$\beta$になる．
-    \begin{enumerate}
-      \item 不足が半行以下である：$\beta-v_i\le b/2$．
-      \item 段の並びが，最後の要素（行，下のフロート，脚注）で終わる．つまり，最後の
-        要素の後ろにグルーがない．
-      \item 段が，段の脚注か下のフロートで終わる．または，段のグルーの伸びの和が正で
-        ある．
-    \end{enumerate}
-\end{enumerate}
-したがって，$i<L$のすべての段が(ii)の3つを満たすか$v_i\ge\beta$であれば，
-定義\ref{def:even}の1と2が成り立つ．\opt{footnote=page}では，段がページの脚注の領域に
-掛からないことも仮定する．\cs{columnbreak}で終わる段は，最後の行の後ろに
-\cs{vfil}が残るので，(b)を満たさない．
-\end{stmt}
-\begin{shoumei}
-\TeX{}は，高さを指定して箱を組むとき，中身の自然な高さと指定の差を，グルーに割り振る．
-自然な高さが指定より小さいとき，無限に伸びるグルーがあれば，そのグルーだけが差を
-受け持つ．なければ，伸びの和が正である限り，有限の伸びに比例して差の全部を割り振る．
-自然な高さが指定より大きいときは，縮みの和が差以上であれば，縮みに比例して差の全部を
-割り振る．差の全部が割り振られ，それを受け持つグルーが最後の要素より上にあれば，
-最後の要素の基準線は箱の下端に来る．
-
-手順5は，段$i$を高さ$\beta-e_i$の箱に組む．最後の要素の基準線が箱の下端に来れば，
-見かけの下端は$(\beta-e_i)+e_i=\beta$である．そこで，差の全部がグルーに割り振られ，
-しかも最後の要素が動くことを，場合ごとに確かめる．
-
-\kyocho{(i)}．$v_i>\beta$の段があるのは，手順5で$\beta=\beta_T$としたときだけである
-（$\beta=\max_i v_i$なら，そのような段はない）．このとき手順5は，すべての段で，$v_i$から
-フロートまわりのグルーの縮みを引いた値が$\beta_T$以下であることを確かめている．
-フロートまわりのグルーの縮みは，段のグルーの縮みの和以下である．よって，縮みの和は
-差$v_i-\beta$以上で，差の全部が割り振られる．
-
-\kyocho{(ii)}．(a)から，手順5の3の無限に伸びるグルーは入らない．(b)から，段のグルーは
-どれも最後の要素より上にある．(c)を3つに分ける．
-段の脚注で終わる段では，手順5の1のグルーが無限に伸びるので，差の全部が無限に伸びる
-グルーに割り振られ，脚注が箱の下端まで下がる．
-下のフロートで終わる段では，伸びの和が不足に足りなければ，手順5の2のグルーが入り，
-同じく差の全部が割り振られて，フロートが箱の下端まで下がる．足りていれば，伸びの和は
-正なので，差の全部が割り振られる．
-どちらでもない段では，伸びの和が正なので，差の全部が割り振られる．
-どの場合も，差を受け持つグルーは最後の要素より上にあるので，最後の要素の基準線は
-箱の下端に来る．
-
-\kyocho{定義\ref{def:even}の1と2}．1は，(i)と(ii)と，$v_i=\beta$の段では差がないこと
-による．2は，命題\ref{prop:main}の(ii)による．
-\end{shoumei}
-
-\begin{stmt}[証明しないこと]{注意}\label{rem:noproof}
-命題\ref{prop:main}と命題\ref{prop:even}は，次の性質を主張しない．手順はこれらを目指して
-作ってあるが，次のとおり，材料によっては成り立たない．
-\begin{itemize}
-  \item \kyocho{途中の段を$\beta$に合わせられること}（定義\ref{def:even}の1）．
-    命題\ref{prop:even}の(ii)の条件を欠く段は，揃わない．不足が半行を超える段と，
-    伸びるグルーのない本文だけの段は，行を動かさずに下が空く．最後の行の後ろに
-    \cs{vfil}の残る段（\cs{columnbreak}で終わる段）は，\cs{vfil}が伸びて下が空く．手順4の判定を通り，本文だけの段が
-    あれば，下端は$\beta_T$になり，後ろに中身のある途中の段（本文のあるもの）の不足は
-    半行以下になる．つまり，命題\ref{prop:even}の(ii)の(a)が成り立つ．本文だけの段が
-    ないときは，これは言えない．手順4で$H$まで上げても判定を通らないときは，元の
-    配置のまま組む．
-  \item \kyocho{本文だけの段を動かさないこと}（定義\ref{def:even}の3）．$\beta=\beta_T$の
-    とき，基準にした段は動かない．それより短い本文だけの段は，グルーに伸びがあれば
-    伸ばすことがある．
-  \item \kyocho{高さが最も小さいこと}（P5）．$h^*$は，調べた候補の$h(s)$から手順3の
-    規則で選んだものである．$\mathrm{Fill}$は貪欲なので，$\mathrm{Fill}$が作らない配置は
-    調べていない．候補が64個を超えるときに除いた割り振りも調べていない．$h(s)$
-    そのものも，最小とは限らない（注意\ref{rem:minh}）．さらに，手順3の規則は，
-    動かすフロートの少ない候補を1行未満の差なら優先するので，調べた候補の中でも最小とは
-    限らない．たとえば，$(\mu,h)$が$(2,100\,\mathrm{pt})$，$(1,110\,\mathrm{pt})$，
-    $(0,120\,\mathrm{pt})$の順に来ると，2回置き換わって$120\,\mathrm{pt}$を選ぶ
-    （$b=12\,\mathrm{pt}$のとき）．
-  \item \kyocho{解があれば見つけること}．問題\ref{prob:main}の条件を満たす配置があっても，
-    手順が「揃えられない」と答えることはありうる．
-\end{itemize}
-証明のないこれらの性質は，マニュアルの「乱数による網羅テスト」の節に述べる試験で，組んだ結果を
-検査して確かめている．
-\end{stmt}
-
-図\ref{fig:formal-misaligned}に，命題\ref{prop:main}の手順4の揃わない配分を示す．破線は，
-(a)では最右段より前の段の見かけの下端の最大，ほかでは本文だけの段の見かけの下端の最大
-$\beta_T$である．(a)から(c)のどれかにあたれば，$h$を1ptずつ上げて$\mathrm{Fill}$を
-やり直し，どれにもあたらなくなった最初の配置を採る．
-
+%% 調整：図12は，初めに参照する手順4の近くに出るように，手順の後に置いてある
 \begin{figure}[tbp]
   \centering
   \begin{tikzpicture}[alg,x=.9mm,y=.9mm,
@@ -1067,7 +1037,140 @@ $\beta_T$である．(a)から(c)のどれかにあたれば，$h$を1ptずつ�
   \end{tikzpicture}
   \caption{揃わない配分（命題\ref{prop:main}の手順4）}
   \label{fig:formal-misaligned}
+  \setteizu{\texttt{\cs{begin}\{figure\}[tbp]}}
 \end{figure}
+\begin{multicols}{2}
+\begin{shoumei}
+\kyocho{止まること}．手順1の候補は高々257個である．手順2は，候補ごとに
+補題\ref{lem:minh}の回数の$\mathrm{Fill}$で終わる．手順4は，$h$を1ptずつ$H$まで上げる
+だけなので，高々$(H-h^*)/1\,\mathrm{pt}$回の$\mathrm{Fill}$で終わる．手順3と5は
+$\mathrm{Fill}$を使わない．手順6から手順1へ戻るのは高々2回なので，全体は高々3巡で
+終わる．$\mathrm{Fill}$そのものは，補題\ref{lem:fill}から，高々$10(N-1)$回の\cs{vsplit}で
+止まる．
+
+\kyocho{(i)}．配置を返すのは，手順3で候補が選ばれたときだけである．このとき返す配置は，
+$\mathrm{Fill}(s^*,h^*)$が返したものか，手順4の$\mathrm{Fill}(s^*,h)$
+（$h^*<h\le H$）が返したものである．$h^*=h(s^*)\le H$は，補題\ref{lem:minh}による．
+手順5は，切れ目も割り振りも変えない．よって，補題\ref{lem:fill}から，配置はその$h$に
+ついて(P1)から(P3)を満たす．手順6で条件を緩めた後は，緩めた$G_i$で定めた所要の高さに
+ついて同じことが成り立つ．
+
+\kyocho{(ii)}．手順5で$\beta=\max_i v_i$としたときは，すべての段で$v_i\le\beta$である．
+$\beta=\beta_T$とするのは，すべての段で，$v_i$からフロートまわりのグルーの縮みを引いた
+値が$\beta_T$以下のときだけである．どちらの場合も，主張が成り立つ．
+\end{shoumei}
+\end{multicols}
+
+\komidashi{手順と要請の対応}
+\begin{multicols}{2}
+命題\ref{prop:main}の手順のそれぞれが，どの要請のためにあるかを記す．
+\begin{itemize}
+  \item 手順1から3は，余白（M7）と一貫性（M8）の折り合いである．段組が最も低くなる
+    割り振りを探すが，図表を余計に動かすのは，1行以上低くなるときだけにする．
+  \item 手順4は，釣り合い（M5）と整列（M6）の折り合いである．最も低い高さで分けた配置が
+    揃わないとき，行間を伸ばすのではなく，高さを上げて分け直す．余白（M7）を譲って，
+    行の位置を守る．
+  \item 手順5は，整列（M6）と余白（M7）のうち，アキの入れ場所を定める．本文だけの段を
+    基準にして下端を決め，伸び縮みは図表のまわりのグルーに持たせる．無限に伸びるグルーを
+    入れる3つの場所は，どれも本文と脚注，本文と図表の境か，本文の末尾で，行間ではない．
+  \item 手順6は，入り切らないときに譲る順を定める．まず脚注の高さの切り上げを，次に
+    フロートの前後の行の位置合わせをやめる．版面（M2）を守るために，整列（M6）の一部を
+    譲る．
+\end{itemize}
+\end{multicols}
+
+\begin{stmt}[段が揃うための条件]{命題}\label{prop:even}
+命題\ref{prop:main}の手順が返した配置と$\beta$について，次が成り立つ．
+\begin{enumerate}
+  \item[(i)\hspace{.5\zw}] $v_i>\beta$の段は，手順5でグルーが縮み，見かけの下端が$\beta$に
+    なる．
+  \item[(ii)\hspace{.5\zw}] $v_i<\beta$の段$i<L$は，次の3つを満たせば，手順5で見かけの
+    下端が$\beta$になる．
+    \begin{enumerate}
+      \item 不足が半行以下である：$\beta-v_i\le b/2$．
+      \item 段の並びが，最後の要素（行，下のフロート，脚注）で終わる．つまり，最後の
+        要素の後ろにグルーがない．
+      \item 段が，段の脚注か下のフロートで終わる．または，段のグルーの伸びの和が正で
+        ある．
+    \end{enumerate}
+\end{enumerate}
+したがって，$i<L$のすべての段が(ii)の3つを満たすか$v_i\ge\beta$であれば，
+定義\ref{def:even}の1と2が成り立つ．\opt{footnote=page}では，段がページの脚注の領域に
+掛からないことも仮定する．\cs{columnbreak}で終わる段は，最後の行の後ろに
+\cs{vfil}が残るので，(b)を満たさない．
+\end{stmt}
+\begin{multicols}{2}
+\begin{shoumei}
+\TeX{}は，高さを指定して箱を組むとき，中身の自然な高さと指定の差を，グルーに割り振る．
+自然な高さが指定より小さいとき，無限に伸びるグルーがあれば，そのグルーだけが差を
+受け持つ．なければ，伸びの和が正である限り，有限の伸びに比例して差の全部を割り振る．
+自然な高さが指定より大きいときは，縮みの和が差以上であれば，縮みに比例して差の全部を
+割り振る．差の全部が割り振られ，それを受け持つグルーが最後の要素より上にあれば，
+最後の要素の基準線は箱の下端に来る．
+
+手順5は，段$i$を高さ$\beta-e_i$の箱に組む．最後の要素の基準線が箱の下端に来れば，
+見かけの下端は$(\beta-e_i)+e_i=\beta$である．そこで，差の全部がグルーに割り振られ，
+しかも最後の要素が動くことを，場合ごとに確かめる．
+
+\kyocho{(i)}．$v_i>\beta$の段があるのは，手順5で$\beta=\beta_T$としたときだけである
+（$\beta=\max_i v_i$なら，そのような段はない）．このとき手順5は，すべての段で，$v_i$から
+フロートまわりのグルーの縮みを引いた値が$\beta_T$以下であることを確かめている．
+フロートまわりのグルーの縮みは，段のグルーの縮みの和以下である．よって，縮みの和は
+差$v_i-\beta$以上で，差の全部が割り振られる．
+
+\kyocho{(ii)}．(a)から，手順5の3の無限に伸びるグルーは入らない．(b)から，段のグルーは
+どれも最後の要素より上にある．(c)を3つに分ける．
+段の脚注で終わる段では，手順5の1のグルーが無限に伸びるので，差の全部が無限に伸びる
+グルーに割り振られ，脚注が箱の下端まで下がる．
+下のフロートで終わる段では，伸びの和が不足に足りなければ，手順5の2のグルーが入り，
+同じく差の全部が割り振られて，フロートが箱の下端まで下がる．足りていれば，伸びの和は
+正なので，差の全部が割り振られる．
+どちらでもない段では，伸びの和が正なので，差の全部が割り振られる．
+どの場合も，差を受け持つグルーは最後の要素より上にあるので，最後の要素の基準線は
+箱の下端に来る．
+
+\kyocho{定義\ref{def:even}の1と2}．1は，(i)と(ii)と，$v_i=\beta$の段では差がないこと
+による．2は，命題\ref{prop:main}の(ii)による．
+\end{shoumei}
+\end{multicols}
+
+\begin{multicols}{2}
+\begin{stmt}[証明しないこと]{注意}\label{rem:noproof}
+命題\ref{prop:main}と命題\ref{prop:even}は，次の性質を主張しない．手順はこれらを目指して
+作ってあるが，次のとおり，材料によっては成り立たない．
+\begin{itemize}
+  \item \kyocho{途中の段を$\beta$に合わせられること}（定義\ref{def:even}の1）．
+    命題\ref{prop:even}の(ii)の条件を欠く段は，揃わない．不足が半行を超える段と，
+    伸びるグルーのない本文だけの段は，行を動かさずに下が空く．最後の行の後ろに
+    \cs{vfil}の残る段（\cs{columnbreak}で終わる段）は，\cs{vfil}が伸びて下が空く．手順4の判定を通り，本文だけの段が
+    あれば，下端は$\beta_T$になり，後ろに中身のある途中の段（本文のあるもの）の不足は
+    半行以下になる．つまり，命題\ref{prop:even}の(ii)の(a)が成り立つ．本文だけの段が
+    ないときは，これは言えない．手順4で$H$まで上げても判定を通らないときは，元の
+    配置のまま組む．
+  \item \kyocho{本文だけの段を動かさないこと}（定義\ref{def:even}の3）．$\beta=\beta_T$の
+    とき，基準にした段は動かない．それより短い本文だけの段は，グルーに伸びがあれば
+    伸ばすことがある．
+  \item \kyocho{高さが最も小さいこと}（P5）．$h^*$は，調べた候補の$h(s)$から手順3の
+    規則で選んだものである．$\mathrm{Fill}$は貪欲なので，$\mathrm{Fill}$が作らない配置は
+    調べていない．候補が64個を超えるときに除いた割り振りも調べていない．$h(s)$
+    そのものも，最小とは限らない（注意\ref{rem:minh}）．さらに，手順3の規則は，
+    動かすフロートの少ない候補を1行未満の差なら優先するので，調べた候補の中でも最小とは
+    限らない．たとえば，$(\mu,h)$が$(2,100\,\mathrm{pt})$，$(1,110\,\mathrm{pt})$，
+    $(0,120\,\mathrm{pt})$の順に来ると，2回置き換わって$120\,\mathrm{pt}$を選ぶ
+    （$b=12\,\mathrm{pt}$のとき）．
+  \item \kyocho{解があれば見つけること}．問題\ref{prob:main}の条件を満たす配置があっても，
+    手順が「揃えられない」と答えることはありうる．
+\end{itemize}
+証明のないこれらの性質は，マニュアルの「乱数による網羅テスト」の節に述べる試験で，組んだ結果を
+検査して確かめている．
+\end{stmt}
+\end{multicols}
+
+図\ref{fig:formal-misaligned}に，命題\ref{prop:main}の手順4の揃わない配分を示す．破線は，
+(a)では最右段より前の段の見かけの下端の最大，ほかでは本文だけの段の見かけの下端の最大
+$\beta_T$である．(a)から(c)のどれかにあたれば，$h$を1ptずつ上げて$\mathrm{Fill}$を
+やり直し，どれにもあたらなくなった最初の配置を採る．
+
 
 \section{ほかの場面への適用}\label{sec:formal-apply}
 
@@ -1089,9 +1192,12 @@ $\beta_T$である．(a)から(c)のどれかにあたれば，$h$を1ptずつ�
 \end{enumerate}
 命題\ref{prop:main}は$H$の決め方によらないので，2で得た配置について，命題の(i)と(ii)が
 そのまま成り立つ．持ち越したフロートは，$s(j)\ge o_j=1$のどの段にも置けるので，
-この段組の中に置かれる．
+この段組の中に置かれる．{\widowpenalty=10000\par}
 
-\komidashi{配置：箱の中の段組（入れ子の段組）}
+\komidashi{配置：箱の中の段組（入れ子の段組）}\label{par:nest}
+\par\nobreak\vspace{.25\baselineskip}
+\noindent\fbox{\begin{minipage}{\dimexpr\linewidth-2\fboxsep-2\fboxrule\relax}
+\begin{multicols}{2}
 ページの段の中に箱（\texttt{minipage}，フロート，\pkg{tcolorbox}など）を置き，その箱の中を
 さらに段組にできる（マニュアルの「入れ子の段組」の節）．内側の段組は，出力ルーチンを
 使わずにその場で組み，1つの箱にする．
@@ -1107,6 +1213,10 @@ $\beta_T$である．(a)から(c)のどれかにあたれば，$h$を1ptずつ�
     なる）．内側の段組が外側の手順を呼ぶことはないので，手順が止まることの証明は，
     入れ子があっても変わらない．
 \end{itemize}
+\end{multicols}
+\settei[この箱の設定]{\texttt{\cs{fbox}}の中の\texttt{minipage}に\texttt{\cs{begin}\{multicols\}\{2\}}}
+\end{minipage}}
+\par\addvspace{.5\baselineskip}
 
 \komidashi{一貫性：\opt{footnote=page}のページ}
 脚注を版面の下端に置く組みでは，脚注の位置をどのページでも同じにする．
@@ -1136,7 +1246,7 @@ $\beta_T$である．(a)から(c)のどれかにあたれば，$h$を1ptずつ�
 図\ref{fig:formal-page}の左では，ページの脚注の領域$\Psi$を除いた高さ$h$で段を分けて
 いる．入り切らない本文$R$に参照（\textdagger）のある脚注（濃い帯）は，このページに
 要らない．右では，その脚注を除いたので$\Psi$が減り，$h$が上がって，$R$の一部がこの
-ページに入る．送り返す本文の脚注が戻らない所までくり返す．
+ページに入る．送り返す本文の脚注が戻らない所までくり返す．{\widowpenalty=10000\par}
 
 \begin{figure}[tbp]
   \centering
@@ -1179,6 +1289,7 @@ $\beta_T$である．(a)から(c)のどれかにあたれば，$h$を1ptずつ�
   \end{tikzpicture}
   \caption{\opt{footnote=page}のページの組み直し}
   \label{fig:formal-page}
+  \setteizu{\texttt{\cs{begin}\{figure\}[tbp]}}
 \end{figure}
 
 \begin{stmt}[実装との対応]{注意}
@@ -1189,10 +1300,11 @@ $\mathrm{Fill}$は\texttt{fill\_once}（段をまたぐフロートの脚注を�
 （\texttt{boxbalance}）は，フロートと脚注のない場合（$F=\Phi=\emptyset$）の同じ手順である．
 \end{stmt}
 
-\section{要請ごとに言えること}\label{sec:f-summary}
-
+%% 調整：見出しと前置きだけがページの下に残らないように，ここで改ページする
+\newpage
+\begin{evenendmulticols}[columnsep=2\zw,columnseprule=.4pt]{2}[\section{要請ごとに言えること}\label{sec:f-summary}%
 \ref{sec:f-req}節の要請のそれぞれについて，手順が返した配置に言えることと，言えない
-ことをまとめる．
+ことをまとめる．]
 
 \komidashi{構造（M1）}
 手順は$N$，$b$，$\tau$を変えない．段幅と段間は，手順に現れない．行の位置については，
@@ -1240,38 +1352,14 @@ $\mathrm{Fill}$は\texttt{fill\_once}（段をまたぐフロートの脚注を�
 作りとして目指しているが，材料によっては成り立たない．証明のない性質は，マニュアルの
 「乱数による網羅テスト」の節の試験で，組んだ結果を検査して確かめている．この順は，
 要請がぶつかったときに守る順でもある．
+\settei{\texttt{\cs{begin}\{evenendmulticols\}[columnsep=2\cs{zw},\allowbreak columnseprule=.4pt]\{2\}[前置き]}．前置きは，節の見出しと始めの文}
+\end{evenendmulticols}
 
 以下の3つの節は，定式化と実装のつながりを述べる．記号と\TeX{}の概念の対応
 （\ref{sec:formal-tex}節），Leanによる証明の確認（\ref{sec:lean}節），モデルと実装の
 照らし合わせ（\ref{sec:model-check}節）である．
 
-\section{\TeX{}の概念との対応}\label{sec:formal-tex}
-
-この文書の記号が，\TeX{}のどの概念にあたるかをまとめる．\LaTeX{}の段組では，\TeX{}の
-ページビルダが1段ごとに出力ルーチン（\cs{output}）を呼ぶ．ページビルダは，主垂直リストの
-うち改ページの位置までを\cs{box}255に入れ，その中のインサート（\cs{insert}）を種類ごとの
-箱（脚注は\cs{box}\cs{footins}）へ移す．改ページの位置から後ろは，最近の寄与（recent
-contributions）のリストに残る（図\ref{fig:formal-tex}）．
-
-材料$M=(T,F,\Phi)$は，この3つから作る．本文$T$は，各段の\cs{box}255の中身と，最近の寄与の
-先頭にある捨てられる要素の写しを，段の順につないだものである．脚注$\Phi$は，各段の
-\cs{box}\cs{footins}の中身である．フロート$F$だけは\TeX{}の概念ではなく，\LaTeX{}が
-箱レジスタとリストで持つ．
-
-インサートは\cs{box}255から抜かれるので，脚注が本文のどの行にあったか（参照位置
-$a(\varphi)$）は，\TeX{}の側には残らない．そこでevenendは，\cs{@footnotetext}を
-置き換え，脚注ごとに番号を振って，参照のある行の直後に印（whatsit．\LuaTeX{}の
-\texttt{user\_defined}）を\cs{vadjust}で置き，脚注の中身には同じ番号を属性（attribute）で
-付ける．印は\cs{box}255に残り，本文と一緒に段に分かれるので，印の入った段がその脚注の
-段になる．マーク（\cs{mark}）も\cs{box}255に残る要素で，本文と一緒に段に入る．
-
-図\ref{fig:formal-tex}で，ページビルダは，主垂直リストの改ページの位置までを
-\cs{box}255に入れ，インサートを\cs{box}\cs{footins}へ移し，残りを最近の寄与に残して，
-出力ルーチンを呼ぶ．印とマークは\cs{box}255に残る．evenendは，\cs{box}255の中身を
-本文$T$の1段分，\cs{box}\cs{footins}の中身を脚注$\Phi$とし，印の位置から参照位置
-$a(\varphi)$を知る．改ページの位置のペナルティとグルーは，次の段の先頭で\TeX{}が
-捨てる前に写しておく．
-
+%% 調整：図14は，9節のページの上に入るように，9節の見出しの前に置いてある
 \begin{figure}[tbp]
   \centering
   \begin{tikzpicture}[alg,x=.9mm,y=.9mm,
@@ -1327,75 +1415,98 @@ $a(\varphi)$を知る．改ページの位置のペナルティとグルーは�
   \end{tikzpicture}
   \caption{\TeX{}の概念と材料の対応}
   \label{fig:formal-tex}
+  \setteizu{\texttt{\cs{begin}\{figure\}[tbp]}}
 \end{figure}
 
-概念ごとの対応を，次の表に示す．
+\section{\TeX{}の概念との対応}\label{sec:formal-tex}
 
-{\small
-\begin{longtable}{@{}p{.24\linewidth}p{.2\linewidth}p{.5\linewidth}@{}}
-\hline
-\TeX{}の概念 & この文書の記号 & evenendの扱い \\
-\hline
-\endfirsthead
-\hline
-\TeX{}の概念 & この文書の記号 & evenendの扱い \\
-\hline
-\endhead
-\hline
-\endfoot
-出力ルーチン（\cs{output}） & 手順を行う場所 &
+\begin{multicols}{2}
+この文書の記号が，\TeX{}のどの概念にあたるかをまとめる．\LaTeX{}の段組では，\TeX{}の
+ページビルダが1段ごとに出力ルーチン（\cs{output}）を呼ぶ．ページビルダは，主垂直リストの
+うち改ページの位置までを\cs{box}255に入れ，その中のインサート（\cs{insert}）を種類ごとの
+箱（脚注は\cs{box}\cs{footins}）へ移す．改ページの位置から後ろは，最近の寄与（recent
+contributions）のリストに残る（図\ref{fig:formal-tex}）．
+
+材料$M=(T,F,\Phi)$は，この3つから作る．本文$T$は，各段の\cs{box}255の中身と，最近の寄与の
+先頭にある捨てられる要素の写しを，段の順につないだものである．脚注$\Phi$は，各段の
+\cs{box}\cs{footins}の中身である．フロート$F$だけは\TeX{}の概念ではなく，\LaTeX{}が
+箱レジスタとリストで持つ．
+
+インサートは\cs{box}255から抜かれるので，脚注が本文のどの行にあったか（参照位置
+$a(\varphi)$）は，\TeX{}の側には残らない．そこでevenendは，\cs{@footnotetext}を
+置き換え，脚注ごとに番号を振って，参照のある行の直後に印\footnote{whatsitである．\LuaTeX{}の\texttt{user\_defined}を使う．}\label{fn:whatsit}を\cs{vadjust}で置き，脚注の中身には同じ番号を属性（attribute）で
+付ける．印は\cs{box}255に残り，本文と一緒に段に分かれるので，印の入った段がその脚注の
+段になる．マーク（\cs{mark}）も\cs{box}255に残る要素で，本文と一緒に段に入る．
+\settei{\texttt{\cs{begin}\{multicols\}\{2\}}}
+\end{multicols}
+
+図\ref{fig:formal-tex}で，ページビルダは，主垂直リストの改ページの位置までを
+\cs{box}255に入れ，インサートを\cs{box}\cs{footins}へ移し，残りを最近の寄与に残して，
+出力ルーチンを呼ぶ．印とマークは\cs{box}255に残る．evenendは，\cs{box}255の中身を
+本文$T$の1段分，\cs{box}\cs{footins}の中身を脚注$\Phi$とし，印の位置から参照位置
+$a(\varphi)$を知る．改ページの位置のペナルティとグルーは，次の段の先頭で\TeX{}が
+捨てる前に写しておく．
+
+
+概念ごとの対応を，次に示す．各項は，\TeX{}の概念，この文書の記号（矢印の右），evenendの
+扱いの順である．
+
+\begin{multicols}{2}
+\small
+\taiou{出力ルーチン（\cs{output}）}{手順を行う場所}
   段を取り込むのは，\LaTeX{}の\cs{@makecol}の直前である．ページの最後の段で揃える
-  ために，\cs{@outputdblcol}を置き換える． \\\noalign{\vskip 4pt}
-\cs{box}255 & 本文$T$の1段分 &
-  写しを取り，全段の分を1本の垂直リストにつなぐ． \\\noalign{\vskip 4pt}
-最近の寄与の先頭の捨てられる要素（グルー，カーン，ペナルティ） & 改段の位置で捨てたグルー
-  （定義\ref{def:material}） &
+  ために，\cs{@outputdblcol}を置き換える．
+\taiou{\cs{box}255}{本文$T$の1段分}
+  写しを取り，全段の分を1本の垂直リストにつなぐ．
+\taiou{最近の寄与の先頭の捨てられる要素（グルー，カーン，ペナルティ）}{改段の位置で捨てたグルー（定義\ref{def:material}）}
   次の段の先頭で\TeX{}が捨てる前に写す．改ページの位置のペナルティは\TeX{}が10000に
-  書き換えるので，\cs{outputpenalty}から元の値に戻す． \\\noalign{\vskip 4pt}
-\cs{vsize}\newline（\LaTeX{}では\cs{@colht}） & 段の高さ$H$ &
-  積んだ段組と段抜きのフロートの分を減らす． \\\noalign{\vskip 4pt}
-\cs{topskip}，\cs{splittopskip} & $\tau$ &
+  書き換えるので，\cs{outputpenalty}から元の値に戻す．
+\taiou{\cs{vsize}（\LaTeX{}では\cs{@colht}）}{段の高さ$H$}
+  積んだ段組と段抜きのフロートの分を減らす．
+\taiou{\cs{topskip}，\cs{splittopskip}}{$\tau$}
   \cs{vsplit}の前に，\cs{splittopskip}を\cs{topskip}と同じにする．分けた段の1行目も，
-  ページの1行目と同じ位置に来る． \\\noalign{\vskip 4pt}
-\cs{baselineskip} & $b$ & 行の位置$\tau+\ell b$の刻み． \\\noalign{\vskip 4pt}
-箱の深さ，\newline\cs{maxdepth}，\newline\cs{splitmaxdepth} & $d$と見かけの下端$v_i$ &
-  \cs{splitmaxdepth}を\cs{maxdepth}と同じにする．段の最後の箱の深さは，\cs{maxdepth}までなら段の高さに数えない． \\\noalign{\vskip 4pt}
-改ページできる位置（ペナルティ，箱の後のグルー，カーン） & 切れ目$k_i$の候補 &
-  \cs{vsplit}が，\TeX{}の改ページと同じ規則で選ぶ． \\\noalign{\vskip 4pt}
-$-10000$以下のペナルティ\newline（\cs{newpage}，\newline\cs{columnbreak}） & 強制の改段 &
-  そこで必ず段を改める．最後の段$T_N$に残れば，$\mathrm{Fill}$は失敗する． \\\noalign{\vskip 4pt}
-\cs{vsplit} & $\mathrm{Fill}$の切り出し（補題\ref{lem:fill}） &
-  Lua側から\texttt{tex.splitbox}で呼ぶ．分けた先頭の捨てられる要素は\TeX{}が捨てる． \\\noalign{\vskip 4pt}
-インサート\newline（\cs{insert}\cs{footins}） & 脚注$\varphi\in\Phi$ &
+  ページの1行目と同じ位置に来る．
+\taiou{\cs{baselineskip}}{$b$}
+  行の位置$\tau+\ell b$の刻み．
+\taiou{箱の深さ，\cs{maxdepth}，\cs{splitmaxdepth}}{$d$と見かけの下端$v_i$}
+  \cs{splitmaxdepth}を\cs{maxdepth}と同じにする．段の最後の箱の深さは，\cs{maxdepth}までなら段の高さに数えない．
+\taiou{改ページできる位置（ペナルティ，箱の後のグルー，カーン）}{切れ目$k_i$の候補}
+  \cs{vsplit}が，\TeX{}の改ページと同じ規則で選ぶ．
+\taiou{$-10000$以下のペナルティ（\cs{newpage}，\cs{columnbreak}）}{強制の改段}
+  そこで必ず段を改める．最後の段$T_N$に残れば，$\mathrm{Fill}$は失敗する．
+\taiou{\cs{vsplit}}{$\mathrm{Fill}$の切り出し（補題\ref{lem:fill}）}
+  Lua側から\texttt{tex.splitbox}で呼ぶ．分けた先頭の捨てられる要素は\TeX{}が捨てる．
+\taiou{インサート（\cs{insert}\cs{footins}）}{脚注$\varphi\in\Phi$}
   出力ルーチンでは，その段の分が\cs{box}\cs{footins}に集まっている．その中身を，属性の
-  番号で脚注ごとに分ける． \\\noalign{\vskip 4pt}
-印（whatsit）と属性 & 参照位置$a(\varphi)$ &
+  番号で脚注ごとに分ける．
+\taiou{印（whatsit）と属性}{参照位置$a(\varphi)$}
   \TeX{}のインサートは位置を残さないので，evenendが加える．印は\cs{vadjust}で，参照の
-  ある行の直後に置く． \\\noalign{\vskip 4pt}
-\cs{count}\cs{footins}，\cs{skip}\cs{footins}，\cs{dimen}\cs{footins} &
-  \LaTeX{}が組むときの脚注の見込み &
+  ある行の直後に置く．
+\taiou{\cs{count}\cs{footins}，\cs{skip}\cs{footins}，\cs{dimen}\cs{footins}}{\LaTeX{}が組むときの脚注の見込み}
   \opt{footnote=column}では変えない．\opt{footnote=page}では，全幅の脚注が全段の高さを
   減らすので，見込みを段数倍にする（\cs{count}\cs{footins}．\cs{skip}\cs{footins}は，
-  ページの最初の脚注のときだけ）． \\\noalign{\vskip 4pt}
-送り返す本文$R$のインサート & \ref{sec:formal-apply}節の$R$の脚注 &
+  ページの最初の脚注のときだけ）．
+\taiou{送り返す本文$R$のインサート}{\ref{sec:formal-apply}節の$R$の脚注}
   $R$の脚注を\cs{insert}に作り直して印の直後に付け，$R$を\cs{unvbox}で最近の寄与へ戻す．
-  ページビルダが，次のページの材料としてもう一度扱う． \\\noalign{\vskip 4pt}
-マーク（\cs{mark}） & $T$の要素（高さ0） &
+  ページビルダが，次のページの材料としてもう一度扱う．
+\taiou{マーク（\cs{mark}）}{$T$の要素（高さ0）}
   本文と一緒に段に入る．ページを出力するときに，ページの本文から読む順に集め，
-  1段組と同じ方法で柱の情報を更新する． \\\noalign{\vskip 4pt}
-\cs{firstmark}，\cs{botmark}，\cs{topmark} & ― &
+  1段組と同じ方法で柱の情報を更新する．
+\taiou{\cs{firstmark}，\cs{botmark}，\cs{topmark}}{―}
   \LaTeX{} 2025-06-01より前の版では，集めたマークを\cs{vsplit}して，\cs{splitfirstmark}と
-  \cs{splitbotmark}から作る． \\\noalign{\vskip 4pt}
-\cs{vadjust} & 行の直後の要素 &
-  脚注の印と，段落の途中の\cs{columnbreak}のペナルティに使う． \\\noalign{\vskip 4pt}
-whatsit（\cs{special}，\cs{write}など） & $T$の要素（高さ0） &
-  本文と一緒に段に入り，位置を保つ．段の末尾では，見かけの下端を測るときに飛ばす． \\\noalign{\vskip 4pt}
-フロート & $F$ &
+  \cs{splitbotmark}から作る．
+\taiou{\cs{vadjust}}{行の直後の要素}
+  脚注の印と，段落の途中の\cs{columnbreak}のペナルティに使う．
+\taiou{whatsit（\cs{special}，\cs{write}など）}{$T$の要素（高さ0）}
+  本文と一緒に段に入り，位置を保つ．段の末尾では，見かけの下端を測るときに飛ばす．
+\taiou{フロート}{$F$}
   \TeX{}のインサートではない．\LaTeX{}が箱レジスタに入れ，リスト（\cs{@toplist}，
   \cs{@botlist}，\cs{@deferlist}，\cs{@dbltoplist}）で持つ．evenendは，段を取り込むときに
-  リストから箱の写しを取る． \\\noalign{\vskip 4pt}
-\end{longtable}}
+  リストから箱の写しを取る．
+\settei{\texttt{\cs{begin}\{multicols\}\{2\}}の中を\texttt{\cs{small}}で組む}
+\end{multicols}
 
+\evenendcolumns{2}
 \section{Leanによる確認}\label{sec:lean}
 
 この文書の例，補題，命題の一部は，定理証明支援系Lean 4で書き直し，証明が通ることを
@@ -1411,143 +1522,82 @@ Leanで確かめているのは，この文書に書いた手順（モデル）�
 （その型が\texttt{S}で，この文書の$S$にあたる）．各段のフロートの高さ$|F_i|$の並びは
 \texttt{As}と書く．
 
-文とLeanの定理の対応を，次の表に示す．
+文とLeanの定理の対応を，次に示す．各項は，この文書の文，Leanのファイルと定理（矢印の右），
+モデルでの扱いの順である．
 
 {\small
-\begin{longtable}{@{}p{.22\linewidth}
-    p{.3\linewidth}
-    p{.42\linewidth}@{}}
-\hline
-この文書の文 & Leanのファイルと定理 & モデルでの扱い \\
-\hline
-\endhead
-\hline
-\endfoot
-例\ref{ex:frame}から例\ref{ex:even} & \texttt{Example.lean} &
+\taiou{例\ref{ex:frame}から例\ref{ex:even}}{\texttt{Example.lean}}
   例の数値（所要の高さ，見かけの下端，揃う配置と揃わない配置）を，定義のとおりに計算して
-  確かめる．\\\noalign{\vskip 4pt}
-補題\ref{lem:minh} & \texttt{MinH.lean}：\newline
-  \texttt{bisect\_ok}，\newline
-  \texttt{bisect\_steps}，\newline
-  \texttt{scan\_ok}，\newline
-  \texttt{minH\_spec}，\newline
-  \texttt{minH\_isSome} &
+  確かめる．
+\taiou{補題\ref{lem:minh}}{\texttt{MinH.lean}：\texttt{bisect\_ok}，\texttt{bisect\_steps}，\texttt{scan\_ok}，\texttt{minH\_spec}，\texttt{minH\_isSome}}
   $\mathrm{Fill}$の成否を，任意の述語とする（単調とは仮定しない）．二分法の回数は，区間の
-  幅が$2^k$以下なら$k$回以下，の形で示す．\\\noalign{\vskip 4pt}
-注意\ref{rem:minh} & \texttt{MinH.lean}の最後の\texttt{example} &
-  成否が「3と，50以上で成功」のとき，手順は50を返す．最小でない例である．\\\noalign{\vskip 4pt}
-補題\ref{lem:fill}（止まること，(P1)，(P2)） & \texttt{Fill.lean}：\newline
-  \texttt{fillCol\_spec}，\newline
-  \texttt{fill\_spec} &
+  幅が$2^k$以下なら$k$回以下，の形で示す．
+\taiou{注意\ref{rem:minh}}{\texttt{MinH.lean}の最後の\texttt{example}}
+  成否が「3と，50以上で成功」のとき，手順は50を返す．最小でない例である．
+\taiou{補題\ref{lem:fill}（止まること，(P1)，(P2)）}{\texttt{Fill.lean}：\texttt{fillCol\_spec}，\texttt{fill\_spec}}
   \cs{vsplit}を，「本文を前と後ろに分け，捨てられる要素のほかは，順を変えず，何も
   失わない」任意の関数とする．各段の本文を順につなぐと，捨てられる要素のほかは，元の
   本文と同じ並びになる．高さ$c$以下に切ることは仮定しない（切った後で高さを確かめるので，
-  要らない）．\\\noalign{\vskip 4pt}
-補題\ref{lem:fill}の(P3) & \texttt{Fill.lean}：\newline
-  \texttt{fill\_notes}，\newline
-  \texttt{page\_region} &
+  要らない）．
+\taiou{補題\ref{lem:fill}の(P3)}{\texttt{Fill.lean}：\texttt{fill\_notes}，\texttt{page\_region}}
   \opt{footnote=column}：どの脚注も，参照位置と同じ段に，ちょうど1回，読む順に置かれる．
-  \opt{footnote=page}：入り切る段は，ページの脚注の領域に掛からない．\\\noalign{\vskip 4pt}
-定義\ref{def:bottom} & \texttt{Bottom.lean}：\newline
-  \texttt{foot\_fits}，\newline
-  \texttt{foot\_first}，\newline
-  \texttt{foot\_grid} &
+  \opt{footnote=page}：入り切る段は，ページの脚注の領域に掛からない．
+\taiou{定義\ref{def:bottom}}{\texttt{Bottom.lean}：\texttt{foot\_fits}，\texttt{foot\_first}，\texttt{foot\_grid}}
   見かけの下端を，段の終わり方ごとに定義する．段の脚注を置く位置は，脚注が収まる最初の
-  行の位置である．\\\noalign{\vskip 4pt}
-定義\ref{def:used}，定義\ref{def:bottom} & \texttt{Layout.lean}：\newline
-  \texttt{lastBaseline\_regular}，\newline
-  \texttt{v\_eq\_used} &
+  行の位置である．
+\taiou{定義\ref{def:used}，定義\ref{def:bottom}}{\texttt{Layout.lean}：\texttt{lastBaseline\_regular}，\texttt{v\_eq\_used}}
   \cs{topskip}と\cs{baselineskip}による，\TeX{}が行を積む規則から，本文の高さを求める．行の
   高さが$\tau$以下で，高さと深さの和が$b$以下なら，$n$行の本文の高さは$\tau+(n-1)b$で
   ある．本文か段の脚注で終わる段では，見かけの下端は所要の高さに$d$を足した位置である．
-  \\\noalign{\vskip 4pt}
-命題\ref{prop:main}の手順1 & \texttt{Enum.lean}：\newline
-  \texttt{mem\_enumFrom}，\newline
-  \texttt{mem\_enumG}，\newline
-  \texttt{candidates\_valid}，\newline
-  \texttt{candidates\_length}，\newline
-  \texttt{self\_valid} &
+\taiou{命題\ref{prop:main}の手順1}{\texttt{Enum.lean}：\texttt{mem\_enumFrom}，\texttt{mem\_enumG}，\texttt{candidates\_valid}，\texttt{candidates\_length}，\texttt{self\_valid}}
   列挙は，定義\ref{def:layout}の条件を満たす割り振りのすべてを，それだけを挙げる．
   段をまたぐフロートは動かさない．64個を超えて絞った候補も条件を満たす．候補は高々
-  257個．\LaTeX{}の割り振り$s^0$は，つねに列挙に入る．\\\noalign{\vskip 4pt}
-命題\ref{prop:main}の手順1の判定 & \texttt{Span.lean}：\newline
-  \texttt{spanOk\_iff}，\newline
-  \texttt{spanOk\_right} &
+  257個．\LaTeX{}の割り振り$s^0$は，つねに列挙に入る．
+\taiou{命題\ref{prop:main}の手順1の判定}{\texttt{Span.lean}：\texttt{spanOk\_iff}，\texttt{spanOk\_right}}
   段をまたぐフロートを順に置き，段ごとに重なりを調べる判定を定義する．判定を通るのは，
   どのフロートも段$N$を越えず，同じ位置（上どうし，下どうし）で同じ段にかかる2つが，
-  同じ段から同じ段数にまたがるものだけのとき，そのときだけである．\\\noalign{\vskip 4pt}
-命題\ref{prop:main}の手順3 & \texttt{Select.lean}：\newline
-  \texttt{select\_mem}，\newline
-  \texttt{select\_isSome} &
+  同じ段から同じ段数にまたがるものだけのとき，そのときだけである．
+\taiou{命題\ref{prop:main}の手順3}{\texttt{Select.lean}：\texttt{select\_mem}，\texttt{select\_isSome}}
   選ぶのは候補のどれかで，候補があれば必ず選ぶ．最後の\texttt{example}は，
-  注意\ref{rem:noproof}の「調べた候補の中でも最小とは限らない」例．\\\noalign{\vskip 4pt}
-命題\ref{prop:main}の手順4 & \texttt{Select.lean}：\newline
-  \texttt{raise\_spec}，\newline
-  \texttt{step4\_spec} &
+  注意\ref{rem:noproof}の「調べた候補の中でも最小とは限らない」例．
+\taiou{命題\ref{prop:main}の手順4}{\texttt{Select.lean}：\texttt{raise\_spec}，\texttt{step4\_spec}}
   「$\mathrm{Fill}$が成功し，揃わない配分でない」を任意の述語とする．結果は，元の$h^*$か，
-  $h^*$より高く$H$以下で，その述語を満たす高さである．\\\noalign{\vskip 4pt}
-命題\ref{prop:main}の手順4の判定 & \texttt{Misaligned.lean}：\newline
-  \texttt{last\_le}，\newline
-  \texttt{shrinks\_to}，\newline
-  \texttt{deficit\_le} &
+  $h^*$より高く$H$以下で，その述語を満たす高さである．
+\taiou{命題\ref{prop:main}の手順4の判定}{\texttt{Misaligned.lean}：\texttt{last\_le}，\texttt{shrinks\_to}，\texttt{deficit\_le}}
   判定(a)から(c)を定義する．判定を通れば，最右段はほかの段より高くない．本文だけの
   段があれば，どの段も縮めて$\beta_T$に収まり，途中の段の不足は半行以下である．
-  \\\noalign{\vskip 4pt}
-命題\ref{prop:main}の手順6 & \texttt{Select.lean}：\newline
-  \texttt{relax\_spec}，\newline
-  \texttt{relax\_none} &
+\taiou{命題\ref{prop:main}の手順6}{\texttt{Select.lean}：\texttt{relax\_spec}，\texttt{relax\_none}}
   結果は，3回の試みのどれかの結果である．3回とも失敗したときだけ「揃えられない」．
-  \\\noalign{\vskip 4pt}
-命題\ref{prop:main}の手順の全体と(i) & \texttt{Balance.lean}：\newline
-  \texttt{balance\_spec}，\newline
-  \texttt{balance\_isSome}，\newline
-  \texttt{procedure\_spec}，\newline
-  \texttt{procedure\_none} &
+\taiou{命題\ref{prop:main}の手順の全体と(i)}{\texttt{Balance.lean}：\texttt{balance\_spec}，\texttt{balance\_isSome}，\texttt{procedure\_spec}，\texttt{procedure\_none}}
   手順1から6を1つの関数につなぐ．返す配置は，候補のどれかの$s$と$h\le H$での
   $\mathrm{Fill}$の結果である．「揃えられない」と答えるのは，3つの緩め方のどれでも，
-  どの候補も$H$に入り切らないときだけである．\\\noalign{\vskip 4pt}
-命題\ref{prop:main}の(i) & \texttt{Whole.lean}：\newline
-  \texttt{whole\_spec}，\newline
-  \texttt{whole\_none} &
+  どの候補も$H$に入り切らないときだけである．
+\taiou{命題\ref{prop:main}の(i)}{\texttt{Whole.lean}：\texttt{whole\_spec}，\texttt{whole\_none}}
   手順の全体の$\mathrm{Fill}$に，\texttt{Fill.lean}の手順を代入する．返す配置は，ある
   緩め方での所要の高さについて，(P1)から(P3)を満たす．仮定は，\cs{vsplit}の性質だけで
-  ある．\\\noalign{\vskip 4pt}
-命題\ref{prop:main}の手順5 & \texttt{Column.lean}：\newline
-  \texttt{build\_fil}，\newline
-  \texttt{build\_plain}，\newline
-  \texttt{chooseA\_foot}，\newline
-  \texttt{choose\_none} &
+  ある．
+\taiou{命題\ref{prop:main}の手順5}{\texttt{Column.lean}：\texttt{build\_fil}，\texttt{build\_plain}，\texttt{chooseA\_foot}，\texttt{choose\_none}}
   上のフロート，本文，下のフロート，脚注から段の並びを作り，無限に伸びるグルーを入れる所を
   決める．入れた段では，中身は箱の高さちょうどになり，本文の行は動かず，下のフロートと
-  脚注は箱の下端に付く．\\\noalign{\vskip 4pt}
-命題\ref{prop:main}の(ii) & \texttt{Beta.lean}：\newline
-  \texttt{le\_chooseBeta} &
-  段を，見かけの下端とフロートまわりのグルーの縮みの組で表す．\\\noalign{\vskip 4pt}
-命題\ref{prop:even}の(i) & \texttt{Glue.lean}：\newline
-  \texttt{packed\_shrink} &
+  脚注は箱の下端に付く．
+\taiou{命題\ref{prop:main}の(ii)}{\texttt{Beta.lean}：\texttt{le\_chooseBeta}}
+  段を，見かけの下端とフロートまわりのグルーの縮みの組で表す．
+\taiou{命題\ref{prop:even}の(i)}{\texttt{Glue.lean}：\texttt{packed\_shrink}}
   垂直の並びを，箱とグルー（自然な長さ，伸び，縮み，無限に伸びるか）の並びとし，高さを
-  指定して組むときの\TeX{}の割り振りを定義する．長さは有理数．\\\noalign{\vskip 4pt}
-命題\ref{prop:even}の(ii) & \texttt{Glue.lean}：\newline
-  \texttt{attach\_bottom}，\newline
-  \texttt{stretch\_finite}，\newline
-  \texttt{ragged} &
+  指定して組むときの\TeX{}の割り振りを定義する．長さは有理数．
+\taiou{命題\ref{prop:even}の(ii)}{\texttt{Glue.lean}：\texttt{attach\_bottom}，\texttt{stretch\_finite}，\texttt{ragged}}
   脚注や下のフロートを\cs{vfil}で箱の下端に付ける場合，有限の伸びで届く場合，本文の
-  末尾に\cs{vfil}を入れて下を空ける場合（本文が動かないこと）．\\\noalign{\vskip 4pt}
-ファイルどうしのつなぎ & \texttt{Link.lean}：\newline
-  \texttt{candidates\_span}，\newline
-  \texttt{column\_packed}，\newline
-  \texttt{fits\_lines}，\newline
-  \texttt{fill\_lines} &
+  末尾に\cs{vfil}を入れて下を空ける場合（本文が動かないこと）．
+\taiou{ファイルどうしのつなぎ}{\texttt{Link.lean}：\texttt{candidates\_span}，\texttt{column\_packed}，\texttt{fits\_lines}，\texttt{fill\_lines}}
   段をまたぐフロートの判定を候補の列挙に，下端$\beta$を段を組む箱の高さに，行の並びから
   求めた本文の高さを$\mathrm{Fill}$に代入する．$\beta$に届かない段に無限に伸びるグルーか
   有限の伸びがあれば，どの段の中身も高さ$\beta-e_i$ちょうどになる．行だけが並ぶ本文では，
-  $n$行の段が$h$に入り切るのは$|F_i|+\tau+(n-1)b+G_i\le h$のときである．\\\noalign{\vskip 4pt}
-\ref{sec:formal-apply}節 & \texttt{Page.lean}：\newline
-  \texttt{block\_height}，\newline
-  \texttt{loop\_inv} &
+  $n$行の段が$h$に入り切るのは$|F_i|+\tau+(n-1)b+G_i\le h$のときである．
+\taiou{\ref{sec:formal-apply}節}{\texttt{Page.lean}：\texttt{block\_height}，\texttt{loop\_inv}}
   段組を改めるときの高さの勘定．\opt{footnote=page}のくり返しでは，採った結果の脚注が
-  つねに領域$\Psi$に収まる（何回で打ち切っても成り立つ）．\\
-\end{longtable}}
+  つねに領域$\Psi$に収まる（何回で打ち切っても成り立つ）．
+\par}
+
 
 手順が止まることは，Leanでは定義そのものが保証する．Leanの関数は，必ず止まる形（回数の
 上限を引数に持つ再帰）でしか定義できないからである．
@@ -1663,5 +1713,8 @@ Leanの証明は，モデルについてのものである．モデルが\texttt
   \item 持ち越された段をまたぐフロートの列挙（モデルにない）．
   \item 脚注の置き方（(P3)）．
 \end{itemize}
+
+\settei[\ref{sec:lean}節からここまでの設定]{\texttt{\cs{evenendcolumns}\{2\}}．段間と段間罫は既定のまま}
+\settei[文書全体の設定]{\texttt{\cs{documentclass}[paper=a4,\allowbreak fontsize=10pt]\{jlreq\}}，\texttt{\cs{usepackage}[columns=1]\{evenend\}}，\texttt{\cs{columnseprule}=0pt}，\texttt{\cs{premulticols}=2\cs{baselineskip}}，\texttt{\cs{evenendsetup}\{blockmin=2\cs{baselineskip}\}}}
 
 \end{document}

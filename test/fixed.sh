@@ -1,5 +1,5 @@
 #!/bin/sh
-# 固定のテスト文書（t*.tex，fb*.tex，tcb/，span/，split/，mc/，box/）を組み，ファイルごとに
+# 固定のテスト文書（t*.tex，fb*.tex，tcb/，span/，split/，mc/，box/，doc/）を組み，ファイルごとに
 # Overfull \vboxの数，エラーの数（モデルの検査の違反を含む），blockcheck.pyの結果を出す．最後に合格の数をまとめ，
 # mc/mk*.texの柱をmkcheck.pyで調べる．
 # 合格は「of=0 err=0 blocks: N, problems: 0」（\showboxで止めるbox/m1.tex，m2.texは除く）
@@ -16,7 +16,7 @@ if [ "$1" = --one ]; then
   exit
 fi
 # 文書は互いに独立なので並列に組む（同じディレクトリの文書が同じ名前のファイルを書くことはない）
-ls t*.tex fb*.tex tcb/*.tex span/*.tex split/*.tex mc/*.tex box/b*.tex box/m3.tex \
+ls t*.tex fb*.tex tcb/*.tex span/*.tex split/*.tex mc/*.tex box/b*.tex box/m3.tex doc/d*.tex \
   | xargs -P "${JOBS:-6}" -n 1 ./fixed.sh --one | sort > fixed.res
 cat fixed.res
 echo "fixed: $(grep -c 'of=0 err=0 blocks: [0-9]*, problems: 0$' fixed.res) / $(wc -l < fixed.res | tr -d ' ')"
@@ -24,3 +24,5 @@ echo "fixed: $(grep -c 'of=0 err=0 blocks: [0-9]*, problems: 0$' fixed.res) / $(
 for f in mc/mk*.tex; do
   echo "$f $(python3 mc/mkcheck.py "${f%.tex}.pdf" | tail -1)"
 done
+# 文書を段組で組んだときに見つかった不具合の再現（doc/d*.texは上で組んである）
+doc/check.sh

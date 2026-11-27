@@ -1,0 +1,18 @@
+%% 1段のブロックの途中に深さの大きい箱（上下中央で揃えた表）があり，後に行が続く：
+%% 行の標準の深さに表の深さを使わない（次の段組との間が大きく空かない）
+\documentclass[twocolumn,paper=a4,fontsize=10pt]{jlreq}
+\usepackage{evenend}
+\providecommand\POS{}
+\newcommand\para{吾輩は猫である．名前はまだ無い．どこで生れたかとんと見当がつかぬ．何でも薄暗いじめじめした所でニャーニャー泣いていた事だけは記憶している．\par}
+\begin{document}
+\para\para\para\para
+\evenendcolumns{1}
+\begin{center}
+\expandafter\tabular\POS{p{.3\linewidth}p{.3\linewidth}}\hline
+一 & 二\\ 三 & 四\\ 五 & 六\\ 七 & 八\\ 九 & 十\\ 一 & 二\\ 三 & 四\\ 五 & 六\\\hline
+\endtabular
+\end{center}
+表の後の行．
+\evenendcolumns{2}
+\para\para\para\para
+\end{document}

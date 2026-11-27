@@ -1,0 +1,13 @@
+%% 脚注のあるmulticols環境がページをまたぐ：環境の終わりでページを終えず，
+%% 送り返した行を元の段数で積んで，後の本文を続ける（2ページになる）
+\documentclass[paper=a4,fontsize=10pt]{jlreq}
+\usepackage[columns=1]{evenend}
+\newcommand\para{吾輩は猫である．名前はまだ無い．どこで生れたかとんと見当がつかぬ．何でも薄暗いじめじめした所でニャーニャー泣いていた事だけは記憶している．\par}
+\begin{document}
+\para\para\para\para\para\para\para\para
+\begin{multicols}{2}
+吾輩は猫である\footnote{脚注．}．\para \para\para\para\para\para\para\para\para\para
+\end{multicols}
+
+後の段落．\para\para\para\para
+\end{document}

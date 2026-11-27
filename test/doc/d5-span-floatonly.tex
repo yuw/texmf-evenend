@@ -1,0 +1,17 @@
+%% 3段のブロックがページの下で始まり，2段にまたがる図が残りを埋める：
+%% 図のある段はフロートだけの段になる．図の上に段間罫を引かない
+\documentclass[twocolumn,paper=a4,fontsize=10pt]{jlreq}
+\usepackage[footnote=column]{evenend}
+\setlength\columnseprule{.4pt}
+\newcommand\para{吾輩は猫である．名前はまだ無い．どこで生れたかとんと見当がつかぬ．何でも薄暗いじめじめした所でニャーニャー泣いていた事だけは記憶している．\par}
+\begin{document}
+\para\para\para\para\para\para\para\para\para\para
+\evenendcolumns{3}
+\begin{spanfigure}[t]{2}
+\centering\fbox{\rule{0pt}{215pt}\rule{200pt}{0pt}}
+\caption{2段にまたがる図}
+\end{spanfigure}
+\para\para\para\para\para\para\para\para\para\para\para\para\para\para\para\para
+\evenendcolumns{2}
+\para\para
+\end{document}

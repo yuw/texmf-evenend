@@ -1,5 +1,5 @@
 \NeedsTeXFormat{LaTeX2e}[2024-11-01]
-\ProvidesPackage{evenend}[2026/11/24 v20261124.2 Balance the last page of multi-column text (LuaLaTeX) by Yuwsuke Kieda]
+\ProvidesPackage{evenend}[2026/11/26 v20261126.0 Balance the last page of multi-column text (LuaLaTeX) by Yuwsuke Kieda]
 
 \ifdefined\directlua\else
   \PackageError{evenend}{LuaLaTeX is required}{}
@@ -44,6 +44,9 @@
 \newbox\evenend@pagefn      % このページの脚注（全幅）
 \newdimen\evenend@pagefnspace % その領域の高さ（\@colhtから除いた分）
 \newbox\evenend@pushbox     % 組み直したページに入り切らず，次のページへ送り返す本文
+\newbox\evenend@backbox     % 積んだ段組の下に入り切らず，次のページへ送る段の材料
+\newif\ifevenend@sendback
+\newif\ifevenend@blockvisible % いまの段組の見える材料が，このページに置かれた
 \newdimen\evenend@fnsmd     % 脚注の\splitmaxdepth
 \newbox\evenend@textbottombox
 \newdimen\evenend@rowdp     % 組んだ段組の行（\@outputbox）の最終行のベースラインより下の分
@@ -360,6 +363,32 @@
 %% 段の取り込み：\@makecolの直前
 \def\evenend@capture{%
   \if@twocolumn
+    %% 積んだ段組の下で始まる段組が，分けられない高い材料（箱，見出しとそれに続く行など）で
+    %% 始まり，ページの残りに入り切らない（TeXは最初の箱の前では改ページしない）：
+    %% はみ出させずに，積んだ段組だけでこのページを終え，材料は次のページへ送る．
+    %% その段組の見える材料がまだこのページに置かれていないときだけ（前の段が空のまま
+    %% 改段されたときを含む）．脚注やフロートのない段だけ
+    \global\evenend@sendbackfalse
+    \ifvoid\evenend@pagetop\else \ifevenend@blockvisible\else \ifvoid\footins
+      \ifx\@toplist\@empty \ifx\@botlist\@empty \ifx\@midlist\@empty
+        \begingroup
+          \vbadness\@M \vfuzz\maxdimen
+          \setbox\@tempboxa\vbox to\ht\@cclv{\unvcopy\@cclv}%
+          \ifnum\badness>\@M
+            \setbox\@tempboxa\vbox{\unvcopy\@cclv}%
+            \ifdim\dimexpr\ht\@tempboxa-\ht\@cclv\relax>\p@
+              \global\setbox\evenend@backbox\vbox{\unvcopy\@cclv}%
+              \global\evenend@sendbacktrue
+            \fi
+          \fi
+        \endgroup
+      \fi\fi\fi
+    \fi\fi\fi
+    \ifevenend@sendback\else
+      \ifnum\directlua{tex.sprint(evenend.hasvisible(\number\@cclv) and 1 or 0)}=\@ne
+        \global\evenend@blockvisibletrue
+      \fi
+    \fi
     %% multicols環境の段組：\columnbreakの直前でわずかにはみ出す残りは，multicolと
     %% 同じくこの段に入れる（最後の段は除く）
     \ifevenend@inmc \ifnum\outputpenalty>-\@M
@@ -431,6 +460,27 @@
 %% ---------------------------------------------------------------------
 %% 出力ルーチン
 \def\@outputdblcol{%
+  \ifevenend@sendback
+    \expandafter\evenend@sendbackpage
+  \else
+    \expandafter\evenend@outputdblcol
+  \fi}
+%% 積んだ段組だけでページを終え，入り切らない段の材料を次のページへ送る
+%% （段数の切り換えなどの強制改段だったときは，その改段も送る）
+\def\evenend@sendbackpage{%
+  \global\evenend@sendbackfalse
+  \global\evenend@capturedfalse
+  \PackageInfo{evenend}{Page \thepage: material too high for the rest of the
+    page;\MessageBreak moved to the next page}%
+  \ifdim\@colht<\z@ \global\@colht\z@ \fi
+  \setbox\@outputbox\vbox to\@colht{}%
+  \let\evenend@loosemerge@after\unskip
+  \evenend@loosemerge{\@outputbox}%
+  \let\evenend@loosemerge@after\relax
+  \evenend@shippage
+  \directlua{evenend.fixcontrib()}%
+  \unvbox\evenend@backbox}
+\def\evenend@outputdblcol{%
   %% フロートだけの段（\@makecolを通らない）は，その中身をフロートとして取り込む
   \ifevenend@captured\else
     \directlua{evenend.capturefcol(\number\@outputbox)}%
@@ -602,6 +652,7 @@
   \fi
   \evenend@next}
 \def\evenend@pushrow@empty{%
+  \global\evenend@blockvisiblefalse
   \global\evenend@loosestatus\z@
   \global\setbox\evenend@loosebox\box\voidb@x
   \global\evenend@colno\z@
@@ -611,6 +662,7 @@
   \global\evenend@mcbalfalse
   \directlua{evenend.reset()}}
 \def\evenend@pushrow@main{%
+  \global\evenend@blockvisiblefalse
   %% 1段の段組は，箱に詰めずに中身のまま積む（\vfillなどをページのグルーとして残す）
   \ifnum\evenend@loosestatus=\@ne
     \global\evenend@rowht\dimexpr\ht\evenend@loosebox+\dp\evenend@loosebox\relax
@@ -619,8 +671,12 @@
   %% ブロックの間のアキ：前のブロックの最終行から次のブロックの1行目
   %% （\topskipの位置）までのベースライン間を\evenend@blockskipにする
   \ifx\evenend@blockgap\@empty
-    \@tempdima\dimexpr\evenend@blockskip-\topskip
-      -\evenend@rowht+\evenend@baseline\relax
+    %% 前のブロックの最後の要素の深さは，\maxdepthまでを数える（TeXがページを組む
+    %% ときと同じ）．上下中央で揃えた箱のように深さの大きい箱で終わるブロックは，
+    %% ベースラインでなく箱の下端から測ることになる
+    \@tempdimb\dimexpr\evenend@rowht-\evenend@baseline\relax
+    \ifdim\@tempdimb>\evenend@maxdepth \@tempdimb\evenend@maxdepth \fi
+    \@tempdima\dimexpr\evenend@blockskip-\topskip-\@tempdimb\relax
     \ifdim\@tempdima<\z@ \@tempdima\z@ \fi
   \else
     %% blockgapは負でもよい（次の段組の先頭に目印を置くときは\topskipの分を差し引く）
@@ -716,12 +772,19 @@
     \fi
   \fi
   \global\let\@deferlist\evenend@held
-  \global\evenend@nobalancefalse
-  \ifx\@deferlist\@empty
-    \evenend@switchnow
-    \evenend@fnreserve
+  \ifevenend@final
+    %% footnote=page：入り切らない本文を次のページへ送り返した（\evenend@fullship）．
+    %% 送り返した本文はいまの段組の続きなので，段数はまだ変えず，次のページの上で
+    %% 同じ切り換えをやり直す（ブロックとして揃えて積み，その下で段数を変える）
+    \global\evenend@switchtrue
   \else
-    \evenend@floatblock
+    \global\evenend@nobalancefalse
+    \ifx\@deferlist\@empty
+      \evenend@switchnow
+      \evenend@fnreserve
+    \else
+      \evenend@floatblock
+    \fi
   \fi}
 
 %% 持ち越されたフロートだけのブロックを組む
@@ -852,6 +915,7 @@
   \fi}
 
 \def\evenend@shippage{%
+  \global\evenend@blockvisiblefalse
   \global\evenend@loosepagefalse
   %% footnote=page：ページの最後の段組を段の高さまで延ばし（下に置く段抜きフロートが
   %% 版面の下端に来るように），ページの脚注があれば，その下端に全幅で置く

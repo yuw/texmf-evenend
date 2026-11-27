@@ -1,0 +1,13 @@
+%% 1段のブロックの先頭が，ページの残りより高い分けられない箱：はみ出させずに，
+%% 積んだ段組だけでページを終え，箱は次のページへ送る
+\documentclass[twocolumn,paper=a4,fontsize=10pt]{jlreq}
+\usepackage[footnote=column]{evenend}
+\newcommand\para{吾輩は猫である．名前はまだ無い．どこで生れたかとんと見当がつかぬ．何でも薄暗いじめじめした所でニャーニャー泣いていた事だけは記憶している．\par}
+\begin{document}
+\para\para\para\para\para\para\para\para\para\para\para\para\para\para
+\evenendcolumns{1}
+\noindent\fbox{\rule{0pt}{250pt}\rule{300pt}{0pt}}
+
+\evenendcolumns{2}
+\para\para
+\end{document}

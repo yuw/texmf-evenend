@@ -37,6 +37,8 @@ local INTEXT = luatexbase.new_attribute('evenend@intext')
 local SPAN = luatexbase.new_attribute('evenend@span')
 local PH = luatexbase.new_attribute('evenend@ph')
 local FPS = luatexbase.new_attribute('evenend@fps')
+-- 次のページへ送り返した脚注の節に付ける印（分かれた脚注の残りより前に並べるため）
+local PUSHED = luatexbase.new_attribute('evenend@pushed')
 
 M.cols    = {}   -- 現在のページの段ごとの取り込み
 M.fncount = 0
@@ -653,6 +655,17 @@ function M.pagetailskip(mcsep)
   return sum
 end
 
+-- 箱の中身に見える要素（空でない箱，罫）があるか
+function M.hasvisible(boxnum)
+  local b = tex.getbox(boxnum)
+  local v = false
+  if b and b.list then
+    for n in node.traverse(b.list) do
+      if ((n.id == HLIST or n.id == VLIST) and not is_emptybox(n)) or n.id == RULE then v = true break end
+    end
+  end
+  return v
+end
 function M.onlymarker(boxnum)
   local b = tex.getbox(boxnum)
   local only, seen = true, false
@@ -780,13 +793,21 @@ function M.capture(footins)
   local n = tex.lists.contrib_head
   local op = tex.outputpenalty
   local first = true
-  while n and is_discardable(n) do
-    local x = node.copy(n)
-    if first and x.id == PENALTY then
-      x.penalty = (op <= -10000) and -10000 or op
+  -- TeXは，次の段の最初の箱か罫までの除去可能項目を捨てる．その間にwhatsit，マーク，
+  -- インサートがあっても，その後の除去可能項目は捨てられる（たとえば，見出しの箱の
+  -- 前の行間のグルーの前にwhatsitがあるとき）ので，それらは飛ばして先も見る
+  local MARKID, INSID = nodeid('mark'), nodeid('ins')
+  while n do
+    if is_discardable(n) then
+      local x = node.copy(n)
+      if first and x.id == PENALTY then
+        x.penalty = (op <= -10000) and -10000 or op
+      end
+      append(d, x)
+    elseif not (n.id == WHATSIT or n.id == MARKID or n.id == INSID) then
+      break
     end
     first = false
-    append(d, x)
     n = n.next
   end
   c.disc = d.head
@@ -827,10 +848,10 @@ function M.reportoverfull()
 end
 
 -- 行の箱nの中の字の高さと深さの最大（字がなければnil）．段間罫を行の字（和字では
--- 字の枠）の上端・下端で止めるのに使う（行の箱の寸法には支柱の分が入ることがある）
--- 字の輪郭（曲線）から求めた正確な字面の上端・下端（ベースラインからの高さと深さ）．
+-- ボディー）の上端・下端で止めるのに使う（行の箱の寸法には支柱の分が入ることがある）
+-- 字の輪郭（曲線）から求めた正確なインク境界の上端・下端（ベースラインからの高さと深さ）．
 -- フォントの字の高さと深さは輪郭の制御点まで含めた外接矩形なので，曲線の多い字
--- （「無」の点など）では字面より大きい．段間罫の端を決める行だけに使う
+-- （「無」の点など）ではインク境界より大きい．段間罫の端を決める行だけに使う
 local shapes, tightcache = {}, {}
 local function tight_glyph(g)
   local f = font.getfont(g.font)
@@ -897,7 +918,7 @@ local function tight_glyph(g)
   if res then return res[1], res[2] end
   return nil
 end
--- 行（hlist）の字面の上端・下端（ベースラインからの高さと深さ）．tightなら輪郭から求める
+-- 行（hlist）のインク境界の上端・下端（ベースラインからの高さと深さ）．tightなら輪郭から求める
 local function line_extent(n, tight)
   local mh, md
   for g in node.traverse(n.list) do
@@ -920,7 +941,7 @@ local function line_extent(n, tight)
   end
   return mh, md
 end
--- 段間罫の端：要素r（{q=箱, y=箱の上端の位置}）の字面の上端と下端．行は行の中の字の
+-- 段間罫の端：要素r（{q=箱, y=箱の上端の位置}）のインク境界の上端と下端．行は行の中の字の
 -- 輪郭で見る．字のない箱と罫は箱の大きさで見る
 local function edge_top(r)
   if not r then return nil end
@@ -994,6 +1015,9 @@ function M.colrule(boxnum, colno, nt, nb, phtop, phbot)
     r2top = lo(edge_top(a.fntop), edge_top(g.fntop)) or 0
     r2end = hi(edge_bot(a.fnbot), edge_bot(g.fnbot)) or 0
   end
+  -- 段をまたぐフロートが段間の両側の段を埋めていて，本文の行がどちらにもないとき
+  -- （フロートだけの段）：罫を引く範囲がないので，長さ0の罫にする
+  if a and (phtop or phbot) and not (a.top or g.top) then rtop, rend = 1, 1 end
   texprev = g
   tex.setdimen('global', 'evenend@rtop', rtop)
   tex.setdimen('global', 'evenend@rend', rend)
@@ -1284,6 +1308,7 @@ local function make_push(rest, segs, p)
     if not (s and s.head) then return nil end
     local ins = node.new(INS)
     ins.subtype = p.footins
+    for q in node.traverse(s.head) do node.set_attribute(q, PUSHED, 1) end
     local h, d = natural(s.head)
     ins.head = s.head
     s.head = nil
@@ -1823,6 +1848,50 @@ function M.balance(p)
       end
     end
   end
+  -- 前のページから送り返した脚注（印PUSHED）と，TeXが分けて持ち越したその脚注の残りが
+  -- 同じページに来たとき：TeXは残りをページの材料の先頭に置くので，残りが先に並んで
+  -- いる．送り返した部分を前に，残りを後に並べ直す
+  for _, id in ipairs(segorder) do
+    local s = segs[id]
+    local np, nu, firstp = 0, 0, nil
+    for q in node.traverse(s.head) do
+      if has_attr(q, PUSHED) then np = np + 1 else nu = nu + 1 end
+      if firstp == nil then firstp = has_attr(q, PUSHED) and true or false end
+    end
+    if np > 0 and nu > 0 and not firstp then
+      local a, b = newlist(), newlist()
+      local n = s.head
+      while n do
+        local nx = n.next
+        n.next, n.prev = nil, nil
+        append(has_attr(n, PUSHED) and a or b, n)
+        n = nx
+      end
+      -- 残りの先頭の\splittopskipは，送り返した部分の行間に合わせる
+      local g = b.head
+      if g and g.id == GLUE and g.next and (g.next.id == HLIST or g.next.id == VLIST) then
+        local base, prevbase, y, lastd = nil, nil, 0, 0
+        for q in node.traverse(a.head) do
+          if q.id == GLUE then y = y + q.width
+          elseif q.id == KERN then y = y + q.kern
+          elseif q.id == HLIST or q.id == VLIST or q.id == RULE then
+            prevbase, base = base, y + q.height
+            y = y + q.height + q.depth
+            lastd = q.depth
+          end
+        end
+        if base and prevbase then
+          g.width = math.max(0, (base - prevbase) - lastd - g.next.height)
+          g.stretch, g.shrink = 0, 0
+        end
+      end
+      append(a, b.head)
+      s.head, s.tail = a.head, a.tail
+    end
+    if np > 0 then
+      for q in node.traverse(s.head) do node.unset_attribute(q, PUSHED) end
+    end
+  end
   for _, id in ipairs(segorder) do
     local s = segs[id]
     s.ht, s.dp = natural(s.head)
@@ -1906,7 +1975,7 @@ function M.balance(p)
   if fullfn then curFT = fullspace(pageids({ collect_ids(text.head, {}) })) end
 
   -- headingskip=block：前のブロックに続く2段以上のブロックが見出しで始まるとき，
-  -- ブロック全体を見出しの上アキ（見出しの字面の上端が通常の1行目の上端より
+  -- ブロック全体を見出しの上アキ（見出しのインク境界の上端が通常の1行目の上端より
   -- 下がっている分．行送りの倍数に丸める）だけ下げる．ブロックの中の組は変えない．
   -- ブロックの間のアキが，1段のブロック（見出しの上アキがブロックの間に見える）と
   -- 同じになる
@@ -2005,6 +2074,64 @@ function M.balance(p)
   M.deferred.col = {}
   M.pool = F  -- 失敗したときにM.resetが片付ける
 
+  -- multicols環境の後の1段の段組（先頭に目印と段組の後のアキがある）に上のフロートが
+  -- あるとき：上のフロートは段の上端（目印より前）に置かれるので，そのままでは段組の
+  -- 後のアキを飛ばして前の段組に重なる（段組の間のアキは目印の\topskipを打ち消す分だけ
+  -- 戻してある）．目印と段組の後のアキを本文から外し，その高さ（\topskipとアキ）を
+  -- 最初の上のフロートの上に空ける．本文は，フロートの後の通常の1行目として始める
+  if N == 1 and M.markattr and text.head then
+    local firsttop
+    for _, f in ipairs(F) do
+      if f.pos == 'top' and not f.span then firsttop = f break end
+    end
+    -- 先頭の\topskipと目印（前後のwhatsitは飛ばす）
+    local g, mk = text.head, nil
+    while g and g.id == WHATSIT do g = g.next end
+    if firsttop and g and g.id == GLUE and g.subtype == TOPSKIP then
+      local q = g.next
+      while q and q.id == WHATSIT do q = q.next end
+      if q and (q.id == HLIST or q.id == VLIST) and has_attr(q, M.markattr) == 1 then mk = q end
+    end
+    if mk then
+      local gap = g.width
+      -- 目印の後の，最初の箱までのアキを集めて外す（行間のグルーは数えない）
+      local drop = { g, mk }
+      local n = mk.next
+      while n and (n.id == GLUE or n.id == KERN or n.id == PENALTY or n.id == WHATSIT) do
+        if n.id == GLUE and n.subtype ~= 1 and n.subtype ~= 2 then gap = gap + n.width
+        elseif n.id == KERN then gap = gap + n.kern end
+        if n.id ~= WHATSIT then drop[#drop + 1] = n end
+        n = n.next
+      end
+      local h = text.head
+      for _, d in ipairs(drop) do
+        h = node.remove(h, d)
+        node.free(d)
+      end
+      -- 本文の1行目の前の\topskip（最初の箱の直前に入れる）
+      local ts = node.new(GLUE, TOPSKIP)
+      local fh = (n and (n.id == HLIST or n.id == VLIST)) and n.height or 0
+      ts.width = math.max(0, (tex.getglue('topskip')) - fh)
+      if n then
+        h = node.insert_before(h, n, ts)
+      else
+        h = h and select(1, node.insert_after(h, node.tail(h), ts)) or ts
+      end
+      text.head = h
+      text.tail = node.tail(h)
+      -- 最初の上のフロートの上に空ける
+      local k = node.new(KERN, 1)
+      k.kern = gap
+      local fb = firsttop.box
+      k.next = fb
+      fb.prev = k
+      local w = vpack(k)
+      w.width = fb.width
+      firsttop.box = w
+      info('float above the material after a column environment: gap %s', pt(gap))
+    end
+  end
+
   -- 段ごとのフロートの並び（割り振りassignから作る）と占める高さ
   local tops, bots = {}, {}
   local fl_top, fl_bot, fl_shrink = {}, {}, {}
@@ -2094,10 +2221,14 @@ function M.balance(p)
   local linedp = 0
   do
     local cnt, best = {}, 0
+    -- （本文中のフロートや高い箱は行でないので数えない．同じ数なら浅いほうにする．
+    -- 行の少ない段組で，深さの大きい箱の深さを標準にしないため）
     for n in node.traverse_id(HLIST, text.head) do
-      if n.list then
+      if n.list and not is_intext(n) then
         cnt[n.depth] = (cnt[n.depth] or 0) + 1
-        if cnt[n.depth] > best then best, linedp = cnt[n.depth], n.depth end
+        if cnt[n.depth] > best or (cnt[n.depth] == best and n.depth < linedp) then
+          best, linedp = cnt[n.depth], n.depth
+        end
       end
     end
   end
@@ -2479,7 +2610,7 @@ function M.balance(p)
   -- 段ごとに，自然な高さnat（段の上端から最後の要素の基準線まで）と，その下に
   -- 見かけの上で出る分over（本文の最終行の深さや，箱の中身が下にはみ出す分）を
   -- 求め，見かけの下端nat + overを全段でそろえる．
-  -- ・本文で終わる段：最終行の字面の下端がそろう
+  -- ・本文で終わる段：最終行のインク境界の下端がそろう
   -- ・下のフロートで終わる段：本文の最終行の深さも積まれるのでnatに数える
   -- ・段下端の脚注で終わる段：脚注の最終行の基準線までをnatとする
   local function measure(res)
@@ -2502,7 +2633,7 @@ function M.balance(p)
         over[i] = 0
       elseif p.colmode and math.max(r.fn, res.G and res.G[i] or 0) > 0 then
         -- 段下端の脚注はfilで段の下端に付くので，本文（と下のフロート）の後に
-        -- 脚注が収まる最初の行の位置（字面の下端）をこの段の下端とみなす
+        -- 脚注が収まる最初の行の位置（インク境界の下端）をこの段の下端とみなす
         -- 脚注の最終行のベースラインを，本文の後で脚注が収まる最初の行の位置に置く
         -- 本文の後にグルーなどが残っていれば（最後の箱の後のアキ），それも含める
         local B = fl_top[i] + (r.list and math.max(lastbase(r.list), r.ht) or 0)
@@ -2547,7 +2678,7 @@ function M.balance(p)
           nat[i] = fl_top[i] + lastbase(r.list)
           over[i] = linedp
         end
-        -- 本文中のフロートで終わる段は，次の格子の字面の下端までを見かけとする
+        -- 本文中のフロートで終わる段は，次の格子のインク境界の下端までを見かけとする
         rawover[i] = over[i]
         if p.floatgrid and p.blskip > 0 and ends_intext(r.list) then
           local pos = nat[i] + over[i]
@@ -2866,7 +2997,7 @@ function M.balance(p)
           elseif id == HLIST or id == VLIST or id == nodeid('rule') then
             local base = y + n.height
             if is_intext(n) then
-              -- 本文中のフロートや高い箱は，その領域が行き着く次の行の字面の下端まで
+              -- 本文中のフロートや高い箱は，その領域が行き着く次の行のインク境界の下端まで
               last = base + (n.id == VLIST and vbox_over(n) or n.depth)
               -- （最右段は切り上げない．measureと同じく箱の見かけの下端で見る）
               if p.floatgrid and p.blskip > 0 and i ~= N then
